@@ -696,7 +696,8 @@ def export_srt_subtitles(script_data: Dict[str, Any], audio_paths: List[str], vo
         
         # 复用VideoComposer的字幕分割逻辑
         composer = VideoComposer()
-        subtitle_config = config.SUBTITLE_CONFIG.copy()
+        max_chars_per_line = config.SUBTITLE_MAX_CHARS_PER_LINE
+        max_lines = config.SUBTITLE_MAX_LINES
         
         # 生成SRT内容
         srt_lines = []
@@ -710,8 +711,8 @@ def export_srt_subtitles(script_data: Dict[str, Any], audio_paths: List[str], vo
             # 分割文本
             subtitle_texts = composer.split_text_for_subtitle(
                 content,
-                subtitle_config["max_chars_per_line"],
-                subtitle_config["max_lines"]
+                max_chars_per_line,
+                max_lines
             )
             
             # 计算每行时长
@@ -751,11 +752,7 @@ def export_srt_subtitles(script_data: Dict[str, Any], audio_paths: List[str], vo
                 current_time = end_time
         
         # 写入SRT文件
-        project_name = os.path.basename(voice_dir.rstrip('/').rstrip('\\'))
-        if project_name == "voice":
-            project_name = os.path.basename(os.path.dirname(voice_dir.rstrip('/').rstrip('\\')))
-        
-        srt_filename = f"{project_name}_subtitles.srt"
+        srt_filename = "字幕.srt"
         srt_path = os.path.join(voice_dir, srt_filename)
         
         with open(srt_path, 'w', encoding='utf-8') as f:

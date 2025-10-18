@@ -1,16 +1,23 @@
 """
 智能视频制作系统 - 工具函数模块
-包含通用工具函数、错误处理和日志管理
+提供通用工具函数、错误处理和日志管理
 
-调用关系:
-- core/pipeline.py: 使用日志、异常类、JSON处理、文本清理等工具函数
-- core/text.py: 使用日志、异常类、文本清理等工具函数  
-- core/services.py: 使用日志、异常类、重试装饰器等工具函数
-- core/media.py: 使用日志、异常类、文件操作等工具函数
-- core/document_processor.py: 使用日志、目录创建、异常类等工具函数
-- core/project_scanner.py: 使用日志、文件信息获取等工具函数
-- web/backend/app.py: 使用日志、异常类、文件信息获取等工具函数
-- cli/__main__.py: 使用日志配置和异常类
+主要功能:
+- 日志配置和管理
+- 自定义异常类（APIError, VideoProcessingError）
+- JSON 文件处理（加载、保存、修复）
+- 文件信息获取和操作
+- 重试装饰器和错误处理
+- 文本清理和规范化
+
+被以下模块调用:
+- core/pipeline.py: 日志、异常类、JSON处理、文本清理
+- core/text.py: 日志、异常类、文本清理
+- core/services.py: 日志、异常类、重试装饰器
+- core/media.py: 日志、异常类、文件操作
+- core/document_processor.py: 日志、目录创建、异常类
+- core/project_scanner.py: 日志、文件信息获取
+- cli/__main__.py: 日志配置和异常类
 - cli/ui_helpers.py: 间接通过其他核心模块使用
 """
 

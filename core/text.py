@@ -113,8 +113,8 @@ def intelligent_summarize(server: str, model: str, content: str, target_length: 
 3. 总字数控制在{target_length}字左右
 """
 
-        # 使用4096 tokens以确保完整输出，足够容纳3000字中文内容和JSON结构
-        max_tokens = 4096
+        # 使用8192 tokens以确保完整输出，足够容纳5000字中文内容和JSON结构
+        max_tokens = 8192
         output = text_to_text(
             server=server,
             model=model,
@@ -626,3 +626,45 @@ def extract_keywords(server: str, model: str, script_data: Dict[str, Any]) -> Di
 
     except Exception as e:
         raise ValueError(f"要点提取错误: {e}")
+
+
+def export_plain_text_segments(script_data: Dict[str, Any], text_dir: str, max_chars_per_line: int = 20) -> str:
+    """
+    导出纯文本分段文件（不含时间戳），使用与SRT相同的文本切分逻辑
+    
+    Args:
+        script_data: 脚本数据
+        text_dir: text文件夹路径
+        max_chars_per_line: 每行最大字符数（与字幕配置一致）
+    
+    Returns:
+        str: TXT文件路径
+    """
+    import os
+    from core.video_composer import VideoComposer
+    
+    try:
+        txt_filename = "字幕.txt"
+        txt_path = os.path.join(text_dir, txt_filename)
+        
+        # 使用VideoComposer的文本切分方法（与SRT字幕完全一致）
+        composer = VideoComposer()
+        txt_lines = []
+        
+        for i, segment in enumerate(script_data["segments"], 1):
+            content = segment["content"]
+            subtitle_texts = composer.split_text_for_subtitle(content, max_chars_per_line)
+            
+            # 直接添加切分后的内容，不添加段落标记
+            for line in subtitle_texts:
+                txt_lines.append(line.strip())
+        
+        # 写入TXT文件
+        with open(txt_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(txt_lines))
+        
+        logger.info(f"纯文本分段文件已保存: {txt_path}")
+        return txt_path
+        
+    except Exception as e:
+        raise ValueError(f"纯文本分段文件导出错误: {e}")

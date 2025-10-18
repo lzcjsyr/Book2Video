@@ -495,10 +495,10 @@ def _prompt_segment_generation_scope(
 
 
 def _run_specific_step(
-    target_step, project_output_dir, llm_server, llm_model, image_server, image_model,
-    image_size, video_size, image_style_preset, opening_image_style, images_method, tts_server, voice,
-    speed_ratio, loudness_ratio, num_segments, enable_subtitles, bgm_filename, cover_image_size, cover_image_model,
-    cover_image_style, cover_image_count, opening_quote=True
+    target_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+    image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
+    tts_server, voice, speed_ratio, loudness_ratio, num_segments, enable_subtitles, bgm_filename,
+    cover_image_size, cover_image_model, cover_image_style, cover_image_count, opening_quote=True
 ):
     """执行指定步骤并返回结果"""
     from core.pipeline import run_step_1_5, run_step_2, run_step_3, run_step_4, run_step_5, run_step_6
@@ -508,7 +508,7 @@ def _run_specific_step(
     if target_step == 1.5:
         result = run_step_1_5(project_output_dir, num_segments)
     elif target_step == 2:
-        result = run_step_2(llm_server, llm_model, project_output_dir, images_method=images_method)
+        result = run_step_2(llm_server_step2, llm_model_step2, project_output_dir, images_method=images_method)
     elif target_step == 3:
         selection = _prompt_segment_generation_scope(
             project_output_dir,
@@ -530,8 +530,8 @@ def _run_specific_step(
                 opening_quote,
                 target_segments=selection["segments"],
                 regenerate_opening=selection.get("regenerate_opening", False),
-                llm_model=llm_model,
-                llm_server=llm_server,
+                llm_model=llm_model_step2,
+                llm_server=llm_server_step2,
             )
         else:
             result = run_step_3(
@@ -543,8 +543,8 @@ def _run_specific_step(
                 opening_image_style,
                 images_method,
                 opening_quote,
-                llm_model=llm_model,
-                llm_server=llm_server,
+                llm_model=llm_model_step2,
+                llm_server=llm_server_step2,
             )
     elif target_step == 4:
         selection = _prompt_segment_generation_scope(
@@ -602,10 +602,10 @@ def _run_specific_step(
 
 
 def _run_step_by_step_loop(
-    project_output_dir, initial_step, llm_server, llm_model, image_server, image_model,
-    image_size, video_size, image_style_preset, opening_image_style, images_method, tts_server, voice,
-    speed_ratio, loudness_ratio, num_segments, enable_subtitles, bgm_filename, cover_image_size, cover_image_model,
-    cover_image_style, cover_image_count, opening_quote=True
+    project_output_dir, initial_step, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+    image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
+    tts_server, voice, speed_ratio, loudness_ratio, num_segments, enable_subtitles, bgm_filename,
+    cover_image_size, cover_image_model, cover_image_style, cover_image_count, opening_quote=True
 ):
     """执行指定步骤，然后进入交互模式让用户选择下一步操作"""
     from core.project_scanner import detect_project_progress
@@ -613,10 +613,10 @@ def _run_step_by_step_loop(
     # 首先执行指定的步骤
     if initial_step > 0:
         result = _run_specific_step(
-            initial_step, project_output_dir, llm_server, llm_model, image_server, image_model,
-            image_size, video_size, image_style_preset, opening_image_style, images_method, tts_server, voice,
-            speed_ratio, loudness_ratio, num_segments, enable_subtitles, bgm_filename, cover_image_size, cover_image_model,
-            cover_image_style, cover_image_count, opening_quote
+            initial_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+            image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
+            tts_server, voice, speed_ratio, loudness_ratio, num_segments, enable_subtitles, bgm_filename,
+            cover_image_size, cover_image_model, cover_image_style, cover_image_count, opening_quote
         )
         
         # 显示执行结果
@@ -648,10 +648,10 @@ def _run_step_by_step_loop(
         
         # 执行选择的步骤
         result = _run_specific_step(
-            selected_step, project_output_dir, llm_server, llm_model, image_server, image_model,
-            image_size, video_size, image_style_preset, opening_image_style, images_method, tts_server, voice,
-            speed_ratio, loudness_ratio, num_segments, enable_subtitles, bgm_filename, cover_image_size, cover_image_model,
-            cover_image_style, cover_image_count, opening_quote
+            selected_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+            image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
+            tts_server, voice, speed_ratio, loudness_ratio, num_segments, enable_subtitles, bgm_filename,
+            cover_image_size, cover_image_model, cover_image_style, cover_image_count, opening_quote
         )
         
         # 显示结果
@@ -677,9 +677,11 @@ def run_cli_main(
     num_segments: int = _UNSET,
     image_size: Optional[str] = _UNSET,
     video_size: Optional[str] = _UNSET,
-    llm_model: str = _UNSET,
+    llm_model_step1: str = _UNSET,
+    llm_model_step2: str = _UNSET,
     image_model: str = _UNSET,
     voice: Optional[str] = _UNSET,
+    resource_id: Optional[str] = _UNSET,
     speed_ratio: Optional[float] = _UNSET,
     loudness_ratio: Optional[float] = _UNSET,
     output_dir: Optional[str] = None,
@@ -702,19 +704,21 @@ def run_cli_main(
         # 设置项目路径
         project_root = os.path.dirname(os.path.dirname(__file__))
             
-        from config import config, get_default_generation_params
+        from config import config, get_generation_params
         from core.validators import validate_startup_args
         from core.pipeline import run_auto, run_step_1
         
-        params = get_default_generation_params()
+        params = get_generation_params()
         overrides = {
             "target_length": target_length,
             "num_segments": num_segments,
             "image_size": image_size,
             "video_size": video_size,
-            "llm_model": llm_model,
+            "llm_model_step1": llm_model_step1,
+            "llm_model_step2": llm_model_step2,
             "image_model": image_model,
             "voice": voice,
+            "resource_id": resource_id,
             "speed_ratio": speed_ratio,
             "loudness_ratio": loudness_ratio,
             "image_style_preset": image_style_preset,
@@ -736,9 +740,11 @@ def run_cli_main(
         num_segments = params["num_segments"]
         image_size = params["image_size"]
         video_size = params.get("video_size")
-        llm_model = params["llm_model"]
+        llm_model_step1 = params["llm_model_step1"]
+        llm_model_step2 = params["llm_model_step2"]
         image_model = params["image_model"]
         voice = params["voice"]
+        resource_id = params.get("resource_id", "seed-tts-1.0")
         speed_ratio = params["speed_ratio"]
         loudness_ratio = params["loudness_ratio"]
         try:
@@ -779,8 +785,16 @@ def run_cli_main(
 
     # 验证参数
     try:
-        llm_server, image_server, tts_server = validate_startup_args(
-            target_length, num_segments, image_size, llm_model, image_model, voice, images_method
+        from core.validators import auto_detect_server_from_model
+        llm_server_step1 = auto_detect_server_from_model(llm_model_step1, "llm")
+        llm_server_step2 = auto_detect_server_from_model(llm_model_step2, "llm")
+        image_server = auto_detect_server_from_model(image_model, "image")
+        tts_server = "bytedance"  # 目前只支持bytedance TTS
+        
+        # 验证参数范围
+        config.validate_parameters(
+            target_length, num_segments, llm_server_step1, image_server,
+            tts_server, image_model, image_size
         )
     except Exception as e:
         return {"success": False, "message": f"参数验证失败: {e}"}
@@ -799,7 +813,8 @@ def run_cli_main(
             images_method = selection.get("image_method") or images_method
             return _run_step_by_step_loop(
                 project_output_dir, selection["selected_step"],
-                llm_server, llm_model, image_server, image_model, image_size, video_size, image_style_preset,
+                llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+                image_server, image_model, image_size, video_size, image_style_preset,
                 opening_image_style, images_method, tts_server, voice, speed_ratio, loudness_ratio, num_segments,
                 enable_subtitles, bgm_filename, cover_image_size, cover_image_model,
                 cover_image_style, cover_image_count, opening_quote
@@ -809,22 +824,27 @@ def run_cli_main(
         input_file = os.path.join(project_root, input_file)
 
     if run_mode == "auto":
-        result = run_auto(
-            input_file,
-            output_dir,
-            target_length,
-            num_segments,
-            image_size,
-            llm_server,
-            llm_model,
-            image_server,
-            image_model,
-            tts_server,
-            voice,
-            image_style_preset,
-            opening_image_style,
-            images_method,
-            enable_subtitles,
+        # 使用配置对象
+        from core.generation_config import VideoGenerationConfig
+        
+        gen_config = VideoGenerationConfig(
+            input_file=input_file,
+            output_dir=output_dir,
+            target_length=target_length,
+            num_segments=num_segments,
+            image_size=image_size,
+            llm_server_step1=llm_server_step1,
+            llm_model_step1=llm_model_step1,
+            llm_server_step2=llm_server_step2,
+            llm_model_step2=llm_model_step2,
+            image_server=image_server,
+            image_model=image_model,
+            tts_server=tts_server,
+            voice=voice,
+            image_style_preset=image_style_preset,
+            opening_image_style=opening_image_style,
+            images_method=images_method,
+            enable_subtitles=enable_subtitles,
             bgm_filename=bgm_filename,
             opening_quote=opening_quote,
             video_size=video_size,
@@ -835,15 +855,19 @@ def run_cli_main(
             speed_ratio=speed_ratio,
             loudness_ratio=loudness_ratio,
         )
+        
+        result = run_auto(gen_config)
         if result.get("success"):
-            print_section("步骤 5/5 完成：视频合成", "🎬", "=")
+            print_section("全自动模式完成", "🎬", "=")
             print(f"最终视频: {result.get('final_video')}")
+            if result.get('cover_images'):
+                print(f"封面图片: {len(result.get('cover_images'))} 张")
         else:
             print(f"\n❌ 处理失败: {result.get('message')}")
         return result
     else:  # step mode
         # 先执行步骤1创建项目
-        result = run_step_1(input_file, output_dir, llm_server, llm_model, target_length, num_segments)
+        result = run_step_1(input_file, output_dir, llm_server_step1, llm_model_step1, target_length, num_segments)
         if not result.get("success"):
             print(f"\n❌ 步骤1失败: {result.get('message')}")
             return result
@@ -859,7 +883,8 @@ def run_cli_main(
 
         return _run_step_by_step_loop(
             project_output_dir, 0,  # 不执行初始步骤，直接进入交互模式
-            llm_server, llm_model, image_server, image_model, image_size, video_size, image_style_preset,
+            llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+            image_server, image_model, image_size, video_size, image_style_preset,
             opening_image_style, images_method, tts_server, voice, speed_ratio, loudness_ratio, num_segments,
             enable_subtitles, bgm_filename, cover_image_size, cover_image_model,
             cover_image_style, cover_image_count, opening_quote

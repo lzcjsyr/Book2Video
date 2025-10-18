@@ -13,6 +13,7 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 
 from core.utils import logger, get_file_info, FileProcessingError
+from core.project_paths import ProjectPaths
 
 
 def scan_input_files(input_dir: str = "input") -> List[Dict[str, Any]]:
@@ -128,10 +129,9 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
     Returns:
         进度字典，包含当前步骤、各阶段完成状态等信息
     """
-    text_dir = os.path.join(project_dir, "text")
-    images_dir = os.path.join(project_dir, "images")
-    voice_dir = os.path.join(project_dir, "voice")
-    final_video_path = os.path.join(project_dir, "final_video.mp4")
+    # 使用 ProjectPaths 管理路径
+    paths = ProjectPaths(project_dir)
+    
     cover_images = []
     for fname in os.listdir(project_dir) if os.path.isdir(project_dir) else []:
         if fname.lower().startswith("cover_") and fname.lower().endswith(('.png', '.jpg', '.jpeg')):
@@ -139,15 +139,14 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
     cover_images.sort()
 
     # 检测raw数据 - 支持json或docx任一存在即可
-    raw_json = _read_json_if_exists(os.path.join(text_dir, "raw.json"))
-    raw_docx_path = os.path.join(text_dir, "raw.docx")
-    has_raw = (raw_json is not None and isinstance(raw_json, dict) and 'content' in raw_json) or os.path.exists(raw_docx_path)
+    raw_json = _read_json_if_exists(paths.raw_json())
+    has_raw = (raw_json is not None and isinstance(raw_json, dict) and 'content' in raw_json) or os.path.exists(paths.raw_docx())
 
-    script = _read_json_if_exists(os.path.join(text_dir, "script.json"))
+    script = _read_json_if_exists(paths.script_json())
     has_script = script is not None and isinstance(script, dict) and 'segments' in script
 
-    keywords = _read_json_if_exists(os.path.join(text_dir, "keywords.json"))
-    image_description = _read_json_if_exists(os.path.join(text_dir, "mini_summary.json"))
+    keywords = _read_json_if_exists(paths.keywords_json())
+    image_description = _read_json_if_exists(paths.mini_summary_json())
 
     has_keywords = False
     has_description = False
@@ -168,8 +167,8 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
         try:
             num_segments = len(script.get('segments', []))
             
-            # 图片检查
-            image_files = [f for f in os.listdir(images_dir) if os.path.isfile(os.path.join(images_dir, f))] if os.path.isdir(images_dir) else []
+            # 图片检查 - 使用 ProjectPaths
+            image_files = [f for f in os.listdir(paths.images) if os.path.isfile(os.path.join(paths.images, f))] if os.path.isdir(paths.images) else []
             image_indices = []
             for f in image_files:
                 m = re.match(r'^segment_(\d+)\.(png|jpg|jpeg)$', f, re.IGNORECASE)
@@ -179,8 +178,8 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
             images_started = len(image_indices) > 0
             images_in_progress = images_started and not images_ok
             
-            # 音频检查
-            audio_files = [f for f in os.listdir(voice_dir) if os.path.isfile(os.path.join(voice_dir, f))] if os.path.isdir(voice_dir) else []
+            # 音频检查 - 使用 ProjectPaths
+            audio_files = [f for f in os.listdir(paths.voice) if os.path.isfile(os.path.join(paths.voice, f))] if os.path.isdir(paths.voice) else []
             audio_indices = []
             for f in audio_files:
                 m = re.match(r'^voice_(\d+)\.(wav|mp3)$', f)
@@ -197,7 +196,7 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
             images_in_progress = False
             audio_in_progress = False
 
-    has_final_video = os.path.exists(final_video_path) and os.path.getsize(final_video_path) > 0
+    has_final_video = os.path.exists(paths.final_video()) and os.path.getsize(paths.final_video()) > 0
 
     # 计算当前步骤 - 支持步骤3和4的独立执行
     current_step = 0
@@ -271,11 +270,11 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
         'script': script,
         'keywords': keywords,
         'mini_summary': image_description,
-        'final_video_path': final_video_path,
+        'final_video_path': paths.final_video(),
         'cover_images': cover_images,
-        'images_dir': images_dir,
-        'voice_dir': voice_dir,
-        'text_dir': text_dir,
+        'images_dir': paths.images,
+        'voice_dir': paths.voice,
+        'text_dir': paths.text,
         'image_method': 'description' if has_description else ('keywords' if has_keywords else None),
     }
 
@@ -292,8 +291,8 @@ def collect_ordered_assets(project_dir: str, script_data: Dict[str, Any], requir
     Returns:
         Dict[str, List[str]]: {"images": [...], "audio": [...]}
     """
-    images_dir = os.path.join(project_dir, "images")
-    voice_dir = os.path.join(project_dir, "voice")
+    # 使用 ProjectPaths 管理路径
+    paths = ProjectPaths(project_dir)
     num_segments = len(script_data.get('segments', []))
 
     image_paths: List[str] = []
@@ -302,9 +301,9 @@ def collect_ordered_assets(project_dir: str, script_data: Dict[str, Any], requir
     for i in range(1, num_segments+1):
         # 按多种图片格式搜索
         candidates = [
-            os.path.join(images_dir, f"segment_{i}.png"),
-            os.path.join(images_dir, f"segment_{i}.jpg"),
-            os.path.join(images_dir, f"segment_{i}.jpeg"),
+            paths.segment_image(i),
+            os.path.join(paths.images, f"segment_{i}.jpg"),
+            os.path.join(paths.images, f"segment_{i}.jpeg"),
         ]
         image_path = None
         for p in candidates:
@@ -316,23 +315,18 @@ def collect_ordered_assets(project_dir: str, script_data: Dict[str, Any], requir
             raise FileNotFoundError(f"缺少图片: segment_{i}.(png|jpg|jpeg)")
         image_paths.append(image_path)
         
-        # 音频文件搜索
-        audio_wav = os.path.join(voice_dir, f"voice_{i}.wav")
-        audio_mp3 = os.path.join(voice_dir, f"voice_{i}.mp3")
+        # 音频文件搜索 - 使用 ProjectPaths
+        audio_path = paths.segment_audio_exists(i)
         
         if require_audio:
-            if os.path.exists(audio_wav):
-                audio_paths.append(audio_wav)
-            elif os.path.exists(audio_mp3):
-                audio_paths.append(audio_mp3)
+            if audio_path:
+                audio_paths.append(audio_path)
             else:
                 raise FileNotFoundError(f"缺少音频: voice_{i}.(wav|mp3)")
         else:
             # 非强制音频：有则收集
-            if os.path.exists(audio_wav):
-                audio_paths.append(audio_wav)
-            elif os.path.exists(audio_mp3):
-                audio_paths.append(audio_mp3)
+            if audio_path:
+                audio_paths.append(audio_path)
     
     return {"images": image_paths, "audio": audio_paths}
 
@@ -342,45 +336,40 @@ def clear_downstream_outputs(project_dir: str, from_step) -> None:
     清理从指定步骤之后的产物
     from_step: 1, 1.5, 2, 3, 4, 5
     """
-    text_dir = os.path.join(project_dir, "text")
-    images_dir = os.path.join(project_dir, "images")
-    voice_dir = os.path.join(project_dir, "voice")
-    final_video_path = os.path.join(project_dir, "final_video.mp4")
+    # 使用 ProjectPaths 管理路径
+    paths = ProjectPaths(project_dir)
 
     try:
         if from_step <= 1:
             # 删除 script 和 keywords
-            for filename in ["script.json", "script.docx", "keywords.json"]:
-                file_path = os.path.join(text_dir, filename)
-                if os.path.exists(file_path):
-                    os.remove(file_path)
+            for filepath in [paths.script_json(), paths.script_docx(), paths.keywords_json()]:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
         elif from_step <= 1.5:
             # 删除 keywords，保留 script
-            for filename in ["keywords.json"]:
-                file_path = os.path.join(text_dir, filename)
-                if os.path.exists(file_path):
-                    os.remove(file_path)
+            if os.path.exists(paths.keywords_json()):
+                os.remove(paths.keywords_json())
                     
         if from_step <= 2:
             # 清空 images
-            if os.path.isdir(images_dir):
-                for f in os.listdir(images_dir):
-                    fp = os.path.join(images_dir, f)
+            if os.path.isdir(paths.images):
+                for f in os.listdir(paths.images):
+                    fp = os.path.join(paths.images, f)
                     if os.path.isfile(fp):
                         os.remove(fp)
                         
         if from_step <= 3:
             # 清空 voice
-            if os.path.isdir(voice_dir):
-                for f in os.listdir(voice_dir):
-                    fp = os.path.join(voice_dir, f)
+            if os.path.isdir(paths.voice):
+                for f in os.listdir(paths.voice):
+                    fp = os.path.join(paths.voice, f)
                     if os.path.isfile(fp):
                         os.remove(fp)
                         
         if from_step <= 4:
             # 删除最终视频
-            if os.path.exists(final_video_path):
-                os.remove(final_video_path)
+            if os.path.exists(paths.final_video()):
+                os.remove(paths.final_video())
                 
     except Exception as e:
         logger.warning(f"清理旧产物失败: {e}")

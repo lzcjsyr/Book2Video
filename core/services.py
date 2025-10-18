@@ -4,16 +4,9 @@ Core services: unified entry points for model calls (migrated from genai_api).
 
 import os
 import random
-import asyncio
 import json
-import uuid
-import ssl
-import websockets
-import io
-import struct
+import base64
 import requests
-from dataclasses import dataclass
-from enum import IntEnum
 from openai import OpenAI
 
 from config import config
@@ -153,110 +146,6 @@ def text_to_image_siliconflow(prompt, size="1024x1024", model="Qwen/Qwen-Image")
     raise APIError("硅基流动图像生成API返回缺少可用的图像数据")
 
 
-class MsgType(IntEnum):
-    Invalid = 0
-    FullClientRequest = 0b1
-    AudioOnlyClient = 0b10
-    FullServerResponse = 0b1001
-    AudioOnlyServer = 0b1011
-    FrontEndResultServer = 0b1100
-    Error = 0b1111
-
-
-class MsgTypeFlagBits(IntEnum):
-    NoSeq = 0
-    PositiveSeq = 0b1
-    LastNoSeq = 0b10
-    NegativeSeq = 0b11
-    WithEvent = 0b100
-
-
-class VersionBits(IntEnum):
-    Version1 = 1
-
-
-class HeaderSizeBits(IntEnum):
-    HeaderSize4 = 1
-
-
-class SerializationBits(IntEnum):
-    Raw = 0
-    JSON = 0b1
-
-
-class CompressionBits(IntEnum):
-    None_ = 0
-
-
-@dataclass
-class Message:
-    version: VersionBits = VersionBits.Version1
-    header_size: HeaderSizeBits = HeaderSizeBits.HeaderSize4
-    type: MsgType = MsgType.Invalid
-    flag: MsgTypeFlagBits = MsgTypeFlagBits.NoSeq
-    serialization: SerializationBits = SerializationBits.JSON
-    compression: CompressionBits = CompressionBits.None_
-    sequence: int = 0
-    payload: bytes = b""
-    
-    def marshal(self) -> bytes:
-        buffer = io.BytesIO()
-        header = [
-            (self.version << 4) | self.header_size,
-            (self.type << 4) | self.flag,
-            (self.serialization << 4) | self.compression,
-            0
-        ]
-        buffer.write(bytes(header))
-        if self.flag in [MsgTypeFlagBits.PositiveSeq, MsgTypeFlagBits.NegativeSeq]:
-            buffer.write(struct.pack(">i", self.sequence))
-        size = len(self.payload)
-        buffer.write(struct.pack(">I", size))
-        buffer.write(self.payload)
-        return buffer.getvalue()
-    
-    @classmethod
-    def from_bytes(cls, data: bytes) -> "Message":
-        if len(data) < 3:
-            raise ValueError(f"Data too short: expected at least 3 bytes, got {len(data)}")
-        type_and_flag = data[1]
-        msg_type = MsgType(type_and_flag >> 4)
-        flag = MsgTypeFlagBits(type_and_flag & 0b00001111)
-        msg = cls(type=msg_type, flag=flag)
-        buffer = io.BytesIO(data)
-        buffer.read(4)
-        if flag in [MsgTypeFlagBits.PositiveSeq, MsgTypeFlagBits.NegativeSeq]:
-            seq_bytes = buffer.read(4)
-            if seq_bytes:
-                msg.sequence = struct.unpack(">i", seq_bytes)[0]
-        size_bytes = buffer.read(4)
-        if size_bytes:
-            size = struct.unpack(">I", size_bytes)[0]
-            if size > 0:
-                msg.payload = buffer.read(size)
-        return msg
-
-
-async def _send_full_request(websocket, payload: bytes):
-    msg = Message(type=MsgType.FullClientRequest, flag=MsgTypeFlagBits.NoSeq)
-    msg.payload = payload
-    await websocket.send(msg.marshal())
-
-
-async def _receive_message(websocket) -> Message:
-    data = await websocket.recv()
-    if isinstance(data, bytes):
-        return Message.from_bytes(data)
-    else:
-        raise ValueError(f"Unexpected message type: {type(data)}")
-
-
-def _get_cluster(voice: str) -> str:
-    if voice.startswith("S_"):
-        return "volcano_icl"
-    return "volcano_tts"
-
-
 @retry_on_failure(max_retries=2, delay=1.0)
 def text_to_audio_bytedance(
     text,
@@ -266,11 +155,31 @@ def text_to_audio_bytedance(
     speed_ratio: float = 1.0,
     loudness_ratio: float = 1.0,
 ):
+    """
+    使用火山引擎TTS API进行语音合成（HTTP API）
+    
+    Args:
+        text: 要合成的文本
+        output_filename: 输出文件路径（.wav格式）
+        voice: 音色ID
+        encoding: 输出编码格式（保留参数，实际输出为wav）
+        speed_ratio: 语速调节系数 (0.8-2.0)
+        loudness_ratio: 音量调节系数 (0.5-2.0)
+    
+    Returns:
+        bool: 成功返回True
+    """
+    # 验证配置
     if not config.BYTEDANCE_TTS_APPID or not config.BYTEDANCE_TTS_ACCESS_TOKEN:
-        raise APIError("字节语音合成大模型配置不完整，请检查BYTEDANCE_TTS_APPID和BYTEDANCE_TTS_ACCESS_TOKEN")
+        raise APIError("字节语音合成配置不完整，请检查BYTEDANCE_TTS_APPID和BYTEDANCE_TTS_ACCESS_TOKEN")
+    
     APPID = config.BYTEDANCE_TTS_APPID
     ACCESS_TOKEN = config.BYTEDANCE_TTS_ACCESS_TOKEN
-    logger.info(f"使用字节语音合成大模型WebSocket，音色: {voice}，文本长度: {len(text)}字符")
+    RESOURCE_ID = config.RESOURCE_ID
+    
+    logger.info(f"使用火山引擎TTS HTTP API，资源ID: {RESOURCE_ID}，音色: {voice}，文本长度: {len(text)}字符")
+    
+    # 参数验证和规范化
     try:
         speed_ratio = max(0.8, min(2.0, float(speed_ratio)))
     except Exception:
@@ -281,106 +190,118 @@ def text_to_audio_bytedance(
         loudness_ratio = 1.0
     speed_ratio = round(speed_ratio, 1)
     loudness_ratio = round(loudness_ratio, 1)
-    try:
-        return asyncio.run(
-            _async_text_to_audio(
-                text,
-                output_filename,
-                voice,
-                encoding,
-                APPID,
-                ACCESS_TOKEN,
-                speed_ratio,
-                loudness_ratio,
-            )
-        )
-    except Exception as e:
-        logger.error(f"字节语音合成失败: {str(e)}")
-        raise APIError(f"字节语音合成失败: {str(e)}")
-
-
-async def _async_text_to_audio(
-    text,
-    output_filename,
-    voice,
-    encoding,
-    appid,
-    access_token,
-    speed_ratio: float,
-    loudness_ratio: float,
-):
-    endpoint = "wss://openspeech.bytedance.com/api/v1/tts/ws_binary"
-    cluster = _get_cluster(voice)
+    
+    # API端点和请求头
+    url = "https://openspeech.bytedance.com/api/v3/tts/unidirectional"
     headers = {
-        "Authorization": f"Bearer;{access_token}",
+        "X-Api-App-Id": APPID,
+        "X-Api-Access-Key": ACCESS_TOKEN,
+        "X-Api-Resource-Id": RESOURCE_ID,
+        "Content-Type": "application/json"
     }
     
-    logger.info(f"连接到 {endpoint}")
-    
-    # SSL配置：默认验证，特殊网络环境可通过环境变量禁用
-    connect_params = {
-        "additional_headers": headers,
-        "max_size": 10 * 1024 * 1024
-    }
-    
-    if not config.BYTEDANCE_TTS_VERIFY_SSL:
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        connect_params["ssl"] = ssl_context
-        logger.warning("SSL验证已禁用，仅建议在企业网络等特殊环境下使用")
-    
-    try:
-        websocket = await websockets.connect(endpoint, **connect_params)
-        logid = getattr(websocket, "response_headers", {}).get('x-tt-logid', 'unknown')
-        logger.info(f"WebSocket连接成功，Logid: {logid}")
-        request_data = {
-            "app": {"appid": appid, "token": access_token, "cluster": cluster},
-            "user": {"uid": str(uuid.uuid4())},
-            "audio": {
-                "voice_type": voice,
-                "encoding": encoding,
-                "speed_ratio": speed_ratio,
-                "loudness_ratio": loudness_ratio,
-            },
-            "request": {
-                "reqid": str(uuid.uuid4()),
-                "text": text,
-                "operation": "submit",
-                "with_timestamp": "1",
-                "extra_param": json.dumps({"disable_markdown_filter": False}),
-            },
+    # 构建请求payload
+    payload = {
+        "user": {"uid": "aigc_video_user"},
+        "req_params": {
+            "text": text,
+            "speaker": voice,
+            "audio_params": {
+                "format": "mp3",
+                "sample_rate": 24000
+            }
         }
-        await _send_full_request(websocket, json.dumps(request_data).encode())
+    }
+    
+    # 添加额外参数
+    additions = {
+        "silence_duration": 0,  # 避免句尾空白
+        "speed_ratio": speed_ratio,
+        "loudness_ratio": loudness_ratio,
+    }
+    
+    # TTS 2.0 需要显式指定语言
+    if RESOURCE_ID == "seed-tts-2.0":
+        additions["explicit_language"] = "zh-cn"
+    
+    payload["req_params"]["additions"] = json.dumps(additions)
+    
+    # 发起流式请求
+    session = requests.Session()
+    try:
+        response = session.post(url, headers=headers, json=payload, stream=True, timeout=30)
+        
+        if response.status_code != 200:
+            error_text = response.text
+            logger.error(f"TTS API请求失败，状态码: {response.status_code}，错误: {error_text}")
+            raise APIError(f"TTS API请求失败: {error_text}")
+        
+        # 接收音频数据
         audio_data = bytearray()
-        while True:
-            msg = await _receive_message(websocket)
-            if msg.type == MsgType.FrontEndResultServer:
+        chunk_count = 0
+        
+        for chunk in response.iter_lines(decode_unicode=True):
+            if not chunk:
                 continue
-            elif msg.type == MsgType.AudioOnlyServer:
-                audio_data.extend(msg.payload)
-                if msg.sequence < 0:
-                    break
-            elif msg.type == MsgType.Error:
-                error_msg = msg.payload.decode('utf-8', 'ignore')
-                raise APIError(f"TTS转换失败: {error_msg}")
-            else:
-                logger.warning(f"收到未预期的消息类型: {msg.type}")
+            
+            try:
+                data = json.loads(chunk)
+            except json.JSONDecodeError:
+                logger.warning(f"无法解析响应chunk: {chunk[:100]}")
+                continue
+            
+            # 正常音频数据
+            if data.get("code", 0) == 0 and "data" in data and data["data"]:
+                audio_data.extend(base64.b64decode(data["data"]))
+                chunk_count += 1
+            # 结束标记
+            elif data.get("code", 0) == 20000000:
+                break
+            # 错误
+            elif data.get("code", 0) > 0:
+                error_msg = data.get("message", "未知错误")
+                logger.error(f"TTS API错误: {error_msg}")
+                raise APIError(f"TTS API错误: {error_msg}")
+        
         if not audio_data:
-            raise APIError("未收到音频数据")
+            raise APIError("未接收到音频数据")
+        
+        # 确保输出目录存在
         from core.utils import ensure_directory_exists
         ensure_directory_exists(os.path.dirname(output_filename))
-        with open(output_filename, "wb") as f:
+        
+        # 保存为临时mp3文件
+        temp_mp3 = output_filename.rsplit('.', 1)[0] + '_temp.mp3'
+        with open(temp_mp3, "wb") as f:
             f.write(audio_data)
-        logger.info(f"语音合成成功，音频大小: {len(audio_data)} bytes，已保存: {output_filename}")
+        
+        # 转换为wav格式（如果需要）
+        if encoding.lower() == "wav" or output_filename.lower().endswith('.wav'):
+            try:
+                from moviepy.audio.io.AudioFileClip import AudioFileClip
+                audio_clip = AudioFileClip(temp_mp3)
+                audio_clip.write_audiofile(output_filename, codec='pcm_s16le', logger=None)
+                audio_clip.close()
+                # 删除临时mp3文件
+                os.remove(temp_mp3)
+            except Exception as e:
+                logger.error(f"音频格式转换失败: {str(e)}")
+                # 如果转换失败，直接使用mp3
+                os.rename(temp_mp3, output_filename)
+                logger.warning(f"格式转换失败，保存为原始mp3格式: {output_filename}")
+        else:
+            # 不需要转换，直接重命名
+            os.rename(temp_mp3, output_filename)
+        
+        logger.info(f"语音合成成功，音频大小: {len(audio_data)/1024:.1f} KB，已保存: {output_filename}")
         return True
+        
     except Exception as e:
-        logger.error(f"WebSocket语音合成失败: {str(e)}")
-        raise
+        logger.error(f"语音合成失败: {str(e)}")
+        raise APIError(f"语音合成失败: {str(e)}")
     finally:
-        if 'websocket' in locals():
-            await websocket.close()
-            logger.info("WebSocket连接已关闭")
+        response.close()
+        session.close()
 
 
 __all__ = [

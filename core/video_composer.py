@@ -28,6 +28,10 @@ from moviepy import (
 from config import config
 from core.utils import logger, VideoProcessingError, handle_video_operation
 
+# ==================== 系统常量 ====================
+# 支持的视频格式（系统技术限制，非用户配置项）
+SUPPORTED_VIDEO_FORMATS = [".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".m4v"]
+
 
 class VideoComposer:
     """统一的视频合成器"""
@@ -265,29 +269,27 @@ class VideoComposer:
 
     def _add_opening_quote(self, opening_base, opening_golden_quote: str, opening_seconds: float):
         """添加开场金句文字叠加"""
-        subtitle_config = config.SUBTITLE_CONFIG.copy()
-        quote_style = getattr(config, "OPENING_QUOTE_STYLE", {}) or {}
-        preferred_font_path = quote_style.get("font_family") or subtitle_config.get("font_family")
+        preferred_font_path = config.OPENING_QUOTE_FONT_FAMILY or config.SUBTITLE_FONT_FAMILY
         resolved_font = self.resolve_font_path(preferred_font_path)
-        base_font = int(config.SUBTITLE_CONFIG.get("font_size", 36))
-        scale = float(quote_style.get("font_scale", 1.3))
-        font_size = int(quote_style.get("font_size", base_font * scale))
-        text_color = quote_style.get("color", config.SUBTITLE_CONFIG.get("color", "white"))
-        stroke_color = quote_style.get("stroke_color", config.SUBTITLE_CONFIG.get("stroke_color", "black"))
-        stroke_width = int(quote_style.get("stroke_width", max(3, int(config.SUBTITLE_CONFIG.get("stroke_width", 3)))))
-        pos = quote_style.get("position", ("center", "center"))
+        base_font = int(config.SUBTITLE_FONT_SIZE)
+        scale = float(config.OPENING_QUOTE_FONT_SCALE)
+        font_size = int(config.OPENING_QUOTE_FONT_SIZE or base_font * scale)
+        text_color = config.OPENING_QUOTE_COLOR
+        stroke_color = config.OPENING_QUOTE_STROKE_COLOR
+        stroke_width = int(config.OPENING_QUOTE_STROKE_WIDTH)
+        pos = config.OPENING_QUOTE_POSITION
         
         # 处理文字换行
         try:
-            max_chars = int(quote_style.get("max_chars_per_line", 18))
-            max_q_lines = int(quote_style.get("max_lines", 4))
+            max_chars = int(config.OPENING_QUOTE_MAX_CHARS_PER_LINE)
+            max_q_lines = int(config.OPENING_QUOTE_MAX_LINES)
             candidate_lines = self.split_text_for_subtitle(opening_golden_quote, max_chars, max_q_lines)
             lines = candidate_lines[:max_q_lines] if candidate_lines else [opening_golden_quote]
         except Exception:
             lines = [opening_golden_quote]
         
         # 创建多行文字剪辑实现行间距控制
-        line_spacing = int(quote_style.get("line_spacing", 8))
+        line_spacing = int(config.OPENING_QUOTE_LINE_SPACING)
         text_clips = []
         
         # 计算总高度以实现居中（绝对像素基准）
@@ -370,13 +372,31 @@ class VideoComposer:
     def _add_subtitles(self, final_video, script_data: Dict[str, Any], enable_subtitles: bool, 
                       audio_clips: List, opening_seconds: float):
         """添加字幕"""
-        effective_subtitles = bool(enable_subtitles) and bool(getattr(config, "SUBTITLE_CONFIG", {}).get("enabled", True))
-        if effective_subtitles and script_data:
+        if enable_subtitles and script_data:
             print("正在添加字幕...")
-            subtitle_config = config.SUBTITLE_CONFIG.copy()
-            subtitle_config["video_size"] = final_video.size
-            subtitle_config["segment_durations"] = [ac.duration for ac in audio_clips]
-            subtitle_config["offset_seconds"] = opening_seconds
+            # 从独立变量构建字幕配置字典
+            subtitle_config = {
+                "font_size": config.SUBTITLE_FONT_SIZE,
+                "font_family": config.SUBTITLE_FONT_FAMILY,
+                "color": config.SUBTITLE_COLOR,
+                "stroke_color": config.SUBTITLE_STROKE_COLOR,
+                "stroke_width": config.SUBTITLE_STROKE_WIDTH,
+                "position": config.SUBTITLE_POSITION,
+                "margin_bottom": config.SUBTITLE_MARGIN_BOTTOM,
+                "max_chars_per_line": config.SUBTITLE_MAX_CHARS_PER_LINE,
+                "max_lines": config.SUBTITLE_MAX_LINES,
+                "line_spacing": config.SUBTITLE_LINE_SPACING,
+                "background_color": config.SUBTITLE_BACKGROUND_COLOR,
+                "background_opacity": config.SUBTITLE_BACKGROUND_OPACITY,
+                "background_horizontal_padding": config.SUBTITLE_BACKGROUND_H_PADDING,
+                "background_vertical_padding": config.SUBTITLE_BACKGROUND_V_PADDING,
+                "shadow_enabled": config.SUBTITLE_SHADOW_ENABLED,
+                "shadow_color": config.SUBTITLE_SHADOW_COLOR,
+                "shadow_offset": config.SUBTITLE_SHADOW_OFFSET,
+                "video_size": final_video.size,
+                "segment_durations": [ac.duration for ac in audio_clips],
+                "offset_seconds": opening_seconds,
+            }
             subtitle_clips = self.create_subtitle_clips(script_data, subtitle_config)
             
             if subtitle_clips:
@@ -682,11 +702,30 @@ class VideoComposer:
                     with suppress(Exception):
                         os.remove(temp_path)
     
-    def create_subtitle_clips(self, script_data: Dict[str, Any], 
+    def create_subtitle_clips(self, script_data: Dict[str, Any],
                             subtitle_config: Dict[str, Any] = None) -> List:
         """创建字幕剪辑列表"""
         if subtitle_config is None:
-            subtitle_config = config.SUBTITLE_CONFIG.copy()
+            # 从独立变量构建默认字幕配置
+            subtitle_config = {
+                "font_size": config.SUBTITLE_FONT_SIZE,
+                "font_family": config.SUBTITLE_FONT_FAMILY,
+                "color": config.SUBTITLE_COLOR,
+                "stroke_color": config.SUBTITLE_STROKE_COLOR,
+                "stroke_width": config.SUBTITLE_STROKE_WIDTH,
+                "position": config.SUBTITLE_POSITION,
+                "margin_bottom": config.SUBTITLE_MARGIN_BOTTOM,
+                "max_chars_per_line": config.SUBTITLE_MAX_CHARS_PER_LINE,
+                "max_lines": config.SUBTITLE_MAX_LINES,
+                "line_spacing": config.SUBTITLE_LINE_SPACING,
+                "background_color": config.SUBTITLE_BACKGROUND_COLOR,
+                "background_opacity": config.SUBTITLE_BACKGROUND_OPACITY,
+                "background_horizontal_padding": config.SUBTITLE_BACKGROUND_H_PADDING,
+                "background_vertical_padding": config.SUBTITLE_BACKGROUND_V_PADDING,
+                "shadow_enabled": config.SUBTITLE_SHADOW_ENABLED,
+                "shadow_color": config.SUBTITLE_SHADOW_COLOR,
+                "shadow_offset": config.SUBTITLE_SHADOW_OFFSET,
+            }
         
         subtitle_clips = []
         current_time = float(subtitle_config.get("offset_seconds", 0.0))
@@ -886,7 +925,7 @@ class VideoComposer:
             return [text]
         
         # 第一层：按主要标点切分
-        heavy_punctuation = ['。', '！', '？', '.', '!', '?', '，', ',', '；', ';', ":", "：", "——"]
+        heavy_punctuation = ['。', '！', '？', '.', '!', '?', '，', ',', '；', ';', ":", "：", "——", " "]
         segments = []
         current_segment = ""
         
@@ -926,7 +965,7 @@ class VideoComposer:
                     else:
                         final_parts.extend(self._split_text_evenly(part, max_chars_per_line))
         
-        # 返回完整的行序列（显示层面仍按 max_lines 控制“同时显示”的行数）
+        # 返回完整的行序列（显示层面仍按 max_lines 控制"同时显示"的行数）
         return final_parts
     
     def _split_text_evenly(self, text: str, max_chars_per_line: int) -> List[str]:
@@ -973,7 +1012,7 @@ class VideoComposer:
     def _is_video_file(self, file_path: str) -> bool:
         """检测是否为视频文件"""
         file_extension = os.path.splitext(file_path)[1].lower()
-        return file_extension in config.VIDEO_MATERIAL_CONFIG["supported_formats"]
+        return file_extension in SUPPORTED_VIDEO_FORMATS
     
     def _has_video_materials(self, media_paths: List[str]) -> bool:
         """检测是否包含视频素材"""

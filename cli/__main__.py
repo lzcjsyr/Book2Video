@@ -18,13 +18,13 @@ if __name__ == "__main__":
         sys.path.insert(0, project_root)
     
     try:
-        from config import get_default_generation_params
+        from config import get_generation_params
         from cli.ui_helpers import run_cli_main, setup_cli_logging
 
         # 初始化 CLI 日志，使后续模块共享统一配置
         setup_cli_logging()
 
-        default_params = get_default_generation_params()
+        default_params = get_generation_params()
         result = run_cli_main(**default_params)
         
         # 处理结果

@@ -1,374 +1,400 @@
-"""
-智能视频制作系统 - 配置管理模块
-统一管理所有配置项、API密钥和系统参数
-"""
+# ████████████████████████████████████████████████████████████████████████████████
+# ██                  用户配置参数区域(参数按7步工作流程组织，清晰对应各步骤)           ██
+# ████████████████████████████████████████████████████████████████████████████████
+
+# ════════════════════════════════════════════════════════════════════════════════
+# ⚙️  全局配置
+# ════════════════════════════════════════════════════════════════════════════════
+OPENING_QUOTE = False                                   # 是否启用开场金句（影响步骤3、4、5）
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 📝 步骤1：智能总结 - 文档压缩
+# ════════════════════════════════════════════════════════════════════════════════
+LLM_MODEL_STEP1 = "moonshotai/Kimi-K2-Instruct-0905"    # 步骤1 LLM模型（智能总结）
+TARGET_LENGTH = 2000                                    # 目标字数 (500-5000)
+LLM_TEMPERATURE_SCRIPT = 0.7                            # 生成随机性 (0-1，越大越随机)
+# 步骤1 LLM模型荐模型: google/gemini-2.5-pro, moonshotai/Kimi-K2-Instruct-0905
+
+# ════════════════════════════════════════════════════════════════════════════════
+# ✂️  步骤1.5：脚本分段 - 段落切分
+# ════════════════════════════════════════════════════════════════════════════════
+NUM_SEGMENTS = 25                                       # 视频分段数量 (5-50)
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 🔍 步骤2：要点提取 - 视觉关键词
+# ════════════════════════════════════════════════════════════════════════════════
+LLM_MODEL_STEP2 = "moonshotai/Kimi-K2-Instruct-0905"   # 步骤2 LLM模型（要点提取）
+IMAGES_METHOD = "description"                          # 配图生成方式: keywords / description
+LLM_TEMPERATURE_KEYWORDS = 0.5                          # 提取随机性 (0-1，越大越随机)
+# keywords模式: 为每段提取视觉关键词和氛围词
+# description模式: 生成内容整体描述，适合连贯性更强的配图
+# 步骤1 LLM模型荐模型: moonshotai/Kimi-K2-Instruct-0905
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 🎨 步骤3：图像生成 - AI配图
+# ════════════════════════════════════════════════════════════════════════════════
+IMAGE_SIZE = "2560x1440"                               # 图像尺寸 (16:9 横屏)
+IMAGE_MODEL = "doubao-seedream-4-0-250828"             # 图像生成模型
+IMAGE_STYLE_PRESET = "style01"                         # 段落图像风格预设 (详见 prompts.py)
+OPENING_IMAGE_STYLE = "des01"                          # 开场图像风格 (详见 prompts.py)
+MAX_CONCURRENT_IMAGE_GENERATION = 5                    # 图像生成最大并发数
+
+# 图像模型尺寸规则：
+# - doubao-seedream-4-0-250828: 支持 [1280x720, 4096x4096] 范围内任意尺寸
+# - doubao-seedream-3-0-t2i-250415: 支持 [512x512, 2048x2048] 范围内任意尺寸
+# - Qwen/Qwen-Image: 仅支持固定尺寸 (如 1664x928, 1328x1328, 928x1664, 1472x1140, 1140x1472 等)
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 🎙️  步骤4：语音合成 - TTS配音
+# ════════════════════════════════════════════════════════════════════════════════
+VOICE = "zh_male_yuanboxiaoshu_moon_bigtts"            # 语音音色
+RESOURCE_ID = "seed-tts-1.0"                           # TTS资源ID: seed-tts-1.0, seed-tts-2.0, seed-icl-1.0, seed-icl-2.0
+SPEED_RATIO = 1.2                                      # 语速调节系数 (0.8-2.0)
+LOUDNESS_RATIO = 1.0                                   # 音量调节系数 (0.5-2.0)
+MAX_CONCURRENT_VOICE_SYNTHESIS = 5                     # 语音合成最大并发数
+
+# seed-tts-1.0: zh_male_yuanboxiaoshu_moon_bigtts(男-书香), zh_female_wenrouxiaoya_moon_bigtts(女-文雅)
+# seed-tts-2.0：zh_male_ruyayichen_saturn_bigtts, zh_female_santongyongns_saturn_bigtts
+# seed-icl-2.0：S_MfnRsKLH1
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 🎬 步骤5：视频合成 - 最终导出
+# ════════════════════════════════════════════════════════════════════════════════
+
+# --- 基础设置 ---
+VIDEO_SIZE = "1280x720"                                # 视频导出尺寸 (可与 IMAGE_SIZE 不同)
+ENABLE_SUBTITLES = True                                # 是否启用字幕
+BGM_FILENAME = "Far Away.mp3"                          # 背景音乐 (music/ 下，None=无音乐)
+
+# --- 音频控制 ---
+BGM_DEFAULT_VOLUME = 0.15                              # 背景音乐音量 (0=静音, 1=原音, >1放大, 推荐0.03-0.20)
+NARRATION_DEFAULT_VOLUME = 2.0                         # 口播音量 (0.5-3.0, 推荐0.8-1.5, >2.0有削波风险)
+NARRATION_SPEED_FACTOR = 1.15                          # 口播变速系数 (1.0=原速)
+
+# 音频闪避（口播时自动降低BGM音量）
+AUDIO_DUCKING_ENABLED = True                          # 是否启用音频闪避
+AUDIO_DUCKING_STRENGTH = 0.3                           # BGM压低强度 (0-1)
+AUDIO_DUCKING_SMOOTH_SECONDS = 0.12                    # 音量过渡平滑时间 (秒)
+
+# --- 视觉效果时间控制 ---
+OPENING_FADEIN_SECONDS = 2.0                           # 开场渐显时长 (秒)
+OPENING_HOLD_AFTER_NARRATION_SECONDS = 0.3             # 开场口播后停留时长 (秒)
+ENDING_FADE_SECONDS = 2.0                              # 片尾淡出时长 (秒)
+
+# --- 字幕样式配置 ---
+# 字体路径建议：
+# macOS 苹方字体: /System/Library/Fonts/PingFang.ttc
+# macOS 宋体: /System/Library/Fonts/Supplemental/Songti.ttc
+# Windows 微软雅黑: C:/Windows/Fonts/msyh.ttc
+SUBTITLE_FONT_SIZE = 38                                # 字幕字体大小
+SUBTITLE_FONT_FAMILY = "/System/Library/Fonts/STHeiti Light.ttc"  # 字幕字体路径
+SUBTITLE_COLOR = "white"                               # 字幕文字颜色
+SUBTITLE_STROKE_COLOR = "black"                        # 字幕描边颜色
+SUBTITLE_STROKE_WIDTH = 2                              # 字幕描边粗细
+SUBTITLE_POSITION = ("center", "bottom")               # 字幕位置 (水平, 垂直)
+SUBTITLE_MARGIN_BOTTOM = 50                            # 字幕距底部距离 (像素)
+SUBTITLE_MAX_CHARS_PER_LINE = 25                       # 字幕每行最大字符数
+SUBTITLE_MAX_LINES = 1                                 # 字幕最大行数
+SUBTITLE_LINE_SPACING = 15                             # 字幕行间距 (像素)
+SUBTITLE_BACKGROUND_COLOR = (0, 0, 0)                  # 字幕背景色 (RGB, None=透明)
+SUBTITLE_BACKGROUND_OPACITY = 0.8                      # 字幕背景不透明度 (0-1)
+SUBTITLE_BACKGROUND_H_PADDING = 20                     # 字幕背景水平内边距 (像素)
+SUBTITLE_BACKGROUND_V_PADDING = 10                     # 字幕背景垂直内边距 (像素)
+SUBTITLE_SHADOW_ENABLED = False                        # 是否启用字幕阴影
+SUBTITLE_SHADOW_COLOR = "black"                        # 字幕阴影颜色
+SUBTITLE_SHADOW_OFFSET = (2, 2)                        # 字幕阴影偏移 (x, y)
+
+# --- 开场金句样式配置 ---
+OPENING_QUOTE_FONT_FAMILY = "/System/Library/Fonts/STHeiti Light.ttc"  # 开场金句字体路径
+OPENING_QUOTE_FONT_SIZE = 50                       # 开场金句字体大小
+OPENING_QUOTE_FONT_SCALE = 1.3                     # 开场金句相对字幕字体的缩放倍数
+OPENING_QUOTE_COLOR = "white"                      # 开场金句文字颜色
+OPENING_QUOTE_STROKE_COLOR = "black"               # 开场金句描边颜色
+OPENING_QUOTE_STROKE_WIDTH = 3                     # 开场金句描边粗细
+OPENING_QUOTE_POSITION = ("center", "center")      # 开场金句位置 (居中显示)
+OPENING_QUOTE_MAX_LINES = 6                        # 开场金句最大行数
+OPENING_QUOTE_MAX_CHARS_PER_LINE = 20              # 开场金句每行最大字符数
+OPENING_QUOTE_LINE_SPACING = 25                    # 开场金句行间距 (像素)
+OPENING_QUOTE_LETTER_SPACING = 0                   # 开场金句字间距 (0=正常)
+
+# --- 素材处理配置 ---
+IMAGE_MATERIAL_TARGET_FPS = 15                         # 纯图片素材时的帧率
+VIDEO_MATERIAL_TARGET_FPS = 30                         # 有视频素材时的目标帧率
+VIDEO_MATERIAL_REMOVE_AUDIO = True                     # 是否移除原视频素材中的音频
+VIDEO_MATERIAL_DURATION_ADJUST = "stretch"             # 视频时长调整方式: stretch/crop
+VIDEO_MATERIAL_RESIZE_METHOD = "crop"                  # 视频尺寸调整方式: crop/stretch
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 🖼️  步骤6：封面生成 - 宣传素材
+# ════════════════════════════════════════════════════════════════════════════════
+COVER_IMAGE_SIZE = "2250x3000"                         # 封面图像尺寸 (竖版 3:4)
+COVER_IMAGE_MODEL = "doubao-seedream-4-0-250828"       # 封面图像生成模型
+COVER_IMAGE_STYLE = "cover01"                          # 封面风格预设 (详见 prompts.py)
+COVER_IMAGE_COUNT = 1                                  # 封面生成数量
+
+
+# ████████████████████████████████████████████████████████████████████████████████
+# ██                          系统内部配置（勿动）                                ██
+# ████████████████████████████████████████████████████████████████████████████████
 
 import os
+from pathlib import Path
+from typing import Dict, List, Any
 from dotenv import load_dotenv
-from typing import Dict
-from copy import deepcopy
 
 # 加载环境变量
 load_dotenv()
 
-# ████████████████████████████████████████████████████████████████████████████████
-# ██                            用户常调参数区域                                  ██
-# ██                     (经常需要调整的参数放在这里)                               ██
-# ████████████████████████████████████████████████████████████████████████████████
 
-# ==================== 默认生成参数 ====================
-DEFAULT_GENERATION_PARAMS = {
-    "target_length": 2000,                          # 目标字数
-    "num_segments": 25,                             # 视频分段数量
-    "llm_model": "moonshotai/Kimi-K2-Instruct-0905",           # 文本生成模型
+def get_generation_params() -> Dict[str, object]:
+    """返回生成参数字典（供CLI使用）"""
+    return {
+        "target_length": TARGET_LENGTH,
+        "num_segments": NUM_SEGMENTS,
+        "image_size": IMAGE_SIZE,
+        "video_size": VIDEO_SIZE,
+        "llm_model_step1": LLM_MODEL_STEP1,
+        "llm_model_step2": LLM_MODEL_STEP2,
+        "image_model": IMAGE_MODEL,
+        "voice": VOICE,
+        "resource_id": RESOURCE_ID,
+        "speed_ratio": SPEED_RATIO,
+        "loudness_ratio": LOUDNESS_RATIO,
+        "output_dir": "output",
+        "image_style_preset": IMAGE_STYLE_PRESET,
+        "opening_image_style": OPENING_IMAGE_STYLE,
+        "images_method": IMAGES_METHOD,
+        "enable_subtitles": ENABLE_SUBTITLES,
+        "bgm_filename": BGM_FILENAME,
+        "opening_quote": OPENING_QUOTE,
 
-    "image_size": "2560x1440",                      # 图像尺寸 (常用 16:9 横屏，Qwen-Image固定支持)
-    "image_model": "doubao-seedream-4-0-250828",    # 图像生成模型
-    "image_style_preset": "style01",                # 图像风格预设 (详见 prompts.py)
-    "opening_image_style": "des01",                 # 开场图像风格 (详见 prompts.py)
-    "images_method": "description",                 # 配图生成方式: keywords / description
-
-    "voice": "zh_male_yuanboxiaoshu_moon_bigtts",   # 语音音色
-    "speed_ratio": 1.2,                             # 语速调节系数 (0.8-2.0)
-    "loudness_ratio": 1.0,                          # 音量调节系数 (0.5-2.0)
-    
-    "video_size": "1280x720",                       # 最终视频导出尺寸（可与image_size不同）
-    "enable_subtitles": True,                       # 是否启用字幕
-    "opening_quote": True,                          # 是否加入开场金句
-    "bgm_filename": "Ramin Djawadi - Light of the Seven.mp3",  # 背景音乐文件名 (music/ 下，可为 None)
-    
-    "cover_image_size": "2250x3000",                # 封面图像尺寸
-    "cover_image_model": "doubao-seedream-4-0-250828",  # 封面图像生成模型
-    "cover_image_style": "cover09",                 # 封面图像风格预设 (详见 prompts.py)
-    "cover_image_count": 1,                         # 封面图像生成数量
-}
-
-# 常用 LLM 模型: google/gemini-2.5-pro, anthropic/claude-sonnet-4, anthropic/claude-sonnet-4.5, openai/gpt-5, moonshotai/Kimi-K2-Instruct-0905
-# 常用图像模型尺寸规则说明：
-# - doubao-seedream-4-0-250828：支持任意 WxH，范围 [1280x720, 4096x4096]，包含端点
-# - doubao-seedream-3-0-t2i-250415：支持任意 WxH，范围 [512x512, 2048x2048]，包含端点
-# - Qwen/Qwen-Image：仅支持固定尺寸集合（见 SUPPORTED_QWEN_IMAGE_SIZES）
-# 常用语音音色: zh_male_yuanboxiaoshu_moon_bigtts, zh_male_haoyuxiaoge_moon_bigtts, zh_female_wenrouxiaoya_moon_bigtts, zh_female_daimengchuanmei_moon_bigtts, zh_female_zhixingnvsheng_mars_bigtts
-
-# ==================== LLM 模型生成参数 ====================
-LLM_TEMPERATURE_SCRIPT = 0.7            # 脚本生成随机性 (0-1，越大越随机)
-LLM_TEMPERATURE_KEYWORDS = 0.5          # 要点提取随机性 (0-1，越大越随机)
-
-# ==================== 音频控制参数 ====================
-BGM_DEFAULT_VOLUME = 0.25               # 背景音乐音量 (0=静音, 1=原音, >1放大, 推荐0.03-0.20)
-NARRATION_DEFAULT_VOLUME = 2.0          # 口播音量 (0.5-3.0, 推荐0.8-1.5, >2.0有削波风险)
-AUDIO_DUCKING_ENABLED = True           # 口播时是否压低BGM
-AUDIO_DUCKING_STRENGTH = 0.3            # BGM压低强度 (0-1)
-AUDIO_DUCKING_SMOOTH_SECONDS = 0.12     # 音量过渡平滑时间 (秒)
-NARRATION_SPEED_FACTOR = 1.1            # 口播变速系数 (1.0=原速)
-
-# ==================== 视觉效果时间参数 ====================
-OPENING_FADEIN_SECONDS = 2.0                    # 开场渐显时长 (秒)
-OPENING_HOLD_AFTER_NARRATION_SECONDS = 0.3      # 开场口播后停留时长 (秒)
-ENDING_FADE_SECONDS = 2.0                       # 片尾淡出时长 (秒)
-
-# ==================== 字幕样式配置 ====================
-SUBTITLE_CONFIG = {
-    "enabled": True,                       # 是否启用字幕
-    "font_size": 38,                       # 字体大小
-    # 字体路径建议：
-    # macOS 苹方字体: /System/Library/Fonts/PingFang.ttc
-    # macOS 宋体: /System/Library/Fonts/Supplemental/Songti.ttc
-    # Windows 微软雅黑: C:/Windows/Fonts/msyh.ttc
-    "font_family": "/System/Library/Fonts/STHeiti Light.ttc",
-    "color": "white",                      # 文字颜色
-    "stroke_color": "black",               # 描边颜色
-    "stroke_width": 2,                     # 描边粗细
-    "position": ("center", "bottom"),      # 位置 (水平, 垂直)
-    "margin_bottom": 50,                   # 距底部距离 (像素)
-    "max_chars_per_line": 25,              # 每行最大字符数
-    "max_lines": 1,                        # 最大行数
-    "line_spacing": 15,                    # 行间距 (像素)
-    "background_color": (0, 0, 0),         # 背景色 (RGB, None=透明)
-    "background_opacity": 0.8,             # 背景不透明度 (0-1)
-    "background_horizontal_padding": 20,   # 背景水平内边距 (像素)
-    "background_vertical_padding": 10,     # 背景垂直内边距 (像素)
-    "shadow_enabled": False,               # 是否启用文字阴影
-    "shadow_color": "black",               # 阴影颜色
-    "shadow_offset": (2, 2)                # 阴影偏移 (x, y)
-}
-
-# ==================== 开场金句样式配置 ====================
-OPENING_QUOTE_STYLE = {
-    "enabled": True,                              # 是否显示开场金句
-    "font_family": "/System/Library/Fonts/STHeiti Light.ttc",  # 字体路径
-    "font_size": 50,                              # 基础字体大小
-    "font_scale": 1.3,                            # 相对字幕字体的缩放倍数
-    "color": "white",                             # 文字颜色
-    "stroke_color": "black",                      # 描边颜色
-    "stroke_width": 3,                            # 描边粗细
-    "position": ("center", "center"),             # 位置 (居中显示)
-    "max_lines": 6,                               # 最大行数
-    "max_chars_per_line": 20,                     # 每行最大字符数
-    "line_spacing": 25,                           # 行间距 (像素)
-    "letter_spacing": 0,                          # 字间距 (0=正常)
-}
-
-# ==================== 性能控制参数 ====================
-MAX_CONCURRENT_IMAGE_GENERATION = 5  # 图片生成最大并发数
-MAX_CONCURRENT_VOICE_SYNTHESIS = 5   # 语音合成最大并发数
-
-# ==================== 视频素材处理配置 ====================
-VIDEO_MATERIAL_CONFIG = {
-    "supported_formats": [".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".m4v"],
-    "target_fps": 30,                     # 目标帧率 (有视频素材时)
-    "remove_original_audio": True,        # 是否移除原音频
-    "duration_adjustment": "stretch",     # 时长调整方式: stretch/crop
-    "resize_method": "crop"               # 尺寸调整方式: crop/stretch
-}
-
-# ==================== 图片素材处理配置 ====================
-IMAGE_MATERIAL_CONFIG = {
-    "target_fps": 15  # 纯图片素材时的帧率
-}
-
-# ████████████████████████████████████████████████████████████████████████████████
-# ██                            系统配置区域                                      ██
-# ██                     (一般无需修改的系统参数)                                   ██
-# ████████████████████████████████████████████████████████████████████████████████
-
-def get_default_generation_params() -> Dict[str, object]:
-    """返回默认生成参数的拷贝，避免调用方修改全局配置"""
-    return deepcopy(DEFAULT_GENERATION_PARAMS)
+        "cover_image_size": COVER_IMAGE_SIZE,
+        "cover_image_model": COVER_IMAGE_MODEL,
+        "cover_image_style": COVER_IMAGE_STYLE,
+        "cover_image_count": COVER_IMAGE_COUNT,
+    }
     
 class Config:
     """系统配置类，统一管理所有配置项"""
+    pass
 
-    # 引用模块级常量
-    LLM_TEMPERATURE_SCRIPT = LLM_TEMPERATURE_SCRIPT
-    LLM_TEMPERATURE_KEYWORDS = LLM_TEMPERATURE_KEYWORDS
-    BGM_DEFAULT_VOLUME = BGM_DEFAULT_VOLUME
-    NARRATION_DEFAULT_VOLUME = NARRATION_DEFAULT_VOLUME
-    AUDIO_DUCKING_ENABLED = AUDIO_DUCKING_ENABLED
-    AUDIO_DUCKING_STRENGTH = AUDIO_DUCKING_STRENGTH
-    AUDIO_DUCKING_SMOOTH_SECONDS = AUDIO_DUCKING_SMOOTH_SECONDS
-    OPENING_FADEIN_SECONDS = OPENING_FADEIN_SECONDS
-    OPENING_HOLD_AFTER_NARRATION_SECONDS = OPENING_HOLD_AFTER_NARRATION_SECONDS
-    ENDING_FADE_SECONDS = ENDING_FADE_SECONDS
-    NARRATION_SPEED_FACTOR = NARRATION_SPEED_FACTOR
-    SUBTITLE_CONFIG = SUBTITLE_CONFIG
-    OPENING_QUOTE_STYLE = OPENING_QUOTE_STYLE
-    MAX_CONCURRENT_IMAGE_GENERATION = MAX_CONCURRENT_IMAGE_GENERATION
-    MAX_CONCURRENT_VOICE_SYNTHESIS = MAX_CONCURRENT_VOICE_SYNTHESIS
-    VIDEO_MATERIAL_CONFIG = VIDEO_MATERIAL_CONFIG
-    IMAGE_MATERIAL_CONFIG = IMAGE_MATERIAL_CONFIG
-    
-    # ==================== API 密钥配置 ====================
-    OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
-    SEEDREAM_API_KEY = os.getenv('SEEDREAM_API_KEY')
-    SILICONFLOW_KEY = os.getenv('SILICONFLOW_KEY')
-    
-    # 字节语音合成大模型配置
-    BYTEDANCE_TTS_APPID = os.getenv('BYTEDANCE_TTS_APPID')
-    BYTEDANCE_TTS_ACCESS_TOKEN = os.getenv('BYTEDANCE_TTS_ACCESS_TOKEN')
-    BYTEDANCE_TTS_SECRET_KEY = os.getenv('BYTEDANCE_TTS_SECRET_KEY')
-    BYTEDANCE_TTS_VERIFY_SSL = os.getenv('BYTEDANCE_TTS_VERIFY_SSL', 'true').lower() == 'true'
-    
-    # ==================== API 端点配置 ====================
-    OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-    SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
-    SILICONFLOW_IMAGE_BASE_URL = "https://api.siliconflow.cn/v1/images/generations"
-    ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
-    
-    # ==================== 默认模型配置 ====================
-    DEFAULT_IMAGE_SIZE = "1664x928"  # 默认图像尺寸（与 Qwen-Image 固定尺寸一致）
-    DEFAULT_VOICE = "zh_male_yuanboxiaoshu_moon_bigtts"  # 默认语音
-    
-    # ==================== 支持的服务商配置 ====================
-    SUPPORTED_LLM_SERVERS = ["openrouter", "siliconflow"]
-    SUPPORTED_IMAGE_SERVERS = ["doubao", "siliconflow"]
-    SUPPORTED_TTS_SERVERS = ["bytedance"]
 
-    SUPPORTED_IMAGE_METHODS = ["keywords", "description"]
-    
-    # ==================== 推荐模型列表 ====================
-    RECOMMENDED_MODELS = {
-        "llm": {
-            "openrouter": [
-                "google/gemini-2.5-pro",
-                "anthropic/claude-sonnet-4",
-                "anthropic/claude-sonnet-4.5",
-                "anthropic/claude-3.7-sonnet:thinking"
-            ],
-            "siliconflow": [
-                "zai-org/GLM-4.5",
-                "moonshotai/Kimi-K2-Instruct-0905",
-                "Qwen/Qwen3-235B-A22B-Thinking-2507"
-            ]
-        },
-        "image": {
-            "doubao": [
-                "doubao-seedream-4-0-250828",
-                "doubao-seedream-3-0-t2i-250415",
-            ],
-            "siliconflow": ["Qwen/Qwen-Image"]
-        },
-        "tts": {
-            "bytedance": ["bytedance-bigtts"]
-        }
-    }
-    
-    # ==================== 文件格式支持 ====================
-    SUPPORTED_INPUT_FORMATS = [".epub", ".pdf", ".mobi", ".azw3", ".docx", ".doc"]
-
-    # Qwen-Image 固定支持的尺寸（用于强校验）
-    SUPPORTED_QWEN_IMAGE_SIZES = [
-        "1328x1328",
-        "1664x928",
-        "928x1664",
-        "1472x1140",
-        "1140x1472",
-        "1584x1056",
-        "1056x1584",
-    ]
-
-    # Seedream V4 尺寸范围（包含端点）
-    SEEDREAM_V4_MIN_SIZE = (1280, 720)
-    SEEDREAM_V4_MAX_SIZE = (4096, 4096)
-    # Seedream V3 尺寸范围（包含端点）
-    SEEDREAM_V3_MIN_SIZE = (512, 512)
-    SEEDREAM_V3_MAX_SIZE = (2048, 2048)
-    
-    # ==================== 输出路径配置 ====================
-    DEFAULT_OUTPUT_DIR = "output"
-    OUTPUT_STRUCTURE = {
-        "images": "images",
-        "voice": "voice", 
-        "text": "text"
-    }
-    
-    # ==================== 参数范围限制 ====================
-    MIN_TARGET_LENGTH = 500
-    MAX_TARGET_LENGTH = 3000
-    MIN_NUM_SEGMENTS = 5
-    MAX_NUM_SEGMENTS = 30
-    
-    # 内部计算参数
-    SPEECH_SPEED_WPM = 250  # 中文语速估算 (每分钟字数)
-    
-    # ================================================================================
-    # 系统配置验证方法（一般无需修改）
-    # ================================================================================
-    
-    @staticmethod
-    def _parse_image_size(size: str):
-        try:
-            w_str, h_str = size.lower().split("x", 1)
-            return int(w_str), int(h_str)
-        except Exception:
-            raise ValueError(f"图像尺寸格式不正确: {size}，应为 'WxH'，例如 1664x928")
-
-    @classmethod
-    def _validate_seedream_v4_size(cls, size: str) -> None:
-        w, h = cls._parse_image_size(size)
-        min_w, min_h = cls.SEEDREAM_V4_MIN_SIZE
-        max_w, max_h = cls.SEEDREAM_V4_MAX_SIZE
-        if not (min_w <= w <= max_w and min_h <= h <= max_h):
-            raise ValueError(
-                f"Doubao Seedream V4 尺寸必须在[{min_w}x{min_h}, {max_w}x{max_h}]范围内（包含端点），当前: {size}"
-            )
-
-    @classmethod
-    def _validate_seedream_v3_size(cls, size: str) -> None:
-        w, h = cls._parse_image_size(size)
-        min_w, min_h = cls.SEEDREAM_V3_MIN_SIZE
-        max_w, max_h = cls.SEEDREAM_V3_MAX_SIZE
-        if not (min_w <= w <= max_w and min_h <= h <= max_h):
-            raise ValueError(
-                f"Doubao Seedream V3 尺寸必须在[{min_w}x{min_h}, {max_w}x{max_h}]范围内（包含端点），当前: {size}"
-            )
-
-    @classmethod
-    def validate_api_keys(cls) -> Dict[str, bool]:
-        """验证API密钥配置"""
-        return {
-            "openrouter": bool(cls.OPENROUTER_API_KEY),
-            "seedream": bool(cls.SEEDREAM_API_KEY), 
-            "bytedance_tts": bool(cls.BYTEDANCE_TTS_APPID and cls.BYTEDANCE_TTS_ACCESS_TOKEN), 
-            "siliconflow": bool(cls.SILICONFLOW_KEY),
-        }
-
-    @classmethod
-    def get_required_keys_for_config(cls, llm_server: str, image_server: str, tts_server: str) -> list:
-        """获取指定配置所需的API密钥"""
-        required_keys = []
-
-        if llm_server == "openrouter":
-            required_keys.append("OPENROUTER_API_KEY")
-        elif llm_server == "siliconflow":
-            required_keys.append("SILICONFLOW_KEY")
-            
-        if image_server == "doubao":
-            required_keys.append("SEEDREAM_API_KEY")
-        elif image_server == "siliconflow":
-            required_keys.append("SILICONFLOW_KEY")
-            
-        if tts_server == "bytedance":
-            required_keys.append("BYTEDANCE_TTS_APPID")
-            required_keys.append("BYTEDANCE_TTS_ACCESS_TOKEN")
-            
-        return list(set(required_keys))  # 去重
-    
-    
-    @classmethod
-    def validate_parameters(cls, target_length: int, num_segments: int, 
-                          llm_server: str, image_server: str, tts_server: str, image_model: str,
-                          image_size: str = None, images_method: str = None) -> None:
-        """验证参数有效性"""
-        if not cls.MIN_TARGET_LENGTH <= target_length <= cls.MAX_TARGET_LENGTH:
-            raise ValueError(f"target_length必须在{cls.MIN_TARGET_LENGTH}-{cls.MAX_TARGET_LENGTH}之间")
-        
-        if not cls.MIN_NUM_SEGMENTS <= num_segments <= cls.MAX_NUM_SEGMENTS:
-            raise ValueError(f"num_segments必须在{cls.MIN_NUM_SEGMENTS}-{cls.MAX_NUM_SEGMENTS}之间")
-        
-        if llm_server not in cls.SUPPORTED_LLM_SERVERS:
-            raise ValueError(f"不支持的LLM服务商: {llm_server}，支持: {cls.SUPPORTED_LLM_SERVERS}")
-        
-        if image_server not in cls.SUPPORTED_IMAGE_SERVERS:
-            raise ValueError(f"不支持的图像服务商: {image_server}，支持: {cls.SUPPORTED_IMAGE_SERVERS}")
-        
-        if tts_server not in cls.SUPPORTED_TTS_SERVERS:
-            raise ValueError(f"不支持的TTS服务商: {tts_server}，支持: {cls.SUPPORTED_TTS_SERVERS}")
-        
-        if image_size:
-            model_lower = (image_model or "").lower()
-            if image_server == "doubao":
-                if ("seedream-4" in model_lower or "doubao-seedream-4" in model_lower):
-                    # Doubao Seedream V4: 范围校验（包含端点）
-                    cls._validate_seedream_v4_size(image_size)
-                else:
-                    # Doubao Seedream V3: 范围校验（包含端点）
-                    cls._validate_seedream_v3_size(image_size)
-            elif image_server == "siliconflow" and (model_lower.startswith("qwen/") or "qwen-image" in model_lower):
-                # Qwen-Image: 固定集合
-                if image_size not in cls.SUPPORTED_QWEN_IMAGE_SIZES:
-                    available_sizes = ", ".join(cls.SUPPORTED_QWEN_IMAGE_SIZES)
-                    raise ValueError(f"Qwen-Image 不支持的图像尺寸: {image_size}，支持的尺寸: {available_sizes}")
-
-        if images_method and images_method not in cls.SUPPORTED_IMAGE_METHODS:
-            raise ValueError(
-                f"不支持的生图模式: {images_method}，支持: {cls.SUPPORTED_IMAGE_METHODS}"
-            )
-
-# 创建配置实例
-config = Config()
-
-# 模块级快捷引用
-SUPPORTED_LLM_SERVERS = Config.SUPPORTED_LLM_SERVERS
-SUPPORTED_IMAGE_SERVERS = Config.SUPPORTED_IMAGE_SERVERS
-SUPPORTED_TTS_SERVERS = Config.SUPPORTED_TTS_SERVERS
-SUPPORTED_IMAGE_METHODS = Config.SUPPORTED_IMAGE_METHODS
-
-# 导出常用配置
-__all__ = [
-    'Config', 'config',
-    'DEFAULT_GENERATION_PARAMS',
-    'get_default_generation_params',
-    'SUPPORTED_LLM_SERVERS', 'SUPPORTED_IMAGE_SERVERS', 'SUPPORTED_TTS_SERVERS',
-    'RECOMMENDED_MODELS', 'SUPPORTED_IMAGE_METHODS'
+# 批量将模块级配置变量同步到Config类（避免重复赋值代码）
+_USER_CONFIG_ATTRS = [
+    # 音视频参数
+    'LLM_TEMPERATURE_SCRIPT', 'LLM_TEMPERATURE_KEYWORDS',
+    'BGM_DEFAULT_VOLUME', 'NARRATION_DEFAULT_VOLUME',
+    'AUDIO_DUCKING_ENABLED', 'AUDIO_DUCKING_STRENGTH', 'AUDIO_DUCKING_SMOOTH_SECONDS',
+    'OPENING_FADEIN_SECONDS', 'OPENING_HOLD_AFTER_NARRATION_SECONDS', 'ENDING_FADE_SECONDS',
+    'NARRATION_SPEED_FACTOR',
+    # 字幕配置
+    'SUBTITLE_FONT_SIZE', 'SUBTITLE_FONT_FAMILY', 'SUBTITLE_COLOR',
+    'SUBTITLE_STROKE_COLOR', 'SUBTITLE_STROKE_WIDTH', 'SUBTITLE_POSITION',
+    'SUBTITLE_MARGIN_BOTTOM', 'SUBTITLE_MAX_CHARS_PER_LINE', 'SUBTITLE_MAX_LINES',
+    'SUBTITLE_LINE_SPACING', 'SUBTITLE_BACKGROUND_COLOR', 'SUBTITLE_BACKGROUND_OPACITY',
+    'SUBTITLE_BACKGROUND_H_PADDING', 'SUBTITLE_BACKGROUND_V_PADDING',
+    'SUBTITLE_SHADOW_ENABLED', 'SUBTITLE_SHADOW_COLOR', 'SUBTITLE_SHADOW_OFFSET',
+    # 开场金句配置
+    'OPENING_QUOTE_FONT_FAMILY', 'OPENING_QUOTE_FONT_SIZE', 'OPENING_QUOTE_FONT_SCALE',
+    'OPENING_QUOTE_COLOR', 'OPENING_QUOTE_STROKE_COLOR', 'OPENING_QUOTE_STROKE_WIDTH',
+    'OPENING_QUOTE_POSITION', 'OPENING_QUOTE_MAX_LINES', 'OPENING_QUOTE_MAX_CHARS_PER_LINE',
+    'OPENING_QUOTE_LINE_SPACING', 'OPENING_QUOTE_LETTER_SPACING',
+    # 素材处理配置
+    'VIDEO_MATERIAL_TARGET_FPS', 'VIDEO_MATERIAL_REMOVE_AUDIO',
+    'VIDEO_MATERIAL_DURATION_ADJUST', 'VIDEO_MATERIAL_RESIZE_METHOD',
+    'IMAGE_MATERIAL_TARGET_FPS',
+    # 并发控制
+    'MAX_CONCURRENT_IMAGE_GENERATION', 'MAX_CONCURRENT_VOICE_SYNTHESIS',
+    'RESOURCE_ID',
 ]
+
+for _attr in _USER_CONFIG_ATTRS:
+    setattr(Config, _attr, globals()[_attr])
+
+
+# 继续设置Config类的系统配置（非用户可配置项）
+Config.OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+Config.SEEDREAM_API_KEY = os.getenv('SEEDREAM_API_KEY')
+Config.SILICONFLOW_KEY = os.getenv('SILICONFLOW_KEY')
+
+Config.BYTEDANCE_TTS_APPID = os.getenv('BYTEDANCE_TTS_APPID')
+Config.BYTEDANCE_TTS_ACCESS_TOKEN = os.getenv('BYTEDANCE_TTS_ACCESS_TOKEN')
+Config.BYTEDANCE_TTS_SECRET_KEY = os.getenv('BYTEDANCE_TTS_SECRET_KEY')
+Config.BYTEDANCE_TTS_VERIFY_SSL = os.getenv('BYTEDANCE_TTS_VERIFY_SSL', 'true').lower() == 'true'
+
+Config.OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+Config.SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
+Config.SILICONFLOW_IMAGE_BASE_URL = "https://api.siliconflow.cn/v1/images/generations"
+Config.ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
+
+Config.DEFAULT_IMAGE_SIZE = "1664x928"
+Config.DEFAULT_VOICE = "zh_male_yuanboxiaoshu_moon_bigtts"
+Config.DEFAULT_OUTPUT_DIR = "output"
+
+Config.SUPPORTED_LLM_SERVERS = ["openrouter", "siliconflow"]
+Config.SUPPORTED_IMAGE_SERVERS = ["doubao", "siliconflow"]
+Config.SUPPORTED_TTS_SERVERS = ["bytedance"]
+Config.SUPPORTED_IMAGE_METHODS = ["keywords", "description"]
+
+Config.RECOMMENDED_MODELS = {
+    "llm": {
+        "openrouter": ["google/gemini-2.5-pro", "anthropic/claude-sonnet-4", "openai/gpt-5"],
+        "siliconflow": ["Qwen/Qwen2.5-72B-Instruct", "deepseek-ai/DeepSeek-V3"]
+    },
+    "image": {
+        "doubao": ["doubao-seedream-4-0-250828", "doubao-seedream-3-0-t2i-250415"],
+        "siliconflow": ["stabilityai/stable-diffusion-3-5-large", "black-forest-labs/FLUX.1-schnell"]
+    },
+    "voice": ["zh_male_yuanboxiaoshu_moon_bigtts", "zh_male_haoyuxiaoge_moon_bigtts", 
+             "zh_female_wenrouxiaoya_moon_bigtts", "zh_female_daimengchuanmei_moon_bigtts"]
+}
+
+Config.SUPPORTED_VIDEO_SIZES = {
+    "横屏16:9": ["1280x720", "1664x928", "1920x1080", "2560x1440"],
+    "竖屏9:16": ["720x1280", "1080x1920"],
+    "方形1:1": ["1024x1024", "1664x1664"],
+    "竖屏3:4": ["864x1152", "1536x2048", "2250x3000"]
+}
+
+Config.SUPPORTED_QWEN_IMAGE_SIZES = [
+    "1328x1328", "1664x928", "928x1664", "1472x1140", 
+    "1140x1472", "1584x1056", "1056x1584"
+]
+
+Config.SEEDREAM_V4_MIN_SIZE = (1280, 720)
+Config.SEEDREAM_V4_MAX_SIZE = (4096, 4096)
+Config.SEEDREAM_V3_MIN_SIZE = (512, 512)
+Config.SEEDREAM_V3_MAX_SIZE = (2048, 2048)
+
+Config.SERVER_TYPE_MAP = {
+    "llm_server": "llm",
+    "image_server": "image", 
+    "tts_server": "voice",
+    "text": "text"
+}
+
+Config.MIN_TARGET_LENGTH = 500
+Config.MAX_TARGET_LENGTH = 5000
+Config.MIN_NUM_SEGMENTS = 5
+Config.MAX_NUM_SEGMENTS = 50
+Config.SPEECH_SPEED_WPM = 250
+
+
+# ================================================================================
+#                           动态添加Config类方法
+# ================================================================================
+
+def _validate_api_keys_impl(cls) -> Dict[str, bool]:
+    """验证API密钥配置"""
+    return {
+        "openrouter": bool(cls.OPENROUTER_API_KEY),
+        "siliconflow": bool(cls.SILICONFLOW_KEY),
+        "seedream": bool(cls.SEEDREAM_API_KEY),
+        "bytedance_tts": bool(cls.BYTEDANCE_TTS_APPID and cls.BYTEDANCE_TTS_ACCESS_TOKEN)
+    }
+
+def _get_missing_keys_impl(cls) -> List[str]:
+    """获取缺失的必需API密钥"""
+    missing = []
+    key_status = cls.validate_api_keys()
+    
+    if not (key_status["openrouter"] or key_status["siliconflow"]):
+        missing.append("OPENROUTER_API_KEY 或 SILICONFLOW_KEY (至少一个)")
+    if not key_status["seedream"]:
+        missing.append("SEEDREAM_API_KEY")
+    if not key_status["bytedance_tts"]:
+        missing.append("BYTEDANCE_TTS_APPID 和 BYTEDANCE_TTS_ACCESS_TOKEN")
+    
+    return missing
+
+def _get_required_keys_for_config_impl(cls, llm_server: str, image_server: str, tts_server: str) -> List[str]:
+    """根据服务配置返回所需的API密钥列表"""
+    required_keys = []
+    
+    if llm_server == "openrouter":
+        required_keys.append("OPENROUTER_API_KEY")
+    elif llm_server == "siliconflow":
+        required_keys.append("SILICONFLOW_KEY")
+    
+    if image_server == "doubao":
+        required_keys.append("SEEDREAM_API_KEY")
+    elif image_server == "siliconflow":
+        if "SILICONFLOW_KEY" not in required_keys:
+            required_keys.append("SILICONFLOW_KEY")
+    
+    if tts_server == "bytedance":
+        required_keys.append("BYTEDANCE_TTS_APPID")
+        required_keys.append("BYTEDANCE_TTS_ACCESS_TOKEN")
+    
+    return required_keys
+
+def _validate_image_size_impl(cls, size: str, model: str) -> bool:
+    """验证图像尺寸是否符合模型要求"""
+    if not size or 'x' not in size:
+        return False
+    
+    try:
+        width, height = map(int, size.split('x'))
+    except ValueError:
+        return False
+    
+    if "Qwen" in model or "qwen" in model:
+        return size in cls.SUPPORTED_QWEN_IMAGE_SIZES
+    
+    if "doubao" in model.lower():
+        if "seedream-4" in model.lower():
+            return 1280 <= width <= 4096 and 720 <= height <= 4096
+        elif "seedream-3" in model.lower():
+            return 512 <= width <= 2048 and 512 <= height <= 2048
+    
+    return True
+
+def _validate_parameters_impl(
+    cls,
+    target_length: int,
+    num_segments: int,
+    llm_server: str,
+    image_server: str,
+    tts_server: str,
+    image_model: str,
+    image_size: str,
+    images_method: str = None,
+) -> None:
+    """验证所有参数的有效性"""
+    
+    if not cls.MIN_TARGET_LENGTH <= target_length <= cls.MAX_TARGET_LENGTH:
+        raise ValueError(f"target_length必须在{cls.MIN_TARGET_LENGTH}-{cls.MAX_TARGET_LENGTH}之间")
+    
+    if not cls.MIN_NUM_SEGMENTS <= num_segments <= cls.MAX_NUM_SEGMENTS:
+        raise ValueError(f"num_segments必须在{cls.MIN_NUM_SEGMENTS}-{cls.MAX_NUM_SEGMENTS}之间")
+    
+    if llm_server not in cls.SUPPORTED_LLM_SERVERS:
+        raise ValueError(f"不支持的LLM服务商: {llm_server}，支持的服务商: {cls.SUPPORTED_LLM_SERVERS}")
+    
+    if image_server not in cls.SUPPORTED_IMAGE_SERVERS:
+        raise ValueError(f"不支持的图像服务商: {image_server}，支持的服务商: {cls.SUPPORTED_IMAGE_SERVERS}")
+    
+    if tts_server not in cls.SUPPORTED_TTS_SERVERS:
+        raise ValueError(f"不支持的TTS服务商: {tts_server}，支持的服务商: {cls.SUPPORTED_TTS_SERVERS}")
+    
+    if images_method and images_method not in cls.SUPPORTED_IMAGE_METHODS:
+        raise ValueError(f"不支持的图像生成方法: {images_method}，支持的方法: {cls.SUPPORTED_IMAGE_METHODS}")
+    
+    if not cls.validate_image_size(image_size, image_model):
+        raise ValueError(
+            f"图像尺寸 {image_size} 不符合模型 {image_model} 的要求。\n"
+            f"Qwen模型支持的固定尺寸: {cls.SUPPORTED_QWEN_IMAGE_SIZES}\n"
+            f"Doubao-4模型支持: 1280x720 到 4096x4096 之间的任意尺寸\n"
+            f"Doubao-3模型支持: 512x512 到 2048x2048 之间的任意尺寸"
+        )
+
+# 将方法绑定到Config类
+Config.validate_api_keys = classmethod(_validate_api_keys_impl)
+Config.get_missing_keys = classmethod(_get_missing_keys_impl)
+Config.get_required_keys_for_config = classmethod(_get_required_keys_for_config_impl)
+Config.validate_image_size = classmethod(_validate_image_size_impl)
+Config.validate_parameters = classmethod(_validate_parameters_impl)
+
+
+# 创建全局配置实例
+config = Config()

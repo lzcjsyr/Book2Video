@@ -1,29 +1,32 @@
 """
-Minimal pipeline runner to simplify main.py.
-Implements an auto end-to-end flow using existing core modules.
+视频生成流程管理模块
+实现完整的端到端视频制作流程，协调所有核心模块
 
-调用关系:
-- cli/__main__.py: 通过VideoPipeline类执行完整的视频制作流程
-- web/backend/app.py: 在后台任务中使用VideoPipeline执行视频制作
-- 作为系统的核心编排模块，协调所有其他核心模块完成5步处理流程
-- 调用core/routers.py的文档读取、智能总结、要点提取功能
-- 调用core/media.py的图像生成、语音合成、视频合成功能
-- 调用core/document_processor.py导出DOCX文档
+主要功能:
+- 全自动模式（run_auto）：一键完成从文档到视频的全流程
+- 分步模式（run_step_1 到 run_step_6）：支持逐步执行和断点续制
+- 调用 core.text 模块进行文本处理（总结、切分、关键词提取）
+- 调用 core.media 模块进行多媒体生成（图像、语音）
+- 调用 core.video_composer 进行视频合成
+- 调用 core.document_processor 导出可编辑文档
 """
 
 import os
 import json
 import datetime
 from typing import Dict, Any, List, Optional
+import warnings
 
 from config import config, Config
 from core.utils import load_json_file, logger
 from core.document_processor import export_raw_to_docx
-from core.routers import (
-    read_document,
+from core.document_reader import DocumentReader
+from core.text import (
     intelligent_summarize,
     extract_keywords,
     generate_description_summary,
+    process_raw_to_script,
+    export_plain_text_segments,
 )
 from core.media import (
     generate_opening_image,
@@ -34,6 +37,8 @@ from core.media import (
 from core.video_composer import VideoComposer
 from core.services import text_to_audio_bytedance
 from core.validators import auto_detect_server_from_model
+from core.project_paths import ProjectPaths
+from core.generation_config import VideoGenerationConfig, StepExecutionConfig
 
 
 def _initialize_project(raw_data: Dict[str, Any], output_dir: str) -> tuple:
@@ -44,22 +49,23 @@ def _initialize_project(raw_data: Dict[str, Any], output_dir: str) -> tuple:
     project_folder = f"{raw_title}_{time_suffix}"
     project_output_dir = os.path.join(output_dir, project_folder)
 
-    os.makedirs(project_output_dir, exist_ok=True)
-    os.makedirs(os.path.join(project_output_dir, "images"), exist_ok=True)
-    os.makedirs(os.path.join(project_output_dir, "voice"), exist_ok=True)
-    os.makedirs(os.path.join(project_output_dir, "text"), exist_ok=True)
+    # 使用 ProjectPaths 管理路径
+    paths = ProjectPaths(project_output_dir)
+    paths.ensure_dirs_exist()
 
-    raw_json_path = os.path.join(project_output_dir, 'text', 'raw.json')
-    with open(raw_json_path, 'w', encoding='utf-8') as f:
+    # 保存 raw.json
+    with open(paths.raw_json(), 'w', encoding='utf-8') as f:
         json.dump(raw_data, f, ensure_ascii=False, indent=2)
 
-    raw_docx_path = os.path.join(project_output_dir, 'text', 'raw.docx')
+    # 导出 raw.docx
+    raw_docx_path = None
     try:
-        export_raw_to_docx(raw_data, raw_docx_path)
+        export_raw_to_docx(raw_data, paths.raw_docx())
+        raw_docx_path = paths.raw_docx()
     except Exception:
-        raw_docx_path = None
+        pass
 
-    return project_output_dir, raw_json_path, raw_docx_path
+    return project_output_dir, paths.raw_json(), raw_docx_path
 
 
 def _resolve_bgm_audio_path(bgm_filename: Optional[str], project_root: str) -> Optional[str]:
@@ -196,92 +202,79 @@ def _resolve_description_source_text(
     return ""
 
 
-
-def run_auto(
-    input_file: str,
-    output_dir: str,
-    target_length: int,
-    num_segments: int,
-    image_size: str,
-    llm_server: str,
-    llm_model: str,
-    image_server: str,
-    image_model: str,
-    tts_server: str,
-    voice: str,
-    image_style_preset: str,
-    opening_image_style: str,
-    images_method: str,
-    enable_subtitles: bool,
-    *,
-    bgm_filename: Optional[str] = None,
-    opening_quote: bool = True,
-    video_size: Optional[str] = None,
-    cover_image_size: Optional[str] = None,
-    cover_image_model: Optional[str] = None,
-    cover_image_style: Optional[str] = None,
-    cover_image_count: int = 1,
-    speed_ratio: float = 1.0,
-    loudness_ratio: float = 1.0,
-) -> Dict[str, Any]:
+def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
+    """
+    全自动视频生成流程
+    
+    Args:
+        config: 视频生成配置对象
+        
+    Returns:
+        Dict[str, Any]: 处理结果
+    """
     start_time = datetime.datetime.now()
-
     project_root = os.path.dirname(os.path.dirname(__file__))
-    images_method = images_method or getattr(config, "SUPPORTED_IMAGE_METHODS", ["keywords"])[0]
 
     # 1) 读取文档
-    document_content, original_length = read_document(input_file)
+    reader = DocumentReader()
+    document_content, original_length = reader.read(config.input_file)
 
-    # 2) 智能缩写（原始数据）
+    # 2) 智能缩写（原始数据）- 使用步骤1的LLM配置
     raw_data = intelligent_summarize(
-        llm_server, llm_model, document_content, target_length, num_segments
+        config.llm_server_step1,
+        config.llm_model_step1,
+        document_content,
+        config.target_length,
+        config.num_segments
     )
 
     # 3) 创建输出目录结构
-    project_output_dir, _, _ = _initialize_project(raw_data, output_dir)
-    voice_dir = os.path.join(project_output_dir, "voice")
+    project_output_dir, _, _ = _initialize_project(raw_data, config.output_dir)
+    paths = ProjectPaths(project_output_dir)
 
-    # 5) 步骤1.5：段落切分
-    step15 = run_step_1_5(project_output_dir, num_segments, is_new_project=True, raw_data=raw_data, auto_mode=True)
+    # 4) 步骤1.5：段落切分
+    step15 = run_step_1_5(project_output_dir, config.num_segments, is_new_project=True, raw_data=raw_data, auto_mode=True)
     if not step15.get("success"):
         return {"success": False, "message": step15.get("message", "步骤1.5处理失败")}
     script_data = step15.get("script_data")
     script_path = step15.get("script_path")
 
-    # 6) 生成第二阶段产物（关键词或描述）
+    # 5) 生成第二阶段产物（关键词或描述）
     keywords_data: Optional[Dict[str, Any]] = None
     keywords_path: Optional[str] = None
     description_data: Optional[Dict[str, Any]] = None
     description_path: Optional[str] = None
 
-    if images_method == 'description':
+    if config.images_method == 'description':
         description_source = _resolve_description_source_text(
             project_output_dir, raw_data=raw_data
         )
         description_data = generate_description_summary(
-            llm_server, llm_model, description_source, max_chars=200
+            config.llm_server_step2, config.llm_model_step2, description_source, max_chars=200
         )
-        description_path = os.path.join(project_output_dir, 'text', 'mini_summary.json')
+        description_path = paths.mini_summary_json()
         with open(description_path, 'w', encoding='utf-8') as f:
             json.dump(description_data, f, ensure_ascii=False, indent=2)
     else:
-        keywords_data = extract_keywords(llm_server, llm_model, script_data)
-        keywords_path = os.path.join(project_output_dir, 'text', 'keywords.json')
+        keywords_data = extract_keywords(config.llm_server_step2, config.llm_model_step2, script_data)
+        keywords_path = paths.keywords_json()
         with open(keywords_path, 'w', encoding='utf-8') as f:
             json.dump(keywords_data, f, ensure_ascii=False, indent=2)
 
-    # 7) 生成开场图像（可选）& 段落图像
-    images_dir = os.path.join(project_output_dir, 'images')
+    # 6) 生成开场图像（可选）& 段落图像
     opening_image_path = generate_opening_image(
-        image_server, image_model, opening_image_style, image_size, images_dir, opening_quote
+        config.image_server, config.image_model,
+        config.opening_image_style, config.image_size,
+        paths.images, config.opening_quote
     )
     image_result = generate_images_for_segments(
-        image_server, image_model, script_data, image_style_preset, image_size, images_dir,
-        images_method=images_method,
+        config.image_server, config.image_model, script_data,
+        config.image_style_preset, config.image_size, paths.images,
+        images_method=config.images_method,
         keywords_data=keywords_data,
         description_data=description_data,
-        llm_model=llm_model,
-        llm_server=llm_server,
+        llm_model=config.llm_model_step2,
+        llm_server=config.llm_server_step2,
     )
     image_paths: List[str] = image_result.get('image_paths', [])
     failed_image_segments: List[int] = image_result.get('failed_segments', [])
@@ -297,61 +290,61 @@ def run_auto(
             'image_paths': image_paths,
         }
 
-    # 8) 语音合成（含SRT导出）
+    # 7) 语音合成（含SRT导出）
     audio_paths = synthesize_voice_for_segments(
-        tts_server,
-        voice,
+        config.tts_server,
+        config.voice,
         script_data,
-        voice_dir,
-        speed_ratio=speed_ratio,
-        loudness_ratio=loudness_ratio,
+        paths.voice,
+        speed_ratio=config.speed_ratio,
+        loudness_ratio=config.loudness_ratio,
     )
 
-    # 9) BGM路径解析
-    bgm_audio_path = _resolve_bgm_audio_path(bgm_filename, project_root)
+    # 8) BGM路径解析
+    bgm_audio_path = _resolve_bgm_audio_path(config.bgm_filename, project_root)
 
-    # 10) 开场金句口播（可选）
+    # 9) 开场金句口播（可选）
     opening_golden_quote = (script_data or {}).get("golden_quote", "")
     opening_narration_audio_path = _invoke_opening_narration(
         script_data,
-        voice_dir,
-        voice,
-        opening_quote,
-        speed_ratio=speed_ratio,
-        loudness_ratio=loudness_ratio,
+        paths.voice,
+        config.voice,
+        config.opening_quote,
+        speed_ratio=config.speed_ratio,
+        loudness_ratio=config.loudness_ratio,
     )
 
-    # 11) 视频合成
+    # 10) 视频合成
     composer = VideoComposer()
     final_video_path = composer.compose_video(
-        image_paths, audio_paths, f"{project_output_dir}/final_video.mp4",
-        script_data=script_data, enable_subtitles=enable_subtitles,
+        image_paths, audio_paths, paths.final_video(),
+        script_data=script_data, enable_subtitles=config.enable_subtitles,
         bgm_audio_path=bgm_audio_path,
         opening_image_path=opening_image_path,
         opening_golden_quote=opening_golden_quote,
         opening_narration_audio_path=opening_narration_audio_path,
         bgm_volume=float(getattr(config, "BGM_DEFAULT_VOLUME", 0.2)),
         narration_volume=float(getattr(config, "NARRATION_DEFAULT_VOLUME", 1.0)),
-        image_size=(video_size or image_size),
-        opening_quote=opening_quote,
+        image_size=config.get_effective_video_size(),
+        opening_quote=config.opening_quote,
     )
 
-    # 12) 封面图像生成
+    # 11) 封面图像生成
     cover_result = None
     try:
         cover_result = _run_cover_generation(
             project_output_dir,
-            cover_image_size or image_size,
-            cover_image_model or image_model,
-            cover_image_style or "cover01",
-            max(1, int(cover_image_count or 1)),
+            config.get_effective_cover_size(),
+            config.get_effective_cover_model(),
+            config.cover_image_style,
+            max(1, int(config.cover_image_count)),
             script_data,
             raw_data,
         )
     except Exception as e:
         logger.warning(f"封面生成失败: {e}")
 
-    # 13) 汇总结果
+    # 12) 汇总结果
     end_time = datetime.datetime.now()
     execution_time = (end_time - start_time).total_seconds()
     compression_ratio = (1 - (script_data['total_length'] / original_length)) * 100 if original_length > 0 else 0.0
@@ -365,7 +358,7 @@ def run_auto(
             'total_length': script_data['total_length'],
             'segments_count': script_data['actual_segments'],
         },
-        'images_method': images_method,
+        'images_method': config.images_method,
         'images': image_paths,
         'audio_files': audio_paths,
         'final_video': final_video_path,
@@ -403,7 +396,16 @@ def run_auto(
     return result
 
 
-__all__ = ["run_auto"]
+__all__ = [
+    "run_auto",
+    "run_step_1",
+    "run_step_1_5",
+    "run_step_2",
+    "run_step_3",
+    "run_step_4",
+    "run_step_5",
+    "run_step_6",
+]
 
 
 # -------------------- Step-wise pipeline (for CLI step mode) --------------------
@@ -416,7 +418,8 @@ def run_step_1(
     target_length: int,
     num_segments: int,
 ) -> Dict[str, Any]:
-    document_content, _ = read_document(input_file)
+    reader = DocumentReader()
+    document_content, _ = reader.read(input_file)
     raw_data = intelligent_summarize(llm_server, llm_model, document_content, target_length, num_segments)
 
     project_output_dir, raw_json_path, raw_docx_path = _initialize_project(raw_data, output_dir)
@@ -447,11 +450,12 @@ def run_step_1_5(project_output_dir: str, num_segments: int, is_new_project: boo
     try:
         print("正在处理原始内容为脚本...")
         
-        # 构建文件路径
-        raw_json_path = os.path.join(project_output_dir, 'text', 'raw.json')
-        raw_docx_path = os.path.join(project_output_dir, 'text', 'raw.docx')
-        script_path = os.path.join(project_output_dir, 'text', 'script.json')
-        script_docx_path = os.path.join(project_output_dir, 'text', 'script.docx')
+        # 使用 ProjectPaths 管理路径
+        paths = ProjectPaths(project_output_dir)
+        raw_json_path = paths.raw_json()
+        raw_docx_path = paths.raw_docx()
+        script_path = paths.script_json()
+        script_docx_path = paths.script_docx()
         
         # 获取原始数据
         if is_new_project and raw_data is not None:
@@ -513,7 +517,6 @@ def run_step_1_5(project_output_dir: str, num_segments: int, is_new_project: boo
                 pass  # 如果无法显示选择界面，使用默认值
 
         # 处理为分段脚本数据
-        from core.routers import process_raw_to_script
         target_segments = updated_raw_data.get("target_segments", num_segments)
         script_data = process_raw_to_script(updated_raw_data, target_segments, split_mode)
         
@@ -528,6 +531,16 @@ def run_step_1_5(project_output_dir: str, num_segments: int, is_new_project: boo
             print(f"阅读版DOCX已保存到: {script_docx_path}")
         except Exception as e:
             print(f"⚠️  生成script.docx失败: {e}")
+        
+        # 生成纯文本分段文件（使用与SRT相同的文本切分逻辑）
+        try:
+            # 从config获取字幕配置中的max_chars_per_line参数
+            max_chars_per_line = config.SUBTITLE_MAX_CHARS_PER_LINE
+            txt_path = export_plain_text_segments(script_data, paths.text, max_chars_per_line)
+            print(f"✅ 纯文本分段文件已保存到: {txt_path}")
+        except Exception as e:
+            print(f"⚠️  生成纯文本分段文件失败: {e}")
+            logger.warning(f"生成纯文本分段文件失败: {e}")
         
         logger.info(f"步骤1.5处理完成: {script_path}")
         return {
@@ -549,31 +562,31 @@ def run_step_2(
     script_path: str = None,
     images_method: str = "keywords",
 ) -> Dict[str, Any]:
+    # 使用 ProjectPaths 管理路径
+    paths = ProjectPaths(project_output_dir)
+    
     # 加载脚本数据（注意：如果频繁调用，考虑添加缓存机制）
-    script_data = load_json_file(script_path) if script_path else load_json_file(
-        os.path.join(project_output_dir, 'text', 'script.json')
-    )
+    script_data = load_json_file(script_path) if script_path else load_json_file(paths.script_json())
     if script_data is None:
         return {"success": False, "message": "未找到脚本数据，请先完成步骤1.5"}
 
     images_method = images_method or getattr(config, "SUPPORTED_IMAGE_METHODS", ["keywords"])[0]
 
     if images_method == "description":
-        raw_path = os.path.join(project_output_dir, 'text', 'raw.json')
-        raw_data = load_json_file(raw_path) if os.path.exists(raw_path) else None
+        raw_data = load_json_file(paths.raw_json()) if os.path.exists(paths.raw_json()) else None
         description_source = _resolve_description_source_text(
             project_output_dir, raw_data=raw_data, script_data=script_data
         )
         description_data = generate_description_summary(
             llm_server, llm_model, description_source or "", max_chars=200
         )
-        description_path = os.path.join(project_output_dir, 'text', 'mini_summary.json')
+        description_path = paths.mini_summary_json()
         with open(description_path, 'w', encoding='utf-8') as f:
             json.dump(description_data, f, ensure_ascii=False, indent=2)
         return {"success": True, "mini_summary_path": description_path}
 
     keywords_data = extract_keywords(llm_server, llm_model, script_data)
-    keywords_path = os.path.join(project_output_dir, 'text', 'keywords.json')
+    keywords_path = paths.keywords_json()
     with open(keywords_path, 'w', encoding='utf-8') as f:
         json.dump(keywords_data, f, ensure_ascii=False, indent=2)
     return {"success": True, "keywords_path": keywords_path}
@@ -593,11 +606,11 @@ def run_step_3(
     llm_model: Optional[str] = None,
     llm_server: Optional[str] = None,
 ) -> Dict[str, Any]:
-    images_dir = os.path.join(project_output_dir, 'images')
-    os.makedirs(images_dir, exist_ok=True)
+    # 使用 ProjectPaths 管理路径
+    paths = ProjectPaths(project_output_dir)
+    paths.ensure_dirs_exist()
 
-    script_path = os.path.join(project_output_dir, 'text', 'script.json')
-    script_data = load_json_file(script_path)
+    script_data = load_json_file(paths.script_json())
     if script_data is None:
         return {"success": False, "message": "未找到脚本数据，请先完成步骤1.5"}
 
@@ -630,25 +643,23 @@ def run_step_3(
     keywords_data = None
     description_data = None
     if images_method == 'description':
-        description_path = os.path.join(project_output_dir, 'text', 'mini_summary.json')
-        description_data = load_json_file(description_path)
+        description_data = load_json_file(paths.mini_summary_json())
         if description_data is None:
             return {"success": False, "message": "未找到描述小结，请先执行步骤2生成描述"}
     else:
-        keywords_path = os.path.join(project_output_dir, 'text', 'keywords.json')
-        keywords_data = load_json_file(keywords_path)
+        keywords_data = load_json_file(paths.keywords_json())
         if keywords_data is None:
             return {"success": False, "message": "未找到关键词数据，请先执行步骤2生成关键词"}
 
     opening_image_path = None
-    opening_image_file = os.path.join(images_dir, 'opening.png')
+    opening_image_file = paths.opening_image()
     opening_previously_exists = os.path.exists(opening_image_file)
     opening_regenerated = False
     if opening_quote:
         need_refresh = regenerate_opening or not opening_previously_exists
         if need_refresh:
             opening_image_path = generate_opening_image(
-                image_server, image_model, opening_image_style, image_size, images_dir, opening_quote
+                image_server, image_model, opening_image_style, image_size, paths.images, opening_quote
             )
             opening_regenerated = bool(opening_image_path)
         elif opening_previously_exists:
@@ -665,7 +676,7 @@ def run_step_3(
             script_data,
             image_style_preset,
             image_size,
-            images_dir,
+            paths.images,
             images_method=images_method,
             keywords_data=keywords_data,
             description_data=description_data,
@@ -676,7 +687,7 @@ def run_step_3(
     else:
         image_paths = []
         for idx in range(1, total_segments + 1):
-            segment_path = os.path.join(images_dir, f"segment_{idx}.png")
+            segment_path = paths.segment_image(idx)
             image_paths.append(segment_path if os.path.exists(segment_path) else "")
         image_result = {
             'image_paths': image_paths,
@@ -733,12 +744,11 @@ def run_step_4(
     speed_ratio: float = 1.0,
     loudness_ratio: float = 1.0,
 ) -> Dict[str, Any]:
-    # 确保必要的文件夹存在
-    voice_dir = os.path.join(project_output_dir, 'voice')
-    os.makedirs(voice_dir, exist_ok=True)
+    # 使用 ProjectPaths 管理路径
+    paths = ProjectPaths(project_output_dir)
+    paths.ensure_dirs_exist()
 
-    script_path = os.path.join(project_output_dir, 'text', 'script.json')
-    script_data = load_json_file(script_path)
+    script_data = load_json_file(paths.script_json())
     if script_data is None:
         return {"success": False, "message": "未找到脚本数据，请先完成步骤1.5"}
 
@@ -768,17 +778,17 @@ def run_step_4(
         tts_server,
         voice,
         script_data,
-        voice_dir,
+        paths.voice,
         target_segments=generation_targets,
         speed_ratio=speed_ratio,
         loudness_ratio=loudness_ratio,
     )
 
-    opening_audio_file = os.path.join(voice_dir, 'opening.wav')
+    opening_audio_file = paths.opening_audio()
     opening_previously_exists = os.path.exists(opening_audio_file)
     narration_path = _invoke_opening_narration(
         script_data,
-        voice_dir,
+        paths.voice,
         voice,
         opening_quote,
         announce=True,
@@ -827,15 +837,15 @@ def run_step_5(
     loudness_ratio: float = 1.0,
 ) -> Dict[str, Any]:
     project_root = os.path.dirname(os.path.dirname(__file__))
-    images_dir = os.path.join(project_output_dir, 'images')
-    voice_dir = os.path.join(project_output_dir, 'voice')
-    script_path = os.path.join(project_output_dir, 'text', 'script.json')
+    
+    # 使用 ProjectPaths 管理路径
+    paths = ProjectPaths(project_output_dir)
 
     # 前置检查：确保必要文件存在
-    if not os.path.exists(script_path):
+    if not os.path.exists(paths.script_json()):
         return {"success": False, "message": "脚本文件不存在，请先完成步骤1.5"}
 
-    script_data = load_json_file(script_path)
+    script_data = load_json_file(paths.script_json())
     if not script_data:
         return {"success": False, "message": "脚本文件加载失败"}
 
@@ -843,13 +853,12 @@ def run_step_5(
     expected_segments = script_data.get('actual_segments', 0)
     image_count = 0
     for i in range(1, expected_segments + 1):
-        img_path = os.path.join(images_dir, f"segment_{i}.png")
-        if os.path.exists(img_path):
+        if paths.segment_image_exists(i):
             image_count += 1
         else:
             # 检查视频文件
             for ext in ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.m4v']:
-                vid_path = os.path.join(images_dir, f"segment_{i}{ext}")
+                vid_path = os.path.join(paths.images, f"segment_{i}{ext}")
                 if os.path.exists(vid_path):
                     image_count += 1
                     break
@@ -857,9 +866,7 @@ def run_step_5(
     # 检查音频文件
     audio_count = 0
     for i in range(1, expected_segments + 1):
-        audio_wav = os.path.join(voice_dir, f"voice_{i}.wav")
-        audio_mp3 = os.path.join(voice_dir, f"voice_{i}.mp3")
-        if os.path.exists(audio_wav) or os.path.exists(audio_mp3):
+        if paths.segment_audio_exists(i):
             audio_count += 1
 
     if image_count == 0:
@@ -875,35 +882,32 @@ def run_step_5(
     image_paths = []
     for i in range(1, script_data.get('actual_segments', 0) + 1):
         # 检查图片文件
-        img_path = os.path.join(images_dir, f"segment_{i}.png")
+        img_path = paths.segment_image(i)
         if os.path.exists(img_path):
             image_paths.append(img_path)
             continue
         # 检查视频文件
         for ext in ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.m4v']:
-            vid_path = os.path.join(images_dir, f"segment_{i}{ext}")
+            vid_path = os.path.join(paths.images, f"segment_{i}{ext}")
             if os.path.exists(vid_path):
                 image_paths.append(vid_path)
                 break
+    
     audio_paths = []
     for i in range(1, script_data.get('actual_segments', 0) + 1):
-        audio_wav = os.path.join(voice_dir, f"voice_{i}.wav")
-        audio_mp3 = os.path.join(voice_dir, f"voice_{i}.mp3")
-        if os.path.exists(audio_wav):
-            audio_paths.append(audio_wav)
-        elif os.path.exists(audio_mp3):
-            audio_paths.append(audio_mp3)
+        audio_path = paths.segment_audio_exists(i)
+        if audio_path:
+            audio_paths.append(audio_path)
 
     # BGM
     bgm_audio_path = _resolve_bgm_audio_path(bgm_filename, project_root)
 
     # Opening assets
-    opening_image_candidate = os.path.join(images_dir, "opening.png")
-    opening_image_candidate = opening_image_candidate if os.path.exists(opening_image_candidate) else None
+    opening_image_candidate = paths.opening_image() if os.path.exists(paths.opening_image()) else None
     opening_golden_quote = (script_data or {}).get("golden_quote", "")
     opening_narration_audio_path = _invoke_opening_narration(
         script_data,
-        voice_dir,
+        paths.voice,
         voice,
         opening_quote,
         speed_ratio=speed_ratio,
@@ -912,7 +916,7 @@ def run_step_5(
 
     composer = VideoComposer()
     final_video_path = composer.compose_video(
-        image_paths, audio_paths, f"{project_output_dir}/final_video.mp4",
+        image_paths, audio_paths, paths.final_video(),
         script_data=script_data, enable_subtitles=enable_subtitles,
         bgm_audio_path=bgm_audio_path,
         opening_image_path=opening_image_candidate,
@@ -934,17 +938,17 @@ def run_step_6(
     cover_image_style: str,
     cover_image_count: int,
 ) -> Dict[str, Any]:
-    text_dir = os.path.join(project_output_dir, 'text')
-    raw_path = os.path.join(text_dir, 'raw.json')
-    if not os.path.exists(raw_path):
+    # 使用 ProjectPaths 管理路径
+    paths = ProjectPaths(project_output_dir)
+    
+    if not os.path.exists(paths.raw_json()):
         return {"success": False, "message": "缺少 raw.json，请先完成步骤1"}
 
-    raw_data = load_json_file(raw_path)
+    raw_data = load_json_file(paths.raw_json())
     if raw_data is None:
         return {"success": False, "message": "raw.json 加载失败"}
 
-    script_path = os.path.join(project_output_dir, 'text', 'script.json')
-    script_data = load_json_file(script_path) if os.path.exists(script_path) else None
+    script_data = load_json_file(paths.script_json()) if os.path.exists(paths.script_json()) else None
 
     try:
         cover_result = _run_cover_generation(

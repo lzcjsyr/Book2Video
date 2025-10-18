@@ -79,65 +79,60 @@ def check_directories() -> List[str]:
 def check_config_params() -> List[str]:
     """检查配置参数有效性"""
     issues = []
-    from config import DEFAULT_GENERATION_PARAMS
+    from config import (TARGET_LENGTH, NUM_SEGMENTS, IMAGE_SIZE, IMAGE_MODEL, 
+                       SPEED_RATIO, LOUDNESS_RATIO)
     
     print("\n⚙️  检查配置参数:")
     
     # 检查字数范围
-    target_length = DEFAULT_GENERATION_PARAMS.get("target_length", 0)
-    if not (Config.MIN_TARGET_LENGTH <= target_length <= Config.MAX_TARGET_LENGTH):
+    if not (Config.MIN_TARGET_LENGTH <= TARGET_LENGTH <= Config.MAX_TARGET_LENGTH):
         issues.append(
-            f"❌ target_length={target_length} 超出范围 "
+            f"❌ TARGET_LENGTH={TARGET_LENGTH} 超出范围 "
             f"[{Config.MIN_TARGET_LENGTH}, {Config.MAX_TARGET_LENGTH}]"
         )
     else:
-        print(f"✅ 目标字数: {target_length} (有效)")
+        print(f"✅ 目标字数: {TARGET_LENGTH} (有效)")
     
     # 检查分段数
-    num_segments = DEFAULT_GENERATION_PARAMS.get("num_segments", 0)
-    if not (Config.MIN_NUM_SEGMENTS <= num_segments <= Config.MAX_NUM_SEGMENTS):
+    if not (Config.MIN_NUM_SEGMENTS <= NUM_SEGMENTS <= Config.MAX_NUM_SEGMENTS):
         issues.append(
-            f"❌ num_segments={num_segments} 超出范围 "
+            f"❌ NUM_SEGMENTS={NUM_SEGMENTS} 超出范围 "
             f"[{Config.MIN_NUM_SEGMENTS}, {Config.MAX_NUM_SEGMENTS}]"
         )
     else:
-        print(f"✅ 分段数量: {num_segments} (有效)")
+        print(f"✅ 分段数量: {NUM_SEGMENTS} (有效)")
     
     # 检查图像尺寸
-    image_size = DEFAULT_GENERATION_PARAMS.get("image_size", "")
-    image_model = DEFAULT_GENERATION_PARAMS.get("image_model", "")
     try:
-        w, h = image_size.split("x")
+        w, h = IMAGE_SIZE.split("x")
         width, height = int(w), int(h)
         
         # 检查Seedream V4尺寸范围
-        if "seedream-4" in image_model.lower():
+        if "seedream-4" in IMAGE_MODEL.lower():
             min_w, min_h = Config.SEEDREAM_V4_MIN_SIZE
             max_w, max_h = Config.SEEDREAM_V4_MAX_SIZE
             if not (min_w <= width <= max_w and min_h <= height <= max_h):
                 issues.append(
-                    f"❌ 图像尺寸 {image_size} 超出Seedream V4范围 "
+                    f"❌ 图像尺寸 {IMAGE_SIZE} 超出Seedream V4范围 "
                     f"[{min_w}x{min_h}, {max_w}x{max_h}]"
                 )
             else:
-                print(f"✅ 图像尺寸: {image_size} (有效)")
+                print(f"✅ 图像尺寸: {IMAGE_SIZE} (有效)")
         else:
-            print(f"✅ 图像尺寸: {image_size}")
+            print(f"✅ 图像尺寸: {IMAGE_SIZE}")
     except Exception as e:
-        issues.append(f"❌ 图像尺寸格式错误: {image_size}")
+        issues.append(f"❌ 图像尺寸格式错误: {IMAGE_SIZE}")
     
     # 检查语速和音量
-    speed_ratio = DEFAULT_GENERATION_PARAMS.get("speed_ratio", 1.0)
-    if not (0.8 <= speed_ratio <= 2.0):
-        issues.append(f"⚠️  语速系数 {speed_ratio} 超出推荐范围 [0.8, 2.0]")
+    if not (0.8 <= SPEED_RATIO <= 2.0):
+        issues.append(f"⚠️  语速系数 {SPEED_RATIO} 超出推荐范围 [0.8, 2.0]")
     else:
-        print(f"✅ 语速系数: {speed_ratio}")
+        print(f"✅ 语速系数: {SPEED_RATIO}")
     
-    loudness_ratio = DEFAULT_GENERATION_PARAMS.get("loudness_ratio", 1.0)
-    if not (0.5 <= loudness_ratio <= 2.0):
-        issues.append(f"⚠️  音量系数 {loudness_ratio} 超出推荐范围 [0.5, 2.0]")
+    if not (0.5 <= LOUDNESS_RATIO <= 2.0):
+        issues.append(f"⚠️  音量系数 {LOUDNESS_RATIO} 超出推荐范围 [0.5, 2.0]")
     else:
-        print(f"✅ 音量系数: {loudness_ratio}")
+        print(f"✅ 音量系数: {LOUDNESS_RATIO}")
     
     return issues
 
@@ -174,7 +169,7 @@ def check_font_files() -> List[str]:
     composer = VideoComposer()
     
     # 检查字幕字体
-    subtitle_font = config.SUBTITLE_CONFIG.get("font_family")
+    subtitle_font = config.SUBTITLE_FONT_FAMILY
     resolved = composer.resolve_font_path(subtitle_font)
     if resolved:
         print(f"✅ 字幕字体: {resolved}")
@@ -182,7 +177,7 @@ def check_font_files() -> List[str]:
         issues.append(f"⚠️  警告: 未找到字幕字体 {subtitle_font}，将使用系统默认")
     
     # 检查开场金句字体
-    quote_font = getattr(config, "OPENING_QUOTE_STYLE", {}).get("font_family")
+    quote_font = config.OPENING_QUOTE_FONT_FAMILY
     if quote_font:
         resolved = composer.resolve_font_path(quote_font)
         if resolved:
@@ -196,22 +191,21 @@ def check_font_files() -> List[str]:
 def check_bgm_files() -> List[str]:
     """检查背景音乐文件"""
     issues = []
-    from config import DEFAULT_GENERATION_PARAMS
+    from config import BGM_FILENAME
     
     print("\n🎵 检查背景音乐:")
-    bgm_filename = DEFAULT_GENERATION_PARAMS.get("bgm_filename")
-    if not bgm_filename:
+    if not BGM_FILENAME:
         print("ℹ️  未配置背景音乐（可选）")
         return issues
     
     music_dir = project_root / "music"
-    bgm_path = music_dir / bgm_filename
+    bgm_path = music_dir / BGM_FILENAME
     
     if bgm_path.exists():
         size_mb = bgm_path.stat().st_size / (1024 * 1024)
-        print(f"✅ 背景音乐: {bgm_filename} ({size_mb:.1f}MB)")
+        print(f"✅ 背景音乐: {BGM_FILENAME} ({size_mb:.1f}MB)")
     else:
-        issues.append(f"⚠️  警告: 背景音乐文件不存在: {bgm_filename}")
+        issues.append(f"⚠️  警告: 背景音乐文件不存在: {BGM_FILENAME}")
     
     return issues
 
