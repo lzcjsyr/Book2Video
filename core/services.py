@@ -152,24 +152,34 @@ def text_to_audio_bytedance(
     output_filename,
     voice="zh_male_yuanboxiaoshu_moon_bigtts",
     encoding="wav",
-    speed_ratio: float = 1.0,
-    loudness_ratio: float = 1.0,
+    speech_rate: int = 0,
+    loudness_rate: int = 0,
+    bit_rate: int = 128000,
+    emotion: str = "neutral",
+    emotion_scale: int = 4,
+    mute_cut_remain_ms: int = 400,
+    mute_cut_threshold: int = 100,
 ):
     """
-    使用火山引擎TTS API进行语音合成（HTTP API）
-    
+    使用火山引擎TTS API进行语音合成（HTTP 单向流式接口）
+
     Args:
         text: 要合成的文本
         output_filename: 输出文件路径（.wav格式）
         voice: 音色ID
         encoding: 输出编码格式（保留参数，实际输出为wav）
-        speed_ratio: 语速调节系数 (0.8-2.0)
-        loudness_ratio: 音量调节系数 (0.5-2.0)
-    
+        speech_rate: 语速 (-50到100, 0=正常, 100=2倍速, -50=0.5倍速)
+        loudness_rate: 音量 (-50到100, 0=正常, 100=2倍音量, -50=0.5倍音量)
+        bit_rate: 音频比特率 (64000-140000)
+        emotion: 情感类型 (neutral, happy, sad等)
+        emotion_scale: 情感强度 (1-5)
+        mute_cut_remain_ms: 静音切除后保留的静音时长 (毫秒, 默认400)
+        mute_cut_threshold: 静音切除阈值 (默认100)
+
     Returns:
         bool: 成功返回True
     """
-    # 验证配置
+    # ============ 1. 验证配置 ============
     if not config.BYTEDANCE_TTS_APPID or not config.BYTEDANCE_TTS_ACCESS_TOKEN:
         raise APIError("字节语音合成配置不完整，请检查BYTEDANCE_TTS_APPID和BYTEDANCE_TTS_ACCESS_TOKEN")
     
@@ -177,22 +187,22 @@ def text_to_audio_bytedance(
     ACCESS_TOKEN = config.BYTEDANCE_TTS_ACCESS_TOKEN
     RESOURCE_ID = config.RESOURCE_ID
     
-    logger.info(f"使用火山引擎TTS HTTP API，资源ID: {RESOURCE_ID}，音色: {voice}，文本长度: {len(text)}字符")
+    # ============ 2. 参数验证和规范化 ============
+    speech_rate = max(-50, min(100, int(speech_rate or 0)))
+    loudness_rate = max(-50, min(100, int(loudness_rate or 0)))
+    bit_rate = max(64000, min(140000, int(bit_rate or 128000)))
+    emotion = str(emotion or "neutral")
+    emotion_scale = max(1, min(5, int(emotion_scale or 4)))
     
-    # 参数验证和规范化
-    try:
-        speed_ratio = max(0.8, min(2.0, float(speed_ratio)))
-    except Exception:
-        speed_ratio = 1.0
-    try:
-        loudness_ratio = max(0.5, min(2.0, float(loudness_ratio)))
-    except Exception:
-        loudness_ratio = 1.0
-    speed_ratio = round(speed_ratio, 1)
-    loudness_ratio = round(loudness_ratio, 1)
+    logger.info(
+        f"调用火山引擎TTS API - 资源: {RESOURCE_ID}, 音色: {voice}, "
+        f"文本长度: {len(text)}字符, 语速: {speech_rate}, 音量: {loudness_rate}, "
+        f"比特率: {bit_rate}, 情感: {emotion}({emotion_scale})"
+    )
     
-    # API端点和请求头
+    # ============ 3. 构建请求参数 ============
     url = "https://openspeech.bytedance.com/api/v3/tts/unidirectional"
+    
     headers = {
         "X-Api-App-Id": APPID,
         "X-Api-Access-Key": ACCESS_TOKEN,
@@ -200,45 +210,54 @@ def text_to_audio_bytedance(
         "Content-Type": "application/json"
     }
     
-    # 构建请求payload
+    # 构建 audio_params（音频参数）
+    audio_params = {
+        "format": "mp3",
+        "sample_rate": 24000,
+        "bit_rate": bit_rate,
+        "emotion": emotion,
+        "emotion_scale": emotion_scale,
+        "speech_rate": speech_rate,
+        "loudness_rate": loudness_rate
+    }
+    
+    # 构建 additions 参数（额外配置）
+    additions = {
+        "silence_duration": 0,  # 句尾静音时长（毫秒）
+        "mute_cut_remain_ms": mute_cut_remain_ms,  # 静音切除后保留的静音时长（毫秒）
+        "mute_cut_threshold": mute_cut_threshold  # 静音切除阈值
+    }
+    
+    # 完整的请求体结构
     payload = {
-        "user": {"uid": "aigc_video_user"},
+        "user": {
+            "uid": "aigc_video_user"
+        },
         "req_params": {
             "text": text,
             "speaker": voice,
-            "audio_params": {
-                "format": "mp3",
-                "sample_rate": 24000
-            }
+            "audio_params": audio_params,
+            "additions": json.dumps(additions)  # additions 需要序列化为 JSON 字符串
         }
     }
     
-    # 添加额外参数
-    additions = {
-        "silence_duration": 0,  # 避免句尾空白
-        "speed_ratio": speed_ratio,
-        "loudness_ratio": loudness_ratio,
-    }
-    
-    # TTS 2.0 需要显式指定语言
-    if RESOURCE_ID == "seed-tts-2.0":
-        additions["explicit_language"] = "zh-cn"
-    
-    payload["req_params"]["additions"] = json.dumps(additions)
-    
-    # 发起流式请求
+    # ============ 4. 发起 HTTP 流式请求 ============
     session = requests.Session()
     try:
         response = session.post(url, headers=headers, json=payload, stream=True, timeout=30)
         
+        # 检查响应状态
         if response.status_code != 200:
             error_text = response.text
-            logger.error(f"TTS API请求失败，状态码: {response.status_code}，错误: {error_text}")
+            logger.error(f"TTS API请求失败 - 状态码: {response.status_code}, 错误: {error_text}")
             raise APIError(f"TTS API请求失败: {error_text}")
         
-        # 接收音频数据
+        # 记录请求日志ID（用于排查问题）
+        logid = response.headers.get('X-Tt-Logid', 'N/A')
+        logger.debug(f"TTS 请求成功 - X-Tt-Logid: {logid}")
+        
+        # ============ 5. 接收音频流数据 ============
         audio_data = bytearray()
-        chunk_count = 0
         
         for chunk in response.iter_lines(decode_unicode=True):
             if not chunk:
@@ -247,55 +266,57 @@ def text_to_audio_bytedance(
             try:
                 data = json.loads(chunk)
             except json.JSONDecodeError:
-                logger.warning(f"无法解析响应chunk: {chunk[:100]}")
+                logger.warning(f"无法解析响应数据: {chunk[:100]}")
                 continue
             
             # 正常音频数据
             if data.get("code", 0) == 0 and "data" in data and data["data"]:
                 audio_data.extend(base64.b64decode(data["data"]))
-                chunk_count += 1
+                continue
+            
             # 结束标记
-            elif data.get("code", 0) == 20000000:
+            if data.get("code", 0) == 20000000:
                 break
-            # 错误
-            elif data.get("code", 0) > 0:
+            
+            # 错误响应
+            if data.get("code", 0) > 0:
                 error_msg = data.get("message", "未知错误")
-                logger.error(f"TTS API错误: {error_msg}")
+                logger.error(f"TTS API返回错误: code={data.get('code')}, message={error_msg}")
                 raise APIError(f"TTS API错误: {error_msg}")
         
         if not audio_data:
             raise APIError("未接收到音频数据")
         
-        # 确保输出目录存在
+        # ============ 6. 保存音频文件 ============
         from core.utils import ensure_directory_exists
         ensure_directory_exists(os.path.dirname(output_filename))
         
-        # 保存为临时mp3文件
+        # 先保存为临时 mp3 文件
         temp_mp3 = output_filename.rsplit('.', 1)[0] + '_temp.mp3'
         with open(temp_mp3, "wb") as f:
             f.write(audio_data)
         
-        # 转换为wav格式（如果需要）
+        # 根据需要转换为 wav 格式
         if encoding.lower() == "wav" or output_filename.lower().endswith('.wav'):
             try:
                 from moviepy.audio.io.AudioFileClip import AudioFileClip
                 audio_clip = AudioFileClip(temp_mp3)
                 audio_clip.write_audiofile(output_filename, codec='pcm_s16le', logger=None)
                 audio_clip.close()
-                # 删除临时mp3文件
                 os.remove(temp_mp3)
+                logger.info(f"语音合成成功 - 文件大小: {len(audio_data)/1024:.1f} KB, 已保存为 WAV: {output_filename}")
             except Exception as e:
-                logger.error(f"音频格式转换失败: {str(e)}")
-                # 如果转换失败，直接使用mp3
+                logger.error(f"MP3转WAV失败: {str(e)}, 保留MP3格式")
                 os.rename(temp_mp3, output_filename)
-                logger.warning(f"格式转换失败，保存为原始mp3格式: {output_filename}")
+                logger.warning(f"语音合成成功 - 文件大小: {len(audio_data)/1024:.1f} KB, 已保存为 MP3: {output_filename}")
         else:
-            # 不需要转换，直接重命名
             os.rename(temp_mp3, output_filename)
+            logger.info(f"语音合成成功 - 文件大小: {len(audio_data)/1024:.1f} KB, 已保存为 MP3: {output_filename}")
         
-        logger.info(f"语音合成成功，音频大小: {len(audio_data)/1024:.1f} KB，已保存: {output_filename}")
         return True
         
+    except APIError:
+        raise
     except Exception as e:
         logger.error(f"语音合成失败: {str(e)}")
         raise APIError(f"语音合成失败: {str(e)}")

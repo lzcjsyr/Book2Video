@@ -87,8 +87,13 @@ def _ensure_opening_narration(
     opening_quote: bool,
     announce: bool = False,
     force_regenerate: bool = False,
-    speed_ratio: float = 1.0,
-    loudness_ratio: float = 1.0,
+    speech_rate: int = 0,
+    loudness_rate: int = 0,
+    bit_rate: int = 128000,
+    emotion: str = "neutral",
+    emotion_scale: int = 4,
+    mute_cut_remain_ms: int = 400,
+    mute_cut_threshold: int = 100,
 ) -> Optional[str]:
     """Generate or reuse opening narration audio when required."""
     opening_golden_quote = (script_data or {}).get("golden_quote", "")
@@ -115,8 +120,13 @@ def _ensure_opening_narration(
             opening_path,
             voice=voice,
             encoding="wav",
-            speed_ratio=speed_ratio,
-            loudness_ratio=loudness_ratio,
+            speech_rate=speech_rate,
+            loudness_rate=loudness_rate,
+            bit_rate=bit_rate,
+            emotion=emotion,
+            emotion_scale=emotion_scale,
+            mute_cut_remain_ms=mute_cut_remain_ms,
+            mute_cut_threshold=mute_cut_threshold,
         )
         if ok:
             if announce:
@@ -138,8 +148,13 @@ def _invoke_opening_narration(
     *,
     announce: bool = False,
     force_regenerate: bool = False,
-    speed_ratio: float = 1.0,
-    loudness_ratio: float = 1.0,
+    speech_rate: int = 0,
+    loudness_rate: int = 0,
+    bit_rate: int = 128000,
+    emotion: str = "neutral",
+    emotion_scale: int = 4,
+    mute_cut_remain_ms: int = 400,
+    mute_cut_threshold: int = 100,
 ) -> Optional[str]:
     """Call _ensure_opening_narration with graceful fallback for legacy mocks."""
     func = _ensure_opening_narration
@@ -151,13 +166,18 @@ def _invoke_opening_narration(
             opening_quote,
             announce=announce,
             force_regenerate=force_regenerate,
-            speed_ratio=speed_ratio,
-            loudness_ratio=loudness_ratio,
+            speech_rate=speech_rate,
+            loudness_rate=loudness_rate,
+            bit_rate=bit_rate,
+            emotion=emotion,
+            emotion_scale=emotion_scale,
+            mute_cut_remain_ms=mute_cut_remain_ms,
+            mute_cut_threshold=mute_cut_threshold,
         )
     except TypeError as exc:
         message = str(exc)
         if "unexpected keyword argument" in message and (
-            "speed_ratio" in message or "loudness_ratio" in message
+            "speech_rate" in message or "loudness_rate" in message
         ):
             return func(
                 script_data,
@@ -296,8 +316,13 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         config.voice,
         script_data,
         paths.voice,
-        speed_ratio=config.speed_ratio,
-        loudness_ratio=config.loudness_ratio,
+        speech_rate=config.speech_rate,
+        loudness_rate=config.loudness_rate,
+        bit_rate=config.bit_rate,
+        emotion=config.emotion,
+        emotion_scale=config.emotion_scale,
+        mute_cut_remain_ms=config.mute_cut_remain_ms,
+        mute_cut_threshold=config.mute_cut_threshold,
     )
 
     # 8) BGM路径解析
@@ -310,8 +335,13 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         paths.voice,
         config.voice,
         config.opening_quote,
-        speed_ratio=config.speed_ratio,
-        loudness_ratio=config.loudness_ratio,
+        speech_rate=config.speech_rate,
+        loudness_rate=config.loudness_rate,
+        bit_rate=config.bit_rate,
+        emotion=config.emotion,
+        emotion_scale=config.emotion_scale,
+        mute_cut_remain_ms=config.mute_cut_remain_ms,
+        mute_cut_threshold=config.mute_cut_threshold,
     )
 
     # 10) 视频合成
@@ -472,7 +502,10 @@ def run_step_1_5(project_output_dir: str, num_segments: int, is_new_project: boo
                 current_raw_data = load_json_file(raw_json_path)
                 if current_raw_data is None:
                     return {"success": False, "message": f"无法加载 raw.json 文件: {raw_json_path}"}
-                num_segments = current_raw_data.get("target_segments", num_segments)
+                # 优先使用config.py传入的num_segments参数，而不是raw.json中的旧值
+                old_segments = current_raw_data.get("target_segments")
+                if old_segments and old_segments != num_segments:
+                    print(f"检测到分段数变更: {old_segments} → {num_segments}")
                 print(f"当前分段数: {num_segments}")
         
         # 尝试从编辑后的DOCX文件解析数据
@@ -484,9 +517,9 @@ def run_step_1_5(project_output_dir: str, num_segments: int, is_new_project: boo
                     print("已从编辑后的DOCX文件解析内容")
                     updated_raw_data = parsed_data
                     
-                    # 更新元数据但保留原始信息
+                    # 更新元数据但保留原始信息，使用传入的num_segments参数
                     updated_raw_data.update({
-                        "target_segments": current_raw_data.get("target_segments", num_segments),
+                        "target_segments": num_segments,
                         "created_time": current_raw_data.get("created_time"),
                         "model_info": current_raw_data.get("model_info", {}),
                         "total_length": len(updated_raw_data.get("content", ""))
@@ -516,9 +549,8 @@ def run_step_1_5(project_output_dir: str, num_segments: int, is_new_project: boo
             except:
                 pass  # 如果无法显示选择界面，使用默认值
 
-        # 处理为分段脚本数据
-        target_segments = updated_raw_data.get("target_segments", num_segments)
-        script_data = process_raw_to_script(updated_raw_data, target_segments, split_mode)
+        # 处理为分段脚本数据，使用config.py传入的num_segments
+        script_data = process_raw_to_script(updated_raw_data, num_segments, split_mode)
         
         # 保存script.json
         with open(script_path, 'w', encoding='utf-8') as f:
@@ -741,8 +773,13 @@ def run_step_4(
     opening_quote: bool = True,
     target_segments: Optional[List[int]] = None,
     regenerate_opening: bool = True,
-    speed_ratio: float = 1.0,
-    loudness_ratio: float = 1.0,
+    speech_rate: int = 0,
+    loudness_rate: int = 0,
+    bit_rate: int = 128000,
+    emotion: str = "neutral",
+    emotion_scale: int = 4,
+    mute_cut_remain_ms: int = 400,
+    mute_cut_threshold: int = 100,
 ) -> Dict[str, Any]:
     # 使用 ProjectPaths 管理路径
     paths = ProjectPaths(project_output_dir)
@@ -780,8 +817,13 @@ def run_step_4(
         script_data,
         paths.voice,
         target_segments=generation_targets,
-        speed_ratio=speed_ratio,
-        loudness_ratio=loudness_ratio,
+        speech_rate=speech_rate,
+        loudness_rate=loudness_rate,
+        bit_rate=bit_rate,
+        emotion=emotion,
+        emotion_scale=emotion_scale,
+        mute_cut_remain_ms=mute_cut_remain_ms,
+        mute_cut_threshold=mute_cut_threshold,
     )
 
     opening_audio_file = paths.opening_audio()
@@ -793,8 +835,13 @@ def run_step_4(
         opening_quote,
         announce=True,
         force_regenerate=regenerate_opening,
-        speed_ratio=speed_ratio,
-        loudness_ratio=loudness_ratio,
+        speech_rate=speech_rate,
+        loudness_rate=loudness_rate,
+        bit_rate=bit_rate,
+        emotion=emotion,
+        emotion_scale=emotion_scale,
+        mute_cut_remain_ms=mute_cut_remain_ms,
+        mute_cut_threshold=mute_cut_threshold,
     )
 
     opening_refreshed = bool(
@@ -833,8 +880,13 @@ def run_step_5(
     bgm_filename: str,
     voice: str,
     opening_quote: bool = True,
-    speed_ratio: float = 1.0,
-    loudness_ratio: float = 1.0,
+    speech_rate: int = 0,
+    loudness_rate: int = 0,
+    bit_rate: int = 128000,
+    emotion: str = "neutral",
+    emotion_scale: int = 4,
+    mute_cut_remain_ms: int = 400,
+    mute_cut_threshold: int = 100,
 ) -> Dict[str, Any]:
     project_root = os.path.dirname(os.path.dirname(__file__))
     
@@ -910,8 +962,13 @@ def run_step_5(
         paths.voice,
         voice,
         opening_quote,
-        speed_ratio=speed_ratio,
-        loudness_ratio=loudness_ratio,
+        speech_rate=speech_rate,
+        loudness_rate=loudness_rate,
+        bit_rate=bit_rate,
+        emotion=emotion,
+        emotion_scale=emotion_scale,
+        mute_cut_remain_ms=mute_cut_remain_ms,
+        mute_cut_threshold=mute_cut_threshold,
     )
 
     composer = VideoComposer()

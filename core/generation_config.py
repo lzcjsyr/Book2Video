@@ -36,8 +36,13 @@ class VideoGenerationConfig:
     # ==================== 语音合成配置 ====================
     tts_server: str = "bytedance"
     voice: str = "zh_male_yuanboxiaoshu_moon_bigtts"
-    speed_ratio: float = 1.0
-    loudness_ratio: float = 1.0
+    speech_rate: int = 0
+    loudness_rate: int = 0
+    bit_rate: int = 128000
+    emotion: str = "neutral"
+    emotion_scale: int = 4
+    mute_cut_remain_ms: int = 400
+    mute_cut_threshold: int = 100
     
     # ==================== 视频合成配置 ====================
     video_size: Optional[str] = None  # None 则使用 image_size
@@ -117,8 +122,13 @@ class StepExecutionConfig:
     images_method: Optional[str] = None
     tts_server: Optional[str] = None
     voice: Optional[str] = None
-    speed_ratio: float = 1.0
-    loudness_ratio: float = 1.0
+    speech_rate: int = 0
+    loudness_rate: int = 0
+    bit_rate: int = 128000
+    emotion: str = "neutral"
+    emotion_scale: int = 4
+    mute_cut_remain_ms: int = 400
+    mute_cut_threshold: int = 100
     enable_subtitles: bool = True
     bgm_filename: Optional[str] = None
     opening_quote: bool = True
@@ -163,8 +173,13 @@ class StepExecutionConfig:
             images_method=gen_config.images_method,
             tts_server=gen_config.tts_server,
             voice=gen_config.voice,
-            speed_ratio=gen_config.speed_ratio,
-            loudness_ratio=gen_config.loudness_ratio,
+            speech_rate=gen_config.speech_rate,
+            loudness_rate=gen_config.loudness_rate,
+            bit_rate=gen_config.bit_rate,
+            emotion=gen_config.emotion,
+            emotion_scale=gen_config.emotion_scale,
+            mute_cut_remain_ms=gen_config.mute_cut_remain_ms,
+            mute_cut_threshold=gen_config.mute_cut_threshold,
             enable_subtitles=gen_config.enable_subtitles,
             bgm_filename=gen_config.bgm_filename,
             opening_quote=gen_config.opening_quote,
