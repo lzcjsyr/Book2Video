@@ -311,7 +311,7 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         }
 
     # 7) 语音合成（含SRT导出）
-    audio_paths = synthesize_voice_for_segments(
+    voice_result = synthesize_voice_for_segments(
         config.tts_server,
         config.voice,
         script_data,
@@ -324,6 +324,7 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         mute_cut_remain_ms=config.mute_cut_remain_ms,
         mute_cut_threshold=config.mute_cut_threshold,
     )
+    audio_paths = voice_result.get("audio_paths", [])
 
     # 8) BGM路径解析
     bgm_audio_path = _resolve_bgm_audio_path(config.bgm_filename, project_root)
@@ -811,7 +812,7 @@ def run_step_4(
             }
 
     generation_targets = None if selected_segments is None else selected_segments
-    audio_paths = synthesize_voice_for_segments(
+    voice_result = synthesize_voice_for_segments(
         tts_server,
         voice,
         script_data,
@@ -825,6 +826,8 @@ def run_step_4(
         mute_cut_remain_ms=mute_cut_remain_ms,
         mute_cut_threshold=mute_cut_threshold,
     )
+    audio_paths = voice_result.get("audio_paths", [])
+    missing_segments = voice_result.get("missing_segments", [])
 
     opening_audio_file = paths.opening_audio()
     opening_previously_exists = os.path.exists(opening_audio_file)
@@ -869,6 +872,7 @@ def run_step_4(
         "success": True,
         "audio_paths": audio_paths,
         "processed_segments": processed_segments,
+        "missing_segments": missing_segments,
         "message": message,
     }
 

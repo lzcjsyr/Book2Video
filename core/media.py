@@ -583,7 +583,7 @@ def synthesize_voice_for_segments(
     emotion_scale: int = 4,
     mute_cut_remain_ms: int = 100,
     mute_cut_threshold: int = 400,
-) -> List[str]:
+) -> Dict[str, Any]:
     """
     为每个段落合成语音（支持多线程并发）
     """
@@ -655,7 +655,8 @@ def synthesize_voice_for_segments(
         else:
             print("本次未选择任何段落生成语音，保持现有音频。")
 
-        # 补全未处理段落的音频路径并进行完整性校验
+        # 补全未处理段落的音频路径（宽松模式：允许缺失）
+        missing_segments = []
         for idx in range(1, segment_count + 1):
             position = idx - 1
             if audio_paths[position]:
@@ -664,7 +665,12 @@ def synthesize_voice_for_segments(
             if existing:
                 audio_paths[position] = existing
             else:
-                raise ValueError(f"第{idx}段语音缺失，请先完成整体合成")
+                missing_segments.append(idx)
+
+        # 友好提示缺失的段落
+        if missing_segments:
+            missing_str = '、'.join(str(i) for i in missing_segments)
+            print(f"⚠️  第 {missing_str} 段语音缺失，视频合成前需补全")
 
         # 语音合成完成后，立即导出SRT字幕文件
         print("🎬 开始导出SRT字幕文件...")
@@ -674,7 +680,10 @@ def synthesize_voice_for_segments(
         except Exception as e:
             print(f"⚠️ SRT字幕导出失败: {e}")  # 非关键功能，失败不中断流程
 
-        return audio_paths
+        return {
+            "audio_paths": audio_paths,
+            "missing_segments": missing_segments
+        }
 
     except Exception as e:
         raise ValueError(f"语音合成错误: {e}")
