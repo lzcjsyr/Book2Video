@@ -620,7 +620,7 @@ class VideoComposer:
 
             # 优先尝试macOS硬件编码
             bitrate = '8M' if fps == 30 else '3M'
-            audio_bitrate = '192k'  # 使用192k减少二次编码损失（源音频为MP3 140k）
+            audio_bitrate = '256k'  # 提升到256k以匹配48kHz WAV无损源音频
             bufsize = '12M' if fps == 30 else '6M'
 
             width = int(getattr(final_video, "w", 0) or 0)
@@ -665,7 +665,7 @@ class VideoComposer:
         except Exception as e:
             print(f"⚠️ 硬件编码不可用或失败，回退到软件编码: {e}")
             # 回退到软件编码
-            audio_bitrate = '192k'  # 使用192k减少二次编码损失（源音频为MP3 140k）
+            audio_bitrate = '256k'  # 提升到256k以匹配48kHz WAV无损源音频
             crf = '20' if fps == 30 else '25'
             preset = 'medium'
             print("🎞️ 改用软件编码 (libx264) 导出视频…")
