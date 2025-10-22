@@ -51,13 +51,14 @@ VOICE = "S_MfnRsKLH1"                                  # 语音音色
 RESOURCE_ID = "seed-icl-2.0"                           # TTS资源ID: seed-tts-1.0, seed-tts-2.0, seed-icl-1.0, seed-icl-2.0
 
 # 音频参数配置
-TTS_BIT_RATE = 160000                                  # 音频比特率 (64000-160000, API限制最高160k, 建议使用最高值以获得最佳源音质)
 TTS_EMOTION = "neutral"                                # 情感: neutral(中性), happy(高兴), sad(悲伤)等
 TTS_EMOTION_SCALE = 4                                  # 情感强度 (1-5, 默认4)
 TTS_SPEECH_RATE = 20                                   # 语速 (-50到100, 0=正常, 100=2倍速, -50=0.5倍速, 默认0)
 TTS_LOUDNESS_RATE = 0                                  # 音量 (-50到100, 0=正常, 100=2倍音量, -50=0.5倍音量, 默认0)
-TTS_MUTE_CUT_REMAIN_MS = 100                           # 静音切除后保留时长 (毫秒, 默认100)
-TTS_MUTE_CUT_THRESHOLD = 400                           # 音量小于该值时判定为静音 (默认400)
+
+MUTE_CUT_THRESHOLD = 500                               # 静音判定阈值 (建议200-800, 0=禁用)
+MUTE_CUT_MIN_SILENCE_MS = 200                          # 最小静音长度 (毫秒, 只切除长于此值的静音, 建议100-500)
+MUTE_CUT_REMAIN_MS = 1                               # 静音切除后保留时长 (毫秒, 建议50-150)
 
 MAX_CONCURRENT_VOICE_SYNTHESIS = 5                     # 语音合成最大并发数
 
@@ -166,13 +167,13 @@ def get_generation_params() -> Dict[str, object]:
         "image_model": IMAGE_MODEL,
         "voice": VOICE,
         "resource_id": RESOURCE_ID,
-        "tts_bit_rate": TTS_BIT_RATE,
         "tts_emotion": TTS_EMOTION,
         "tts_emotion_scale": TTS_EMOTION_SCALE,
         "tts_speech_rate": TTS_SPEECH_RATE,
         "tts_loudness_rate": TTS_LOUDNESS_RATE,
-        "tts_mute_cut_remain_ms": TTS_MUTE_CUT_REMAIN_MS,
-        "tts_mute_cut_threshold": TTS_MUTE_CUT_THRESHOLD,
+        "mute_cut_threshold": MUTE_CUT_THRESHOLD,
+        "mute_cut_min_silence_ms": MUTE_CUT_MIN_SILENCE_MS,
+        "mute_cut_remain_ms": MUTE_CUT_REMAIN_MS,
         "output_dir": "output",
         "image_style_preset": IMAGE_STYLE_PRESET,
         "opening_image_style": OPENING_IMAGE_STYLE,
@@ -219,8 +220,8 @@ _USER_CONFIG_ATTRS = [
     # 并发控制
     'MAX_CONCURRENT_IMAGE_GENERATION', 'MAX_CONCURRENT_VOICE_SYNTHESIS',
     # TTS配置
-    'RESOURCE_ID', 'TTS_BIT_RATE', 'TTS_EMOTION', 'TTS_EMOTION_SCALE',
-    'TTS_SPEECH_RATE', 'TTS_LOUDNESS_RATE', 'TTS_MUTE_CUT_REMAIN_MS', 'TTS_MUTE_CUT_THRESHOLD',
+    'RESOURCE_ID', 'TTS_EMOTION', 'TTS_EMOTION_SCALE',
+    'TTS_SPEECH_RATE', 'TTS_LOUDNESS_RATE', 'MUTE_CUT_THRESHOLD', 'MUTE_CUT_MIN_SILENCE_MS', 'MUTE_CUT_REMAIN_MS',
 ]
 
 for _attr in _USER_CONFIG_ATTRS:

@@ -509,10 +509,10 @@ def _prompt_segment_generation_scope(
 def _run_specific_step(
     target_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
     image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
-    tts_server, voice, speech_rate, loudness_rate, bit_rate, emotion, emotion_scale, num_segments,
+    tts_server, voice, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
     enable_subtitles, bgm_filename,
     cover_image_size, cover_image_model, cover_image_style, cover_image_count, opening_quote=True,
-    mute_cut_remain_ms=400, mute_cut_threshold=100
+    mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100
 ):
     """执行指定步骤并返回结果"""
     from core.pipeline import run_step_1_5, run_step_2, run_step_3, run_step_4, run_step_5, run_step_6
@@ -579,11 +579,11 @@ def _run_specific_step(
                 regenerate_opening=selection.get("regenerate_opening", False),
                 speech_rate=speech_rate,
                 loudness_rate=loudness_rate,
-                bit_rate=bit_rate,
                 emotion=emotion,
                 emotion_scale=emotion_scale,
-                mute_cut_remain_ms=mute_cut_remain_ms,
                 mute_cut_threshold=mute_cut_threshold,
+                mute_cut_min_silence_ms=mute_cut_min_silence_ms,
+                mute_cut_remain_ms=mute_cut_remain_ms,
             )
         else:
             result = run_step_4(
@@ -593,11 +593,11 @@ def _run_specific_step(
                 opening_quote,
                 speech_rate=speech_rate,
                 loudness_rate=loudness_rate,
-                bit_rate=bit_rate,
                 emotion=emotion,
                 emotion_scale=emotion_scale,
-                mute_cut_remain_ms=mute_cut_remain_ms,
                 mute_cut_threshold=mute_cut_threshold,
+                mute_cut_min_silence_ms=mute_cut_min_silence_ms,
+                mute_cut_remain_ms=mute_cut_remain_ms,
             )
     elif target_step == 5:
         # 第五步允许与生图尺寸解耦，优先使用 video_size
@@ -610,11 +610,11 @@ def _run_specific_step(
             opening_quote,
             speech_rate=speech_rate,
             loudness_rate=loudness_rate,
-            bit_rate=bit_rate,
             emotion=emotion,
             emotion_scale=emotion_scale,
-            mute_cut_remain_ms=mute_cut_remain_ms,
             mute_cut_threshold=mute_cut_threshold,
+            mute_cut_min_silence_ms=mute_cut_min_silence_ms,
+            mute_cut_remain_ms=mute_cut_remain_ms,
         )
     elif target_step == 6:
         result = run_step_6(
@@ -633,10 +633,10 @@ def _run_specific_step(
 def _run_step_by_step_loop(
     project_output_dir, initial_step, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
     image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
-    tts_server, voice, speech_rate, loudness_rate, bit_rate, emotion, emotion_scale, num_segments,
+    tts_server, voice, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
     enable_subtitles, bgm_filename,
     cover_image_size, cover_image_model, cover_image_style, cover_image_count, opening_quote=True,
-    mute_cut_remain_ms=400, mute_cut_threshold=100
+    mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100
 ):
     """执行指定步骤，然后进入交互模式让用户选择下一步操作"""
     from core.project_scanner import detect_project_progress
@@ -646,10 +646,10 @@ def _run_step_by_step_loop(
         result = _run_specific_step(
             initial_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
             image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
-            tts_server, voice, speech_rate, loudness_rate, bit_rate, emotion, emotion_scale, num_segments,
+            tts_server, voice, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
             enable_subtitles, bgm_filename,
             cover_image_size, cover_image_model, cover_image_style, cover_image_count, opening_quote,
-            mute_cut_remain_ms, mute_cut_threshold
+            mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms
         )
         
         # 显示执行结果
@@ -684,10 +684,10 @@ def _run_step_by_step_loop(
         result = _run_specific_step(
             selected_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
             image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
-            tts_server, voice, speech_rate, loudness_rate, bit_rate, emotion, emotion_scale, num_segments,
+            tts_server, voice, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
             enable_subtitles, bgm_filename,
             cover_image_size, cover_image_model, cover_image_style, cover_image_count, opening_quote,
-            mute_cut_remain_ms, mute_cut_threshold
+            mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms
         )
         
         # 显示结果
@@ -718,13 +718,13 @@ def run_cli_main(
     image_model: str = _UNSET,
     voice: Optional[str] = _UNSET,
     resource_id: Optional[str] = _UNSET,
-    tts_bit_rate: Optional[int] = _UNSET,
     tts_emotion: Optional[str] = _UNSET,
     tts_emotion_scale: Optional[int] = _UNSET,
     tts_speech_rate: Optional[int] = _UNSET,
     tts_loudness_rate: Optional[int] = _UNSET,
-    tts_mute_cut_remain_ms: Optional[int] = _UNSET,
-    tts_mute_cut_threshold: Optional[int] = _UNSET,
+    mute_cut_threshold: Optional[int] = _UNSET,
+    mute_cut_min_silence_ms: Optional[int] = _UNSET,
+    mute_cut_remain_ms: Optional[int] = _UNSET,
     output_dir: Optional[str] = None,
     image_style_preset: str = _UNSET,
     opening_image_style: str = _UNSET,
@@ -760,13 +760,13 @@ def run_cli_main(
             "image_model": image_model,
             "voice": voice,
             "resource_id": resource_id,
-            "tts_bit_rate": tts_bit_rate,
             "tts_emotion": tts_emotion,
             "tts_emotion_scale": tts_emotion_scale,
             "tts_speech_rate": tts_speech_rate,
             "tts_loudness_rate": tts_loudness_rate,
-            "tts_mute_cut_remain_ms": tts_mute_cut_remain_ms,
-            "tts_mute_cut_threshold": tts_mute_cut_threshold,
+            "mute_cut_threshold": mute_cut_threshold,
+            "mute_cut_min_silence_ms": mute_cut_min_silence_ms,
+            "mute_cut_remain_ms": mute_cut_remain_ms,
             "image_style_preset": image_style_preset,
             "opening_image_style": opening_image_style,
             "images_method": images_method,
@@ -791,17 +791,13 @@ def run_cli_main(
         image_model = params["image_model"]
         voice = params["voice"]
         resource_id = params.get("resource_id", "seed-icl-2.0")
-        bit_rate = params["tts_bit_rate"]
         emotion = params["tts_emotion"]
         emotion_scale = params["tts_emotion_scale"]
         speech_rate = params["tts_speech_rate"]
         loudness_rate = params["tts_loudness_rate"]
-        mute_cut_remain_ms = params["tts_mute_cut_remain_ms"]
-        mute_cut_threshold = params["tts_mute_cut_threshold"]
-        try:
-            bit_rate = int(bit_rate)
-        except Exception:
-            bit_rate = 128000
+        mute_cut_threshold = params["mute_cut_threshold"]
+        mute_cut_min_silence_ms = params["mute_cut_min_silence_ms"]
+        mute_cut_remain_ms = params["mute_cut_remain_ms"]
         try:
             emotion_scale = int(emotion_scale)
         except Exception:
@@ -875,10 +871,10 @@ def run_cli_main(
                 llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
                 image_server, image_model, image_size, video_size, image_style_preset,
                 opening_image_style, images_method, tts_server, voice, speech_rate, loudness_rate,
-                bit_rate, emotion, emotion_scale, num_segments,
+                emotion, emotion_scale, num_segments,
                 enable_subtitles, bgm_filename, cover_image_size, cover_image_model,
                 cover_image_style, cover_image_count, opening_quote,
-                mute_cut_remain_ms, mute_cut_threshold
+                mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms
             )
 
     if input_file is not None and not os.path.isabs(input_file):
@@ -915,7 +911,6 @@ def run_cli_main(
             cover_image_count=cover_image_count,
             speech_rate=speech_rate,
             loudness_rate=loudness_rate,
-            bit_rate=bit_rate,
             emotion=emotion,
             emotion_scale=emotion_scale,
             mute_cut_remain_ms=mute_cut_remain_ms,
@@ -952,8 +947,8 @@ def run_cli_main(
             llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
             image_server, image_model, image_size, video_size, image_style_preset,
             opening_image_style, images_method, tts_server, voice, speech_rate, loudness_rate,
-            bit_rate, emotion, emotion_scale, num_segments,
+            emotion, emotion_scale, num_segments,
             enable_subtitles, bgm_filename, cover_image_size, cover_image_model,
             cover_image_style, cover_image_count, opening_quote,
-            mute_cut_remain_ms, mute_cut_threshold
+            mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms
         )

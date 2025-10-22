@@ -89,11 +89,11 @@ def _ensure_opening_narration(
     force_regenerate: bool = False,
     speech_rate: int = 0,
     loudness_rate: int = 0,
-    bit_rate: int = 128000,
     emotion: str = "neutral",
     emotion_scale: int = 4,
-    mute_cut_remain_ms: int = 100,
     mute_cut_threshold: int = 400,
+    mute_cut_min_silence_ms: int = 200,
+    mute_cut_remain_ms: int = 100,
 ) -> Optional[str]:
     """Generate or reuse opening narration audio when required."""
     opening_golden_quote = (script_data or {}).get("golden_quote", "")
@@ -122,11 +122,11 @@ def _ensure_opening_narration(
             encoding="mp3",
             speech_rate=speech_rate,
             loudness_rate=loudness_rate,
-            bit_rate=bit_rate,
             emotion=emotion,
             emotion_scale=emotion_scale,
-            mute_cut_remain_ms=mute_cut_remain_ms,
             mute_cut_threshold=mute_cut_threshold,
+            mute_cut_min_silence_ms=mute_cut_min_silence_ms,
+            mute_cut_remain_ms=mute_cut_remain_ms,
         )
         if ok:
             if announce:
@@ -150,11 +150,11 @@ def _invoke_opening_narration(
     force_regenerate: bool = False,
     speech_rate: int = 0,
     loudness_rate: int = 0,
-    bit_rate: int = 128000,
     emotion: str = "neutral",
     emotion_scale: int = 4,
-    mute_cut_remain_ms: int = 100,
     mute_cut_threshold: int = 400,
+    mute_cut_min_silence_ms: int = 200,
+    mute_cut_remain_ms: int = 100,
 ) -> Optional[str]:
     """Call _ensure_opening_narration with graceful fallback for legacy mocks."""
     func = _ensure_opening_narration
@@ -168,11 +168,11 @@ def _invoke_opening_narration(
             force_regenerate=force_regenerate,
             speech_rate=speech_rate,
             loudness_rate=loudness_rate,
-            bit_rate=bit_rate,
             emotion=emotion,
             emotion_scale=emotion_scale,
-            mute_cut_remain_ms=mute_cut_remain_ms,
             mute_cut_threshold=mute_cut_threshold,
+            mute_cut_min_silence_ms=mute_cut_min_silence_ms,
+            mute_cut_remain_ms=mute_cut_remain_ms,
         )
     except TypeError as exc:
         message = str(exc)
@@ -318,7 +318,6 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         paths.voice,
         speech_rate=config.speech_rate,
         loudness_rate=config.loudness_rate,
-        bit_rate=config.bit_rate,
         emotion=config.emotion,
         emotion_scale=config.emotion_scale,
         mute_cut_remain_ms=config.mute_cut_remain_ms,
@@ -338,7 +337,6 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         config.opening_quote,
         speech_rate=config.speech_rate,
         loudness_rate=config.loudness_rate,
-        bit_rate=config.bit_rate,
         emotion=config.emotion,
         emotion_scale=config.emotion_scale,
         mute_cut_remain_ms=config.mute_cut_remain_ms,
@@ -776,11 +774,11 @@ def run_step_4(
     regenerate_opening: bool = True,
     speech_rate: int = 0,
     loudness_rate: int = 0,
-    bit_rate: int = 128000,
     emotion: str = "neutral",
     emotion_scale: int = 4,
-    mute_cut_remain_ms: int = 100,
     mute_cut_threshold: int = 400,
+    mute_cut_min_silence_ms: int = 200,
+    mute_cut_remain_ms: int = 100,
 ) -> Dict[str, Any]:
     # 使用 ProjectPaths 管理路径
     paths = ProjectPaths(project_output_dir)
@@ -820,11 +818,11 @@ def run_step_4(
         target_segments=generation_targets,
         speech_rate=speech_rate,
         loudness_rate=loudness_rate,
-        bit_rate=bit_rate,
         emotion=emotion,
         emotion_scale=emotion_scale,
-        mute_cut_remain_ms=mute_cut_remain_ms,
         mute_cut_threshold=mute_cut_threshold,
+        mute_cut_min_silence_ms=mute_cut_min_silence_ms,
+        mute_cut_remain_ms=mute_cut_remain_ms,
     )
     audio_paths = voice_result.get("audio_paths", [])
     missing_segments = voice_result.get("missing_segments", [])
@@ -840,11 +838,11 @@ def run_step_4(
         force_regenerate=regenerate_opening,
         speech_rate=speech_rate,
         loudness_rate=loudness_rate,
-        bit_rate=bit_rate,
         emotion=emotion,
         emotion_scale=emotion_scale,
-        mute_cut_remain_ms=mute_cut_remain_ms,
         mute_cut_threshold=mute_cut_threshold,
+        mute_cut_min_silence_ms=mute_cut_min_silence_ms,
+        mute_cut_remain_ms=mute_cut_remain_ms,
     )
 
     opening_refreshed = bool(
@@ -886,11 +884,11 @@ def run_step_5(
     opening_quote: bool = True,
     speech_rate: int = 0,
     loudness_rate: int = 0,
-    bit_rate: int = 128000,
     emotion: str = "neutral",
     emotion_scale: int = 4,
-    mute_cut_remain_ms: int = 100,
     mute_cut_threshold: int = 400,
+    mute_cut_min_silence_ms: int = 200,
+    mute_cut_remain_ms: int = 100,
 ) -> Dict[str, Any]:
     project_root = os.path.dirname(os.path.dirname(__file__))
     
@@ -968,11 +966,11 @@ def run_step_5(
         opening_quote,
         speech_rate=speech_rate,
         loudness_rate=loudness_rate,
-        bit_rate=bit_rate,
         emotion=emotion,
         emotion_scale=emotion_scale,
-        mute_cut_remain_ms=mute_cut_remain_ms,
         mute_cut_threshold=mute_cut_threshold,
+        mute_cut_min_silence_ms=mute_cut_min_silence_ms,
+        mute_cut_remain_ms=mute_cut_remain_ms,
     )
 
     composer = VideoComposer()

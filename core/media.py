@@ -535,14 +535,14 @@ def _synthesize_single_voice(args) -> Dict[str, Any]:
     合成单个语音的辅助函数（用于多线程）
     """
     (segment_index, content, server, voice, output_dir,
-     speech_rate, loudness_rate, bit_rate, emotion, emotion_scale,
-     mute_cut_remain_ms, mute_cut_threshold) = args
+     speech_rate, loudness_rate, emotion, emotion_scale,
+     mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms) = args
 
     print(f"正在生成第{segment_index}段语音...")
 
     audio_filename = f"voice_{segment_index}.wav"
     audio_path = os.path.join(output_dir, audio_filename)
-    
+
     try:
         if server == "bytedance":
             success = text_to_audio_bytedance(
@@ -551,11 +551,11 @@ def _synthesize_single_voice(args) -> Dict[str, Any]:
                 voice=voice,
                 speech_rate=speech_rate,
                 loudness_rate=loudness_rate,
-                bit_rate=bit_rate,
                 emotion=emotion,
                 emotion_scale=emotion_scale,
-                mute_cut_remain_ms=mute_cut_remain_ms,
                 mute_cut_threshold=mute_cut_threshold,
+                mute_cut_min_silence_ms=mute_cut_min_silence_ms,
+                mute_cut_remain_ms=mute_cut_remain_ms,
             )
         else:
             return {"success": False, "segment_index": segment_index, "error": f"不支持的TTS服务商: {server}"}
@@ -578,11 +578,11 @@ def synthesize_voice_for_segments(
     target_segments: Optional[Iterable[int]] = None,
     speech_rate: int = 0,
     loudness_rate: int = 0,
-    bit_rate: int = 128000,
     emotion: str = "neutral",
     emotion_scale: int = 4,
-    mute_cut_remain_ms: int = 100,
     mute_cut_threshold: int = 400,
+    mute_cut_min_silence_ms: int = 200,
+    mute_cut_remain_ms: int = 100,
 ) -> Dict[str, Any]:
     """
     为每个段落合成语音（支持多线程并发）
@@ -608,7 +608,7 @@ def synthesize_voice_for_segments(
                 raise ValueError("未找到需要生成语音的有效段落")
 
         audio_paths: List[str] = [""] * segment_count
-        task_args: List[Tuple[int, str, str, str, str, int, int, int, str, int, int, int]] = []
+        task_args: List[Tuple[int, str, str, str, str, int, int, str, int, int, int, int]] = []
 
         for idx, segment in enumerate(segments, 1):
             segment_index = int(segment.get("index") or idx)
@@ -630,7 +630,7 @@ def synthesize_voice_for_segments(
                     continue
 
             content = segment.get("content", "")
-            task_args.append((segment_index, content, server, voice, output_dir, speech_rate, loudness_rate, bit_rate, emotion, emotion_scale, mute_cut_remain_ms, mute_cut_threshold))
+            task_args.append((segment_index, content, server, voice, output_dir, speech_rate, loudness_rate, emotion, emotion_scale, mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms))
 
         if task_args:
             max_workers = getattr(config, "MAX_CONCURRENT_VOICE_SYNTHESIS", 2)

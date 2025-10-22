@@ -38,7 +38,6 @@ class VideoGenerationConfig:
     voice: str = "zh_male_yuanboxiaoshu_moon_bigtts"
     speech_rate: int = 0
     loudness_rate: int = 0
-    bit_rate: int = 128000
     emotion: str = "neutral"
     emotion_scale: int = 4
     mute_cut_remain_ms: int = 100
@@ -124,7 +123,6 @@ class StepExecutionConfig:
     voice: Optional[str] = None
     speech_rate: int = 0
     loudness_rate: int = 0
-    bit_rate: int = 128000
     emotion: str = "neutral"
     emotion_scale: int = 4
     mute_cut_remain_ms: int = 100
@@ -175,7 +173,6 @@ class StepExecutionConfig:
             voice=gen_config.voice,
             speech_rate=gen_config.speech_rate,
             loudness_rate=gen_config.loudness_rate,
-            bit_rate=gen_config.bit_rate,
             emotion=gen_config.emotion,
             emotion_scale=gen_config.emotion_scale,
             mute_cut_remain_ms=gen_config.mute_cut_remain_ms,
