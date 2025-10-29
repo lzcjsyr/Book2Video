@@ -104,6 +104,11 @@ class VideoComposer:
                     temp_audio_paths
                 )
 
+            # 从script_data中提取书名
+            content_title = None
+            if script_data:
+                content_title = script_data.get('content_title')
+
             # 创建开场片段
             opening_seconds = self._create_opening_segment(
                 opening_image_path,
@@ -111,6 +116,7 @@ class VideoComposer:
                 processed_opening_audio_path,
                 video_clips,
                 target_size,
+                content_title,
                 opening_quote
             )
 
@@ -158,6 +164,7 @@ class VideoComposer:
                               opening_golden_quote: Optional[str],
                               opening_narration_audio_path: Optional[str],
                               video_clips: List, target_size: Tuple[int, int],
+                              content_title: Optional[str] = None,
                               opening_quote: bool = True) -> float:
         """创建开场片段"""
         opening_seconds = 0.0
@@ -204,7 +211,7 @@ class VideoComposer:
             
             # 添加开场金句
             if opening_golden_quote and opening_golden_quote.strip():
-                opening_clip = self._add_opening_quote(opening_base, opening_golden_quote, opening_seconds)
+                opening_clip = self._add_opening_quote(opening_base, opening_golden_quote, opening_seconds, content_title)
             else:
                 opening_clip = opening_base
             
@@ -361,8 +368,8 @@ class VideoComposer:
             logger.warning(f"PIL 文字渲染失败: {e}，将返回空图片")
             return Image.new('RGBA', (1, 1), (0, 0, 0, 0))
 
-    def _add_opening_quote(self, opening_base, opening_golden_quote: str, opening_seconds: float):
-        """添加开场金句文字叠加"""
+    def _add_opening_quote(self, opening_base, opening_golden_quote: str, opening_seconds: float, content_title: Optional[str] = None):
+        """添加开场金句文字叠加（以及可选的书名标题）"""
         # 检查是否显示文字
         if not config.OPENING_QUOTE_SHOW_TEXT:
             return opening_base  # 不显示文字，直接返回原始片段
@@ -427,6 +434,40 @@ class VideoComposer:
                     line_clip = ImageClip(temp_path).with_start(0).with_duration(opening_seconds).with_position(("center", current_y))
                     text_clips.append(line_clip)
                     current_y += line_heights[i] + line_spacing
+
+            # 步骤4: 如果启用书名显示且有书名，渲染书名标题
+            if config.OPENING_QUOTE_SHOW_TITLE and content_title and content_title.strip():
+                # 格式化书名为 --书名--
+                formatted_title = f"--{content_title}--"
+
+                # 获取书名样式配置
+                title_font_size = int(config.OPENING_QUOTE_TITLE_FONT_SIZE)
+                title_color = config.OPENING_QUOTE_TITLE_COLOR
+                title_stroke_color = config.OPENING_QUOTE_TITLE_STROKE_COLOR
+                title_stroke_width = int(config.OPENING_QUOTE_TITLE_STROKE_WIDTH)
+                title_position_y = float(config.OPENING_QUOTE_TITLE_POSITION_Y)
+
+                # 使用 PIL 渲染书名文字
+                title_img = self._create_text_image_pil(
+                    text=formatted_title,
+                    font_size=title_font_size,
+                    font_path=resolved_font or preferred_font_path,
+                    text_color=title_color,
+                    stroke_color=title_stroke_color,
+                    stroke_width=title_stroke_width
+                )
+
+                # 保存到临时文件
+                title_temp_path = tempfile.mktemp(suffix="_quote_title.png")
+                title_img.save(title_temp_path)
+                temp_image_paths.append(title_temp_path)
+
+                # 计算书名的Y坐标（基于相对位置）
+                title_y = int(video_height * title_position_y - title_img.height / 2)
+
+                # 创建书名图层
+                title_clip = ImageClip(title_temp_path).with_start(0).with_duration(opening_seconds).with_position(("center", title_y))
+                text_clips.append(title_clip)
 
             return CompositeVideoClip([opening_base] + text_clips)
 
