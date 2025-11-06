@@ -49,13 +49,14 @@ class VideoComposer:
                      opening_golden_quote: Optional[str] = None,
                      opening_narration_audio_path: Optional[str] = None,
                      image_size: str = "1280x720",
-                     opening_quote: bool = True) -> str:
+                     opening_quote: bool = True,
+                     project_root: Optional[str] = None) -> str:
         """
         合成最终视频
-        
+
         Args:
             image_paths: 图像文件路径列表
-            audio_paths: 音频文件路径列表  
+            audio_paths: 音频文件路径列表
             output_path: 输出视频路径
             script_data: 脚本数据，用于生成字幕
             enable_subtitles: 是否启用字幕
@@ -67,7 +68,8 @@ class VideoComposer:
             opening_narration_audio_path: 开场口播音频路径
             image_size: 目标图像尺寸，如"1280x720"
             opening_quote: 是否包含开场金句
-        
+            project_root: 项目根目录（用于存放响度标准化临时文件）
+
         Returns:
             str: 输出视频路径
         """
@@ -133,7 +135,16 @@ class VideoComposer:
             
             # 连接所有视频片段
             print("正在合成最终视频...")
-            final_video = concatenate_videoclips(video_clips, method="chain")
+            if config.ENABLE_TRANSITIONS and config.TRANSITION_STYLE != "cut":
+                # 使用过渡效果连接视频片段
+                final_video = self._concatenate_with_transitions(
+                    video_clips,
+                    config.TRANSITION_STYLE,
+                    config.TRANSITION_DURATION
+                )
+            else:
+                # 简单拼接（无过渡效果）
+                final_video = concatenate_videoclips(video_clips, method="chain")
             
             # 添加字幕
             final_video = self._add_subtitles(final_video, script_data, enable_subtitles, 
@@ -144,9 +155,9 @@ class VideoComposer:
             
             # 添加视觉效果
             final_video = self._add_visual_effects(final_video, image_paths, target_size)
-            
+
             # 添加背景音乐
-            final_video = self._add_background_music(final_video, bgm_audio_path, bgm_volume)
+            final_video = self._add_background_music(final_video, bgm_audio_path, bgm_volume, project_root)
             
             # 输出视频
             self._export_video(final_video, output_path, target_fps)
@@ -505,7 +516,350 @@ class VideoComposer:
         except Exception as e:
             logger.warning(f"开场片段渐隐效果添加失败: {e}")
         return opening_clip
-    
+
+    def _apply_fade_in(self, clip, duration: float):
+        """
+        对视频片段应用淡入效果
+
+        Args:
+            clip: 要处理的视频片段
+            duration: 淡入时长（秒）
+
+        Returns:
+            应用淡入效果后的片段
+        """
+        def fade_in_transform(gf, t):
+            if t < duration:
+                alpha = t / duration
+                return gf(t) * alpha
+            return gf(t)
+
+        return clip.transform(fade_in_transform, keep_duration=True)
+
+    def _apply_fade_out(self, clip, duration: float):
+        """
+        对视频片段应用淡出效果
+
+        Args:
+            clip: 要处理的视频片段
+            duration: 淡出时长（秒）
+
+        Returns:
+            应用淡出效果后的片段
+        """
+        clip_duration = clip.duration
+        fade_start = clip_duration - duration
+
+        def fade_out_transform(gf, t):
+            if t > fade_start:
+                alpha = 1.0 - ((t - fade_start) / duration)
+                return gf(t) * max(0.0, alpha)
+            return gf(t)
+
+        return clip.transform(fade_out_transform, keep_duration=True)
+
+    def _create_color_clip(self, duration: float, color: Tuple[int, int, int], size: Tuple[int, int]):
+        """
+        创建纯色过渡帧
+
+        Args:
+            duration: 持续时长（秒）
+            color: RGB颜色值
+            size: 视频尺寸 (width, height)
+
+        Returns:
+            纯色视频片段
+        """
+        return ColorClip(size=size, color=color, duration=duration)
+
+    def _create_wipe_transition(self, clip1, clip2, duration: float, direction: str):
+        """
+        创建擦除过渡效果（类似翻书）
+
+        Args:
+            clip1: 第一个视频片段
+            clip2: 第二个视频片段
+            duration: 过渡时长（秒）
+            direction: 擦除方向 ('left' 或 'right')
+
+        Returns:
+            带过渡效果的组合片段
+        """
+        import numpy as np
+
+        # 获取片段尺寸
+        width, height = clip1.size
+
+        # 创建过渡片段
+        def make_wipe_frame(t):
+            # 计算过渡进度 (0 到 1)
+            progress = min(1.0, t / duration)
+
+            # 获取两个片段在当前时间的帧
+            frame1 = clip1.get_frame(clip1.duration - duration + t)
+            frame2 = clip2.get_frame(t)
+
+            # 计算擦除边界
+            if direction == "left":
+                # 从左向右擦除
+                boundary = int(width * progress)
+                result = frame1.copy()
+                result[:, :boundary] = frame2[:, :boundary]
+            else:  # right
+                # 从右向左擦除
+                boundary = int(width * (1 - progress))
+                result = frame1.copy()
+                result[:, boundary:] = frame2[:, boundary:]
+
+            return result
+
+        # 创建过渡片段
+        from moviepy import VideoClip
+        transition_clip = VideoClip(make_wipe_frame, duration=duration)
+
+        # 组合：clip1主体部分 + 过渡 + clip2主体部分
+        clip1_main = clip1.subclipped(0, clip1.duration - duration)
+        clip2_main = clip2.subclipped(duration, clip2.duration)
+
+        return concatenate_videoclips([clip1_main, transition_clip, clip2_main], method="chain")
+
+    def _create_slide_transition(self, clip1, clip2, duration: float, direction: str):
+        """
+        创建滑动过渡效果（新片段滑入覆盖旧片段）
+
+        Args:
+            clip1: 第一个视频片段
+            clip2: 第二个视频片段
+            duration: 过渡时长（秒）
+            direction: 滑动方向 ('left' 或 'right')
+
+        Returns:
+            带过渡效果的组合片段
+        """
+        import numpy as np
+
+        # 获取片段尺寸
+        width, height = clip1.size
+
+        # 创建过渡片段
+        def make_slide_frame(t):
+            # 计算过渡进度 (0 到 1)
+            progress = min(1.0, t / duration)
+
+            # 获取两个片段在当前时间的帧
+            frame1 = clip1.get_frame(clip1.duration - duration + t)
+            frame2 = clip2.get_frame(t)
+
+            # 创建结果帧
+            result = np.zeros_like(frame1)
+
+            if direction == "left":
+                # 从右向左滑动：新片段从右侧滑入
+                offset = int(width * (1 - progress))
+                # 旧片段向左移动
+                if offset > 0:
+                    result[:, :width - offset] = frame1[:, offset:]
+                # 新片段从右侧进入
+                if offset < width:
+                    result[:, width - offset:] = frame2[:, :offset]
+            else:  # right
+                # 从左向右滑动：新片段从左侧滑入
+                offset = int(width * progress)
+                # 新片段从左侧进入
+                if offset > 0:
+                    result[:, :offset] = frame2[:, width - offset:]
+                # 旧片段向右移动
+                if offset < width:
+                    result[:, offset:] = frame1[:, :width - offset]
+
+            return result
+
+        # 创建过渡片段
+        from moviepy import VideoClip
+        transition_clip = VideoClip(make_slide_frame, duration=duration)
+
+        # 组合：clip1主体部分 + 过渡 + clip2主体部分
+        clip1_main = clip1.subclipped(0, clip1.duration - duration)
+        clip2_main = clip2.subclipped(duration, clip2.duration)
+
+        return concatenate_videoclips([clip1_main, transition_clip, clip2_main], method="chain")
+
+    def _create_zoom_transition(self, clip1, clip2, duration: float, zoom_type: str):
+        """
+        创建缩放过渡效果
+
+        Args:
+            clip1: 第一个视频片段
+            clip2: 第二个视频片段
+            duration: 过渡时长（秒）
+            zoom_type: 缩放类型 ('in' 或 'out')
+
+        Returns:
+            带过渡效果的组合片段
+        """
+        import numpy as np
+
+        # 获取片段尺寸
+        width, height = clip1.size
+
+        # 创建过渡片段
+        def make_zoom_frame(t):
+            # 计算过渡进度 (0 到 1)
+            progress = min(1.0, t / duration)
+
+            # 获取两个片段在当前时间的帧
+            frame1 = clip1.get_frame(clip1.duration - duration + t)
+            frame2 = clip2.get_frame(t)
+
+            if zoom_type == "in":
+                # Zoom In: 旧片段放大淡出，新片段淡入
+                # 旧片段缩放因子 (1.0 -> 1.5)
+                scale1 = 1.0 + 0.5 * progress
+                # 新片段透明度 (0 -> 1)
+                alpha2 = progress
+            else:  # out
+                # Zoom Out: 旧片段缩小淡出，新片段淡入
+                # 旧片段缩放因子 (1.0 -> 0.5)
+                scale1 = 1.0 - 0.5 * progress
+                # 新片段透明度 (0 -> 1)
+                alpha2 = progress
+
+            # 缩放旧片段
+            new_width = int(width * scale1)
+            new_height = int(height * scale1)
+
+            # 使用简单的最近邻插值进行缩放
+            from PIL import Image
+            img1 = Image.fromarray(frame1)
+            img1_resized = img1.resize((new_width, new_height), Image.NEAREST)
+            frame1_scaled = np.array(img1_resized)
+
+            # 创建结果帧
+            result = np.zeros_like(frame2, dtype=float)
+
+            # 将缩放后的旧片段居中放置
+            if scale1 > 0:
+                y_offset = max(0, (height - new_height) // 2)
+                x_offset = max(0, (width - new_width) // 2)
+
+                y_end = min(height, y_offset + new_height)
+                x_end = min(width, x_offset + new_width)
+
+                crop_h = y_end - y_offset
+                crop_w = x_end - x_offset
+
+                result[y_offset:y_end, x_offset:x_end] = frame1_scaled[:crop_h, :crop_w].astype(float)
+
+            # 混合新片段（使用透明度）
+            result = result * (1 - alpha2) + frame2.astype(float) * alpha2
+
+            return result.astype(np.uint8)
+
+        # 创建过渡片段
+        from moviepy import VideoClip
+        transition_clip = VideoClip(make_zoom_frame, duration=duration)
+
+        # 组合：clip1主体部分 + 过渡 + clip2主体部分
+        clip1_main = clip1.subclipped(0, clip1.duration - duration)
+        clip2_main = clip2.subclipped(duration, clip2.duration)
+
+        return concatenate_videoclips([clip1_main, transition_clip, clip2_main], method="chain")
+
+    def _concatenate_with_transitions(self, clips: List, style: str, duration: float):
+        """
+        使用指定过渡效果连接视频片段
+
+        Args:
+            clips: 视频片段列表
+            style: 过渡样式 (crossfade, fade_white, fade_black, wipe_left, wipe_right)
+            duration: 过渡时长（秒）
+
+        Returns:
+            连接后的最终视频
+        """
+        if len(clips) == 0:
+            raise ValueError("没有视频片段可以连接")
+
+        if len(clips) == 1:
+            return clips[0]
+
+        # 参数验证和限制
+        duration = max(0.1, min(duration, 2.0))  # 限制在0.1-2.0秒
+
+        valid_styles = ["crossfade", "fade_white", "fade_black", "wipe_left", "wipe_right",
+                       "slide_left", "slide_right", "zoom_in", "zoom_out"]
+        if style not in valid_styles:
+            logger.warning(f"不支持的过渡样式 '{style}'，使用默认 'crossfade'")
+            style = "crossfade"
+
+        try:
+            print(f"正在应用 {style} 过渡效果 (时长: {duration}秒)...")
+
+            if style == "crossfade":
+                # 使用MoviePy内置的交叉淡化
+                return concatenate_videoclips(clips, method="compose", padding=-duration)
+
+            elif style in ["fade_white", "fade_black"]:
+                # 通过颜色淡化
+                color = (255, 255, 255) if style == "fade_white" else (0, 0, 0)
+                composited_clips = []
+                current_time = 0
+
+                for i, clip in enumerate(clips):
+                    if i > 0:
+                        # 添加颜色过渡帧
+                        color_clip = self._create_color_clip(duration, color, clip.size)
+                        color_clip = color_clip.with_start(current_time)
+                        composited_clips.append(color_clip)
+                        current_time += duration
+
+                        # 当前片段添加淡入
+                        clip = self._apply_fade_in(clip, duration)
+
+                    if i < len(clips) - 1:
+                        # 当前片段添加淡出
+                        clip = self._apply_fade_out(clip, duration)
+
+                    clip = clip.with_start(current_time)
+                    composited_clips.append(clip)
+                    current_time += clip.duration
+
+                return CompositeVideoClip(composited_clips)
+
+            elif style in ["wipe_left", "wipe_right"]:
+                # 擦除过渡效果
+                direction = "left" if style == "wipe_left" else "right"
+                result = clips[0]
+
+                for i in range(1, len(clips)):
+                    result = self._create_wipe_transition(result, clips[i], duration, direction)
+
+                return result
+
+            elif style in ["slide_left", "slide_right"]:
+                # 滑动过渡效果
+                direction = "left" if style == "slide_left" else "right"
+                result = clips[0]
+
+                for i in range(1, len(clips)):
+                    result = self._create_slide_transition(result, clips[i], duration, direction)
+
+                return result
+
+            elif style in ["zoom_in", "zoom_out"]:
+                # 缩放过渡效果
+                zoom_type = "in" if style == "zoom_in" else "out"
+                result = clips[0]
+
+                for i in range(1, len(clips)):
+                    result = self._create_zoom_transition(result, clips[i], duration, zoom_type)
+
+                return result
+
+        except Exception as e:
+            logger.warning(f"过渡效果应用失败: {e}，回退到简单拼接")
+            return concatenate_videoclips(clips, method="chain")
+
     def _create_main_segments(self, image_paths: List[str], audio_paths: List[str], 
                             video_clips: List, audio_clips: List, target_size: Tuple[int, int],
                             narration_speed_factor: float, temp_audio_paths: List[str]):
@@ -605,7 +959,7 @@ class VideoComposer:
         return final_video
     
     @handle_video_operation("背景音乐添加", critical=False, fallback_value=lambda self, final_video, *args: final_video)
-    def _add_background_music(self, final_video, bgm_audio_path: Optional[str], bgm_volume: float):
+    def _add_background_music(self, final_video, bgm_audio_path: Optional[str], bgm_volume: float, project_root: Optional[str] = None):
         """添加背景音乐"""
         if not bgm_audio_path or not os.path.exists(bgm_audio_path):
             if bgm_audio_path:
@@ -613,8 +967,13 @@ class VideoComposer:
             else:
                 print("ℹ️ 未指定背景音乐文件")
             return final_video
-            
+
         print(f"🎵 开始处理背景音乐: {bgm_audio_path}")
+
+        # 如果启用了响度标准化且提供了project_root，先进行标准化处理
+        if project_root and getattr(config, "BGM_NORMALIZE_LOUDNESS", False):
+            bgm_audio_path = self._normalize_bgm_loudness(bgm_audio_path, project_root)
+
         bgm_clip = AudioFileClip(bgm_audio_path)
         print(f"🎵 BGM加载成功，时长: {bgm_clip.duration:.2f}秒")
         
@@ -642,7 +1001,127 @@ class VideoComposer:
             print("🎵 背景音乐添加成功！")
         
         return final_video
-    
+
+    def _normalize_bgm_loudness(self, bgm_audio_path: str, project_root: str) -> str:
+        """
+        使用FFmpeg loudnorm滤镜标准化BGM响度
+
+        Args:
+            bgm_audio_path: 原始BGM音频文件路径
+            project_root: 项目根目录（用于存放临时文件）
+
+        Returns:
+            str: 标准化后的音频文件路径（失败时返回原路径）
+        """
+        # 检查是否启用响度标准化
+        if not getattr(config, "BGM_NORMALIZE_LOUDNESS", False):
+            return bgm_audio_path
+
+        # 检查FFmpeg是否可用
+        ffmpeg_path = shutil.which("ffmpeg")
+        if not ffmpeg_path:
+            logger.warning("未找到FFmpeg，跳过BGM响度标准化")
+            return bgm_audio_path
+
+        try:
+            # 读取配置参数（用户填写正数，自动转换为负数）
+            target_loudness = float(getattr(config, "BGM_TARGET_LOUDNESS", 20.0))
+            # 确保为负数（LUFS标准）
+            if target_loudness > 0:
+                target_loudness = -target_loudness
+            loudness_range = float(getattr(config, "BGM_LOUDNESS_RANGE", 7.0))
+
+            print(f"🎵 开始BGM响度标准化（目标: {target_loudness} LUFS，范围: {loudness_range} LU）")
+
+            # 确保项目根目录存在
+            os.makedirs(project_root, exist_ok=True)
+
+            # 第一步：分析BGM的响度参数
+            print("🎵 步骤1/2: 分析BGM响度参数...")
+            analysis_command = [
+                ffmpeg_path,
+                "-hide_banner",
+                "-i", bgm_audio_path,
+                "-af", f"loudnorm=I={target_loudness}:TP=-2.0:LRA={loudness_range}:print_format=json",
+                "-f", "null",
+                "-"
+            ]
+
+            result = subprocess.run(
+                analysis_command,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+
+            # 解析loudnorm输出的JSON数据
+            import json
+            import re
+
+            # 从stderr中提取JSON数据（loudnorm输出在stderr中）
+            stderr_output = result.stderr
+            json_match = re.search(r'\{[^{}]*"input_i"[^{}]*\}', stderr_output, re.DOTALL)
+
+            if not json_match:
+                logger.warning("无法解析loudnorm分析结果，使用单步标准化")
+                # 单步标准化（不使用测量数据）
+                normalized_path = os.path.join(temp_dir, "bgm_normalized.wav")
+                normalize_command = [
+                    ffmpeg_path,
+                    "-y",
+                    "-hide_banner",
+                    "-loglevel", "error",
+                    "-i", bgm_audio_path,
+                    "-af", f"loudnorm=I={target_loudness}:TP=-2.0:LRA={loudness_range}",
+                    normalized_path
+                ]
+                subprocess.run(normalize_command, check=True, timeout=120)
+                print(f"🎵 BGM响度标准化完成（单步模式）")
+                return normalized_path
+
+            # 解析测量数据
+            loudness_data = json.loads(json_match.group(0))
+            input_i = loudness_data.get("input_i")
+            input_tp = loudness_data.get("input_tp")
+            input_lra = loudness_data.get("input_lra")
+            input_thresh = loudness_data.get("input_thresh")
+
+            print(f"🎵 原始响度: {input_i} LUFS, 峰值: {input_tp} dB, 范围: {input_lra} LU")
+
+            # 第二步：使用测量数据进行线性标准化
+            print("🎵 步骤2/2: 应用响度标准化...")
+            normalized_path = os.path.join(project_root, "bgm_normalized.wav")
+
+            normalize_command = [
+                ffmpeg_path,
+                "-y",
+                "-hide_banner",
+                "-loglevel", "error",
+                "-i", bgm_audio_path,
+                "-af", (
+                    f"loudnorm=I={target_loudness}:TP=-2.0:LRA={loudness_range}:"
+                    f"measured_I={input_i}:measured_TP={input_tp}:"
+                    f"measured_LRA={input_lra}:measured_thresh={input_thresh}:"
+                    f"linear=true:print_format=summary"
+                ),
+                normalized_path
+            ]
+
+            subprocess.run(normalize_command, check=True, timeout=120)
+
+            print(f"🎵 BGM响度标准化完成！标准化文件: {os.path.basename(normalized_path)}")
+            return normalized_path
+
+        except subprocess.TimeoutExpired:
+            logger.warning("BGM响度标准化超时，使用原始音频")
+            return bgm_audio_path
+        except subprocess.CalledProcessError as e:
+            logger.warning(f"BGM响度标准化失败: {e}，使用原始音频")
+            return bgm_audio_path
+        except Exception as e:
+            logger.warning(f"BGM响度标准化异常: {e}，使用原始音频")
+            return bgm_audio_path
+
     def _adjust_bgm_duration(self, bgm_clip, target_duration: float):
         """调整BGM时长：优先手动平铺循环，始终铺满并裁剪到目标时长"""
         try:
@@ -686,8 +1165,7 @@ class VideoComposer:
     
     def _apply_audio_effects(self, bgm_clip, final_video):
         """应用音频效果（Ducking和淡出）"""
-        # 性能优化：跳过逐采样Ducking与淡出，直接返回
-        return bgm_clip
+        return self._apply_ducking_effect(bgm_clip, final_video)
     
     def _apply_ducking_effect(self, bgm_clip, final_video):
         """应用自动Ducking效果"""

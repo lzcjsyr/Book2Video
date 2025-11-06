@@ -356,6 +356,7 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         narration_volume=float(getattr(config, "NARRATION_DEFAULT_VOLUME", 1.0)),
         image_size=config.get_effective_video_size(),
         opening_quote=config.opening_quote,
+        project_root=project_output_dir,
     )
 
     # 11) 封面图像生成
@@ -985,6 +986,7 @@ def run_step_5(
         narration_volume=float(getattr(config, "NARRATION_DEFAULT_VOLUME", 1.0)),
         image_size=image_size,
         opening_quote=opening_quote,
+        project_root=project_output_dir,
     )
 
     return {"success": True, "final_video": final_video_path}
