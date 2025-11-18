@@ -18,6 +18,13 @@ from core import text, media
 from core.video_composer import VideoComposer
 import config as app_config
 
+# 导入云存储服务
+from backend.services.cloud_storage import (
+    get_storage_provider,
+    upload_project_file,
+    batch_upload_directory
+)
+
 
 class ProgressReportingTask(Task):
     """支持进度报告的Celery任务基类"""
@@ -49,6 +56,83 @@ class ProgressReportingTask(Task):
                 # 标记步骤完成
                 setattr(self.project_model, f"step{step}_completed", 1)
             self.db_session.commit()
+
+
+# ==================== 云存储辅助函数 ====================
+
+def upload_images_to_cloud(project_id: int, project_dir: str) -> dict:
+    """
+    上传所有图片到云存储
+
+    Args:
+        project_id: 项目ID
+        project_dir: 项目目录
+
+    Returns:
+        文件名 -> 云存储URL的映射字典
+    """
+    images_dir = os.path.join(project_dir, "images")
+    if not os.path.exists(images_dir):
+        return {}
+
+    return batch_upload_directory(project_id, images_dir, "images")
+
+
+def upload_audio_to_cloud(project_id: int, project_dir: str) -> dict:
+    """
+    上传所有音频到云存储
+
+    Args:
+        project_id: 项目ID
+        project_dir: 项目目录
+
+    Returns:
+        文件名 -> 云存储URL的映射字典
+    """
+    voice_dir = os.path.join(project_dir, "voice")
+    if not os.path.exists(voice_dir):
+        return {}
+
+    return batch_upload_directory(project_id, voice_dir, "voice")
+
+
+def upload_video_to_cloud(project_id: int, project_dir: str) -> str:
+    """
+    上传最终视频到云存储
+
+    Args:
+        project_id: 项目ID
+        project_dir: 项目目录
+
+    Returns:
+        云存储URL，如果文件不存在则返回None
+    """
+    video_path = os.path.join(project_dir, "final_video.mp4")
+    if not os.path.exists(video_path):
+        return None
+
+    return upload_project_file(project_id, video_path, "video", "final_video.mp4")
+
+
+def upload_covers_to_cloud(project_id: int, project_dir: str) -> list:
+    """
+    上传封面图片到云存储
+
+    Args:
+        project_id: 项目ID
+        project_dir: 项目目录
+
+    Returns:
+        云存储URL列表
+    """
+    cover_urls = []
+    for filename in os.listdir(project_dir):
+        if filename.startswith("cover_") and filename.endswith(".png"):
+            cover_path = os.path.join(project_dir, filename)
+            url = upload_project_file(project_id, cover_path, "covers", filename)
+            cover_urls.append(url)
+
+    return cover_urls
 
 
 @celery_app.task(bind=True, base=ProgressReportingTask, name="backend.tasks.video_generation.execute_full_auto")
@@ -138,6 +222,31 @@ def execute_full_auto(self, project_id: int, config_dict: dict):
         self.update_project_step(3, False)
         pipeline.run_step(3)
         self.update_project_step(3, True)
+
+        # 上传图片到云存储
+        if project.use_cloud_storage:
+            self.update_progress(58, "正在上传图片到云存储...")
+            try:
+                images_urls = upload_images_to_cloud(project_id, project.project_dir)
+                project.images_urls = images_urls
+                project.cloud_uploaded_at = datetime.now()
+
+                # 记录存储提供商信息
+                storage_provider = os.getenv("STORAGE_PROVIDER", "local")
+                project.storage_provider = storage_provider
+                if storage_provider != "local":
+                    project.storage_bucket = os.getenv(
+                        f"{storage_provider.upper().replace('_', '_')}_BUCKET",
+                        os.getenv("ALIYUN_OSS_BUCKET") or
+                        os.getenv("TENCENT_COS_BUCKET") or
+                        os.getenv("AWS_S3_BUCKET")
+                    )
+
+                db.commit()
+            except Exception as e:
+                # 云存储失败不影响主流程，记录错误继续执行
+                print(f"云存储上传失败（图片）: {str(e)}")
+
         self.update_progress(60, "图像生成完成")
 
         # 执行步骤4：语音合成
@@ -145,6 +254,17 @@ def execute_full_auto(self, project_id: int, config_dict: dict):
         self.update_project_step(4, False)
         pipeline.run_step(4)
         self.update_project_step(4, True)
+
+        # 上传音频到云存储
+        if project.use_cloud_storage:
+            self.update_progress(73, "正在上传音频到云存储...")
+            try:
+                audio_urls = upload_audio_to_cloud(project_id, project.project_dir)
+                project.audio_urls = audio_urls
+                db.commit()
+            except Exception as e:
+                print(f"云存储上传失败（音频）: {str(e)}")
+
         self.update_progress(75, "语音合成完成")
 
         # 执行步骤5：视频合成
@@ -152,12 +272,24 @@ def execute_full_auto(self, project_id: int, config_dict: dict):
         self.update_project_step(5, False)
         pipeline.run_step(5)
         self.update_project_step(5, True)
-        self.update_progress(90, "视频合成完成")
 
         # 记录最终视频路径
         final_video_path = os.path.join(project.project_dir, "final_video.mp4")
         if os.path.exists(final_video_path):
             project.final_video_path = final_video_path
+
+        # 上传视频到云存储
+        if project.use_cloud_storage:
+            self.update_progress(88, "正在上传视频到云存储...")
+            try:
+                video_url = upload_video_to_cloud(project_id, project.project_dir)
+                if video_url:
+                    project.final_video_url = video_url
+                    db.commit()
+            except Exception as e:
+                print(f"云存储上传失败（视频）: {str(e)}")
+
+        self.update_progress(90, "视频合成完成")
 
         # 执行步骤6：封面生成（可选）
         if config_dict.get("cover_image_count", 0) > 0:
@@ -174,6 +306,17 @@ def execute_full_auto(self, project_id: int, config_dict: dict):
                     cover_paths.append(os.path.join(cover_dir, file))
             if cover_paths:
                 project.cover_image_paths = cover_paths
+
+            # 上传封面到云存储
+            if project.use_cloud_storage:
+                self.update_progress(98, "正在上传封面到云存储...")
+                try:
+                    cover_urls = upload_covers_to_cloud(project_id, project.project_dir)
+                    if cover_urls:
+                        project.cover_image_urls = cover_urls
+                        db.commit()
+                except Exception as e:
+                    print(f"云存储上传失败（封面）: {str(e)}")
 
         # 任务完成
         self.update_progress(100, "全部完成")
@@ -297,9 +440,39 @@ def execute_step(self, project_id: int, step: int, force_regenerate: bool = Fals
 
         elif step == 3:
             pipeline.run_step(3)
+            # 上传图片到云存储
+            if project.use_cloud_storage:
+                self.update_progress(80, "正在上传图片到云存储...")
+                try:
+                    images_urls = upload_images_to_cloud(project_id, project.project_dir)
+                    project.images_urls = images_urls
+                    project.cloud_uploaded_at = datetime.now()
+
+                    # 记录存储提供商信息
+                    storage_provider = os.getenv("STORAGE_PROVIDER", "local")
+                    project.storage_provider = storage_provider
+                    if storage_provider != "local":
+                        project.storage_bucket = os.getenv(
+                            f"{storage_provider.upper().replace('_', '_')}_BUCKET",
+                            os.getenv("ALIYUN_OSS_BUCKET") or
+                            os.getenv("TENCENT_COS_BUCKET") or
+                            os.getenv("AWS_S3_BUCKET")
+                        )
+                    db.commit()
+                except Exception as e:
+                    print(f"云存储上传失败（图片）: {str(e)}")
 
         elif step == 4:
             pipeline.run_step(4)
+            # 上传音频到云存储
+            if project.use_cloud_storage:
+                self.update_progress(80, "正在上传音频到云存储...")
+                try:
+                    audio_urls = upload_audio_to_cloud(project_id, project.project_dir)
+                    project.audio_urls = audio_urls
+                    db.commit()
+                except Exception as e:
+                    print(f"云存储上传失败（音频）: {str(e)}")
 
         elif step == 5:
             pipeline.run_step(5)
@@ -307,6 +480,17 @@ def execute_step(self, project_id: int, step: int, force_regenerate: bool = Fals
             final_video_path = project_paths.get_final_video_path()
             if os.path.exists(final_video_path):
                 project.final_video_path = final_video_path
+
+            # 上传视频到云存储
+            if project.use_cloud_storage:
+                self.update_progress(80, "正在上传视频到云存储...")
+                try:
+                    video_url = upload_video_to_cloud(project_id, project.project_dir)
+                    if video_url:
+                        project.final_video_url = video_url
+                        db.commit()
+                except Exception as e:
+                    print(f"云存储上传失败（视频）: {str(e)}")
 
         elif step == 6:
             pipeline.run_step(6)
@@ -317,6 +501,17 @@ def execute_step(self, project_id: int, step: int, force_regenerate: bool = Fals
                     cover_paths.append(os.path.join(project.project_dir, file))
             if cover_paths:
                 project.cover_image_paths = cover_paths
+
+            # 上传封面到云存储
+            if project.use_cloud_storage:
+                self.update_progress(90, "正在上传封面到云存储...")
+                try:
+                    cover_urls = upload_covers_to_cloud(project_id, project.project_dir)
+                    if cover_urls:
+                        project.cover_image_urls = cover_urls
+                        db.commit()
+                except Exception as e:
+                    print(f"云存储上传失败（封面）: {str(e)}")
 
         # 更新步骤完成状态
         if step != 1.5:

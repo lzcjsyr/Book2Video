@@ -43,3 +43,8 @@ redis>=5.0.1
 # Additional utilities for web
 aiofiles>=23.2.1
 python-jose[cryptography]>=3.3.0
+
+# Cloud Storage SDKs (optional - install based on provider)
+oss2>=2.18.0                          # Alibaba Cloud OSS
+cos-python-sdk-v5>=1.9.0              # Tencent Cloud COS
+boto3>=1.34.0                          # AWS S3
