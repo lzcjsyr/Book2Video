@@ -1,0 +1,74 @@
+# 环境文件
+.env
+
+# Python 
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# 系统文件
+.DS_Store
+Thumbs.db
+claude.md
+
+# 日志文件
+*.log
+cli/*.log
+logs/
+*.log.*
+
+# 输出文件夹 (除了template_project)
+output/*
+!output/template_project/
+!output/template_project/text/
+!output/template_project/text/raw.docx
+!output/template_project/images/
+!output/template_project/images/.gitkeep
+!output/template_project/voice/
+!output/template_project/voice/.gitkeep
+# 忽略template_project中的其他文件
+output/template_project/text/*
+!output/template_project/text/raw.docx
+output/template_project/images/*
+!output/template_project/images/.gitkeep
+output/template_project/voice/*
+!output/template_project/voice/.gitkeep
+output/template_project/*.mp4
+
+# 输入文件夹内容（保留文件夹但忽略内容)
+input/*
+!input/.gitkeep
+
+# 临时目录（保留文件夹但忽略内容）
+temp/*
+!temp/.gitkeep
+
+
+# tools临时目录（保留文件夹但忽略内容）
+tools/temp/*
+!tools/temp/.gitkeep
+
+# Node.js
+node_modules/
+package-lock.json
+
+# IDE/编辑器文件
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+
+# 文件夹
+合集封面/
+tests/
+web/
+gui/
+build/
+
+# 音乐文件（通常较大，忽略具体文件但保留文件夹）
+music/*.mp3
+music/*.wav
