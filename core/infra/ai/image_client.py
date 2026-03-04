@@ -314,7 +314,7 @@ def _generate_single_image(args) -> Dict[str, Any]:
     max_desensitize = safety_options.get("max_attempts", MAX_PROMPT_SAFETY_ATTEMPTS) if safety_options else 0
 
     attempt = 0
-    max_attempts = 3
+    max_attempts = 5
     while attempt < max_attempts:
         try:
             image_path = os.path.join(output_dir, f"segment_{segment_index}.png")
@@ -481,11 +481,11 @@ def generate_images_for_segments(
 
         max_workers = getattr(config, "MAX_CONCURRENT_IMAGE_GENERATION", 3)
         if image_server == "google":
-            google_limit_raw = os.getenv("GOOGLE_MAX_CONCURRENT_IMAGE_GENERATION", "5")
+            google_limit_raw = os.getenv("GOOGLE_MAX_CONCURRENT_IMAGE_GENERATION", "2")
             try:
                 google_limit = max(1, int(google_limit_raw))
             except ValueError:
-                google_limit = 5
+                google_limit = 2
             if max_workers > google_limit:
                 logger.warning(
                     f"Google图像并发从配置值 {max_workers} 自动下调到 {google_limit}，以降低429限流概率"

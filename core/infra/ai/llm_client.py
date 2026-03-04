@@ -226,7 +226,7 @@ def _map_custom_size_to_google(size: str, model: str) -> Tuple[str, str, Tuple[i
     return best_ratio, best_size, best_dims
 
 
-@retry_on_failure(max_retries=2, delay=2.0)
+@retry_on_failure(max_retries=5, delay=2.0)
 def text_to_image_google(prompt, size="1024x1024", model="gemini-3.1-flash-image-preview"):
     aspect_ratio, image_size, mapped_dims = _map_custom_size_to_google(size, model)
     logger.info(f"使用Google官方GenAI生成图像，模型: {model}，请求尺寸: {size} -> {aspect_ratio}/{image_size} ({mapped_dims[0]}x{mapped_dims[1]})")
@@ -275,6 +275,9 @@ def text_to_image_google(prompt, size="1024x1024", model="gemini-3.1-flash-image
                 aspect_ratio=aspect_ratio,
                 image_size=image_size,
                 output_mime_type="image/png",
+            ),
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True,
             ),
             thinking_config=types.ThinkingConfig(thinking_level="HIGH"),
         )
