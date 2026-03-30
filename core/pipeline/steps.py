@@ -16,6 +16,12 @@ from typing import Any, Dict, List, Optional
 
 from core.config import Config, config
 from core.domain.composer import VideoComposer
+from core.domain.metadata import (
+    get_primary_cover_subtitle,
+    get_primary_cover_title,
+    get_primary_golden_quote,
+    get_primary_video_title,
+)
 from core.domain.docx_transform import export_raw_to_docx
 from core.domain.reader import DocumentReader
 from core.infra.ai.image_client import (
@@ -47,7 +53,7 @@ def _initialize_project(raw_data: Dict[str, Any], output_dir: str) -> tuple:
     """Create project folder structure and persist raw outputs."""
     current_time = datetime.datetime.now()
     time_suffix = current_time.strftime("%m%d_%H%M")
-    raw_title = raw_data.get("title", "untitled") or "untitled"
+    raw_title = get_primary_video_title(raw_data, "untitled")
     project_folder = f"{raw_title}_{time_suffix}"
     project_output_dir = os.path.join(output_dir, project_folder)
 
@@ -95,7 +101,7 @@ def _ensure_opening_narration(
     mute_cut_remain_ms: int = 100,
 ) -> Optional[str]:
     """Generate or reuse opening narration audio when required."""
-    opening_golden_quote = (script_data or {}).get("golden_quote", "")
+    opening_golden_quote = get_primary_golden_quote(script_data or {}, "")
     if not (opening_quote and isinstance(opening_golden_quote, str) and opening_golden_quote.strip()):
         return None
 
@@ -299,7 +305,15 @@ def run_step_1_5(
             current_raw_data = raw_data
         else:
             if not os.path.exists(raw_json_path):
-                current_raw_data = {"title": "手动创建项目", "golden_quote": "", "content": "", "target_segments": num_segments}
+                current_raw_data = {
+                    "source_name": "手动创建项目",
+                    "video_titles": ["手动创建项目"],
+                    "cover_titles": ["手动创建项目"],
+                    "cover_subtitles": [],
+                    "golden_quotes": [],
+                    "content": "",
+                    "target_segments": num_segments,
+                }
             else:
                 print(f"加载raw数据: {raw_json_path}")
                 current_raw_data = load_json_file(raw_json_path)
@@ -698,7 +712,7 @@ def run_step_5(
 
     bgm_audio_path = _resolve_bgm_audio_path(bgm_filename, project_root)
     opening_image_candidate = paths.opening_image() if os.path.exists(paths.opening_image()) else None
-    opening_golden_quote = (script_data or {}).get("golden_quote", "")
+    opening_golden_quote = get_primary_golden_quote(script_data or {}, "")
     opening_narration_audio_path = _invoke_opening_narration(
         script_data,
         paths.voice,
@@ -748,9 +762,9 @@ def _run_cover_generation(
         raise ValueError("缺少脚本或原始数据")
 
     base = script_data or raw_data or {}
-    video_title = base.get("title") or "未命名视频"
-    content_title = base.get("content_title") or video_title
-    cover_subtitle = base.get("cover_subtitle") or ""
+    title = get_primary_video_title(base, "未命名视频")
+    cover_title = get_primary_cover_title(base, title)
+    cover_subtitle = get_primary_cover_subtitle(base, title)
 
     if cover_image_size:
         from core.config import COVER_IMAGE_SIZE_PRESETS
@@ -789,8 +803,7 @@ def _run_cover_generation(
         cover_image_size,
         cover_image_style,
         max(1, int(cover_image_count or 1)),
-        video_title,
-        content_title,
+        cover_title,
         cover_subtitle,
     )
 

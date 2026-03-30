@@ -27,6 +27,7 @@ from moviepy import (
 )
 
 from core.config import config
+from core.domain.metadata import get_content_title
 from core.shared import logger, VideoProcessingError, handle_video_operation
 
 # ==================== 系统常量 ====================
@@ -109,7 +110,7 @@ class VideoComposer:
             # 从script_data中提取书名
             content_title = None
             if script_data:
-                content_title = script_data.get('content_title')
+                content_title = get_content_title(script_data)
 
             # 创建开场片段
             opening_seconds = self._create_opening_segment(

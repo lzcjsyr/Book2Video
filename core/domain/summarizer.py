@@ -8,6 +8,15 @@ import json
 import datetime
 
 from core.config import config
+from core.domain.metadata import (
+    get_cover_subtitles,
+    get_cover_titles,
+    get_golden_quotes,
+    get_source_name,
+    get_video_titles,
+    normalize_text_list,
+    strip_book_title_marks,
+)
 from core.prompts import (
     summarize_system_prompt,
     keywords_extraction_prompt,
@@ -81,21 +90,6 @@ def parse_json_robust(raw_text: str) -> Dict[str, Any]:
             logger.error(f"原始snippet: {snippet}")
             raise ValueError(f"JSON解析失败: {e2}")
 
-
-def _ensure_book_title_format(content_title: str, fallback: str) -> str:
-    """确保内容标题带有中文书名号《》且不为空。"""
-    title = (content_title or "").strip()
-    if not title:
-        title = (fallback or "").strip()
-    if not title:
-        return "《未命名作品》"
-
-    if not (title.startswith("《") and title.endswith("》")):
-        stripped = title.strip("《》")
-        title = f"《{stripped}》"
-    return title
-
-
 def intelligent_summarize(server: str, model: str, content: str, target_length: int, num_segments: int) -> Dict[str, Any]:
     """
     智能缩写 - 第一次LLM处理
@@ -129,42 +123,24 @@ def intelligent_summarize(server: str, model: str, content: str, target_length: 
 
         parsed = parse_json_robust(output)
 
-        # 新格式强约束：必须包含 title / content，golden_quote 可选
-        if "title" not in parsed or "content" not in parsed:
-            raise ValueError("生成的 JSON 缺少必需字段：title 或 content")
+        if "content" not in parsed:
+            raise ValueError("生成的 JSON 缺少必需字段：content")
 
-        title = parsed.get("title", "untitled")
-        content_title = _ensure_book_title_format(parsed.get("content_title", ""), title)
+        video_titles = normalize_text_list(parsed.get("video_titles"))
+        if not video_titles:
+            raise ValueError("生成的 JSON 缺少必需字段：video_titles")
 
-        def _normalize_options(raw_options, fallback_value: str) -> List[str]:
-            options: List[str] = []
-            if isinstance(raw_options, list):
-                for item in raw_options:
-                    if isinstance(item, str):
-                        candidate = item.strip()
-                        if candidate and candidate not in options:
-                            options.append(candidate)
-            elif isinstance(raw_options, str):
-                candidate = raw_options.strip()
-                if candidate:
-                    options.append(candidate)
+        title = video_titles[0]
+        source_name = strip_book_title_marks(parsed.get("source_name"))
+        if not source_name:
+            raise ValueError("生成的 JSON 缺少必需字段：source_name")
 
-            fallback_candidate = fallback_value.strip() if isinstance(fallback_value, str) else ""
-            if fallback_candidate and fallback_candidate not in options:
-                options.append(fallback_candidate)
+        cover_titles = normalize_text_list(parsed.get("cover_titles"))
+        if not cover_titles:
+            cover_titles = [title]
 
-            return options
-
-        raw_cover_subtitle_options = parsed.get("cover_subtitle_options", [])
-        raw_golden_quote_options = parsed.get("golden_quote_options", [])
-        cover_subtitle = (parsed.get("cover_subtitle") or "").strip()
-        golden_quote = (parsed.get("golden_quote") or "").strip()
-
-        cover_subtitle_options = _normalize_options(raw_cover_subtitle_options, cover_subtitle)
-        golden_quote_options = _normalize_options(raw_golden_quote_options, golden_quote)
-
-        cover_subtitle = cover_subtitle_options[0] if cover_subtitle_options else ""
-        golden_quote = golden_quote_options[0] if golden_quote_options else ""
+        cover_subtitles = normalize_text_list(parsed.get("cover_subtitles"))
+        golden_quotes = normalize_text_list(parsed.get("golden_quotes"))
 
         full_text = (parsed.get("content") or "").strip()
         if not full_text:
@@ -172,12 +148,11 @@ def intelligent_summarize(server: str, model: str, content: str, target_length: 
 
         # 返回原始数据，不进行分段
         raw_data: Dict[str, Any] = {
-            "title": title,
-            "content_title": content_title,
-            "cover_subtitle": cover_subtitle,
-            "cover_subtitle_options": cover_subtitle_options,
-            "golden_quote": golden_quote,
-            "golden_quote_options": golden_quote_options,
+            "source_name": source_name,
+            "video_titles": video_titles,
+            "cover_titles": cover_titles,
+            "cover_subtitles": cover_subtitles,
+            "golden_quotes": golden_quotes,
             "content": full_text,
             "total_length": len(full_text),
             "target_segments": num_segments,
@@ -398,27 +373,13 @@ def process_raw_to_script(raw_data: Dict[str, Any], num_segments: int, split_mod
     这是步骤1.5的核心功能，从raw数据生成最终的script数据。
     """
     try:
-        title = raw_data.get("title", "untitled")
-        content_title = _ensure_book_title_format(raw_data.get("content_title", ""), title)
-        cover_subtitle = raw_data.get("cover_subtitle", "")
-        golden_quote = raw_data.get("golden_quote", "")
+        video_titles = get_video_titles(raw_data)
+        title = video_titles[0] if video_titles else "untitled"
 
-        def _sanitize_script_options(values: Any, primary: str) -> List[str]:
-            options: List[str] = []
-            if isinstance(values, list):
-                for value in values:
-                    if isinstance(value, str):
-                        candidate = value.strip()
-                        if candidate and candidate not in options:
-                            options.append(candidate)
-            if isinstance(primary, str):
-                primary_value = primary.strip()
-                if primary_value and primary_value not in options:
-                    options.insert(0, primary_value)
-            return options
-
-        cover_subtitle_options = _sanitize_script_options(raw_data.get("cover_subtitle_options"), cover_subtitle)
-        golden_quote_options = _sanitize_script_options(raw_data.get("golden_quote_options"), golden_quote)
+        source_name = get_source_name(raw_data, title)
+        cover_titles = get_cover_titles(raw_data, title)
+        cover_subtitles = get_cover_subtitles(raw_data)
+        golden_quotes = get_golden_quotes(raw_data)
         full_text = raw_data.get("content", "").strip()
 
         if not full_text:
@@ -431,12 +392,11 @@ def process_raw_to_script(raw_data: Dict[str, Any], num_segments: int, split_mod
         # 汇总统计
         total_length = len(full_text)
         enhanced_data: Dict[str, Any] = {
-            "title": title,
-            "content_title": content_title,
-            "cover_subtitle": cover_subtitle,
-            "cover_subtitle_options": cover_subtitle_options,
-            "golden_quote": golden_quote,
-            "golden_quote_options": golden_quote_options,
+            "source_name": source_name,
+            "video_titles": video_titles,
+            "cover_titles": cover_titles,
+            "cover_subtitles": cover_subtitles,
+            "golden_quotes": golden_quotes,
             "total_length": total_length,
             "target_segments": num_segments,
             "actual_segments": actual_segments,

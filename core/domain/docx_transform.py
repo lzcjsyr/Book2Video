@@ -12,10 +12,26 @@ import os
 import re
 from typing import Dict, Any, List
 
+from core.domain.metadata import (
+    get_source_name,
+    get_video_titles,
+    get_cover_titles,
+    get_cover_subtitles,
+    get_golden_quotes,
+    get_primary_video_title,
+)
 from core.shared import logger, ensure_directory_exists, FileProcessingError
 
 
 OPTION_LABELS = {
+    "video_title": {
+        "label": "VIDEO_TITLE",
+        "display": "视频标题",
+    },
+    "cover_title": {
+        "label": "COVER_TITLE",
+        "display": "封面主标题",
+    },
     "cover_subtitle": {
         "label": "COVER_SUBTITLE",
         "display": "封面副标题",
@@ -26,6 +42,18 @@ OPTION_LABELS = {
     },
 }
 OPTION_HEADER_TEMPLATE = ">>> {label} OPTION {index:02d} >>>"
+OPTION_MARKERS = {
+    "video_title": ("===VIDEO_TITLES_START===", "===VIDEO_TITLES_END==="),
+    "cover_title": ("===COVER_TITLES_START===", "===COVER_TITLES_END==="),
+    "cover_subtitle": ("===COVER_SUBTITLES_START===", "===COVER_SUBTITLES_END==="),
+    "golden_quote": ("===GOLDEN_QUOTES_START===", "===GOLDEN_QUOTES_END==="),
+}
+OPTION_VALUE_KEYS = {
+    "video_title": ("video_titles",),
+    "cover_title": ("cover_titles",),
+    "cover_subtitle": ("cover_subtitles",),
+    "golden_quote": ("golden_quotes",),
+}
 
 
 def _dedupe_options(values: List[str]) -> List[str]:
@@ -39,13 +67,19 @@ def _dedupe_options(values: List[str]) -> List[str]:
 
 
 def _prepare_option_values(raw_data: Dict[str, Any], field: str) -> List[str]:
-    options = raw_data.get(f"{field}_options")
-    prepared = _dedupe_options(options if isinstance(options, list) else [])
-    fallback = raw_data.get(field, "")
-    if isinstance(fallback, str):
-        fallback_value = fallback.strip()
-        if fallback_value and fallback_value not in prepared:
-            prepared.insert(0, fallback_value)
+    prepared: List[str] = []
+    for key in OPTION_VALUE_KEYS.get(field, (f"{field}_options", field)):
+        value = raw_data.get(key)
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, str):
+                    candidate = item.strip()
+                    if candidate and candidate not in prepared:
+                        prepared.append(candidate)
+        elif isinstance(value, str):
+            candidate = value.strip()
+            if candidate and candidate not in prepared:
+                prepared.append(candidate)
     return prepared if prepared else [""]
 
 
@@ -120,7 +154,7 @@ def export_script_to_docx(script_data: Dict[str, Any], docx_path: str) -> str:
     document = Document()
     _setup_docx_style(document)
 
-    title_text = script_data.get('title', 'untitled')
+    title_text = get_primary_video_title(script_data, 'untitled')
     segments = script_data.get('segments', []) or []
 
     # 标题（居中）
@@ -167,10 +201,11 @@ def export_raw_to_docx(raw_data: Dict[str, Any], docx_path: str) -> str:
     _setup_docx_run(instruction_run)
     _setup_docx_paragraph(instruction_para)
     
-    # 标题与内容标题
+    source_name = get_source_name(raw_data)
+
+    # 原始作品标题
     for start_marker, content, end_marker in [
-        ("===TITLE_START===", raw_data.get('title', ''), "===TITLE_END==="),
-        ("===CONTENT_TITLE_START===", raw_data.get('content_title', ''), "===CONTENT_TITLE_END==="),
+        ("===SOURCE_NAME_START===", source_name, "===SOURCE_NAME_END==="),
     ]:
         document.add_paragraph()
 
@@ -183,12 +218,11 @@ def export_raw_to_docx(raw_data: Dict[str, Any], docx_path: str) -> str:
         end_para = document.add_paragraph(end_marker)
         _setup_docx_paragraph(end_para)
 
-    # 多选字段：封面副标题与开场金句
-    for field in ("cover_subtitle", "golden_quote"):
+    # 多选字段：视频标题、封面主标题、封面副标题与开场金句
+    for field in ("video_title", "cover_title", "cover_subtitle", "golden_quote"):
         document.add_paragraph()
 
-        start_marker = f"==={field.upper()}_START==="
-        end_marker = f"==={field.upper()}_END==="
+        start_marker, end_marker = OPTION_MARKERS[field]
 
         start_para = document.add_paragraph(start_marker)
         _setup_docx_paragraph(start_para)
@@ -251,60 +285,65 @@ def parse_raw_from_docx(docx_path: str) -> Dict[str, Any]:
                 paragraphs.append(text)
         
         # 查找标记位置
-        title_start = title_end = quote_start = quote_end = content_start = content_end = -1
-        content_title_start = content_title_end = cover_subtitle_start = cover_subtitle_end = -1
-        
+        source_name_start = source_name_end = video_titles_start = video_titles_end = -1
+        cover_titles_start = cover_titles_end = cover_subtitles_start = cover_subtitles_end = -1
+        golden_quotes_start = golden_quotes_end = content_start = content_end = -1
+
         for i, para_text in enumerate(paragraphs):
-            if para_text == "===TITLE_START===":
-                title_start = i
-            elif para_text == "===TITLE_END===":
-                title_end = i
-            elif para_text == "===CONTENT_TITLE_START===":
-                content_title_start = i
-            elif para_text == "===CONTENT_TITLE_END===":
-                content_title_end = i
-            elif para_text == "===COVER_SUBTITLE_START===":
-                cover_subtitle_start = i
-            elif para_text == "===COVER_SUBTITLE_END===":
-                cover_subtitle_end = i
-            elif para_text == "===GOLDEN_QUOTE_START===":
-                quote_start = i
-            elif para_text == "===GOLDEN_QUOTE_END===":
-                quote_end = i
+            if para_text == "===SOURCE_NAME_START===":
+                source_name_start = i
+            elif para_text == "===SOURCE_NAME_END===":
+                source_name_end = i
+            elif para_text == "===VIDEO_TITLES_START===":
+                video_titles_start = i
+            elif para_text == "===VIDEO_TITLES_END===":
+                video_titles_end = i
+            elif para_text == "===COVER_TITLES_START===":
+                cover_titles_start = i
+            elif para_text == "===COVER_TITLES_END===":
+                cover_titles_end = i
+            elif para_text == "===COVER_SUBTITLES_START===":
+                cover_subtitles_start = i
+            elif para_text == "===COVER_SUBTITLES_END===":
+                cover_subtitles_end = i
+            elif para_text == "===GOLDEN_QUOTES_START===":
+                golden_quotes_start = i
+            elif para_text == "===GOLDEN_QUOTES_END===":
+                golden_quotes_end = i
             elif para_text == "===CONTENT_START===":
                 content_start = i
             elif para_text == "===CONTENT_END===":
                 content_end = i
-        
+
         # 验证标记完整性
-        if title_start == -1 or title_end == -1:
-            raise ValueError("缺少TITLE标记")
-        if quote_start == -1 or quote_end == -1:
-            raise ValueError("缺少GOLDEN_QUOTE标记")
+        if source_name_start == -1 or source_name_end == -1:
+            raise ValueError("缺少SOURCE_NAME标记")
+        if video_titles_start == -1 or video_titles_end == -1:
+            raise ValueError("缺少VIDEO_TITLES标记")
+        if cover_titles_start == -1 or cover_titles_end == -1:
+            raise ValueError("缺少COVER_TITLES标记")
+        if cover_subtitles_start == -1 or cover_subtitles_end == -1:
+            raise ValueError("缺少COVER_SUBTITLES标记")
+        if golden_quotes_start == -1 or golden_quotes_end == -1:
+            raise ValueError("缺少GOLDEN_QUOTES标记")
         if content_start == -1 or content_end == -1:
             raise ValueError("缺少CONTENT标记")
-            
+
         # 提取各字段内容
-        title = '\n'.join(paragraphs[title_start + 1:title_end]).strip()
         content = '\n'.join(paragraphs[content_start + 1:content_end]).strip()
 
-        content_title = ''
-        if content_title_start != -1 and content_title_end != -1 and content_title_end > content_title_start:
-            content_title = '\n'.join(paragraphs[content_title_start + 1:content_title_end]).strip()
-
-        cover_subtitle_options = _extract_option_values(paragraphs, cover_subtitle_start, cover_subtitle_end, "cover_subtitle")
-        golden_quote_options = _extract_option_values(paragraphs, quote_start, quote_end, "golden_quote")
-
-        cover_subtitle = cover_subtitle_options[0] if cover_subtitle_options else ''
-        golden_quote = golden_quote_options[0] if golden_quote_options else ''
+        video_titles = _extract_option_values(paragraphs, video_titles_start, video_titles_end, "video_title")
+        source_name = '\n'.join(paragraphs[source_name_start + 1:source_name_end]).strip()
+        cover_titles = _extract_option_values(paragraphs, cover_titles_start, cover_titles_end, "cover_title")
+        cover_subtitles = _extract_option_values(paragraphs, cover_subtitles_start, cover_subtitles_end, "cover_subtitle")
+        golden_quotes = _extract_option_values(paragraphs, golden_quotes_start, golden_quotes_end, "golden_quote")
 
         result = {
-            'title': title,
-            'content_title': content_title,
-            'cover_subtitle': cover_subtitle,
-            'cover_subtitle_options': cover_subtitle_options,
-            'golden_quote': golden_quote,
-            'golden_quote_options': golden_quote_options,
+            'source_name': source_name,
+            'video_titles': video_titles,
+            'cover_titles': cover_titles,
+            'cover_subtitles': cover_subtitles,
+            'golden_quotes': golden_quotes,
             'content': content
         }
         

@@ -222,8 +222,7 @@ def generate_cover_images(
     image_size: str,
     style_id: str,
     count: int,
-    video_title: str,
-    content_title: str,
+    cover_title: str,
     cover_subtitle: str,
 ) -> Dict[str, Any]:
     """生成封面图像，保存到项目根目录，文件名 cover_MMSS.png。"""
@@ -234,9 +233,8 @@ def generate_cover_images(
         os.makedirs(project_output_dir, exist_ok=True)
         style_key, style_text = _ensure_cover_style(style_id)
         prompt = COVER_IMAGE_PROMPT_TEMPLATE.format(
-            video_title=video_title,
-            content_title=content_title,
-            cover_subtitle=cover_subtitle or video_title,
+            cover_title=cover_title,
+            cover_subtitle=cover_subtitle,
             style_block=style_text,
         )
 

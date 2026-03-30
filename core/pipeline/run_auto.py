@@ -10,7 +10,6 @@
 """
 
 import datetime
-import inspect
 import json
 import os
 from typing import Any, Dict, List, Optional
@@ -29,6 +28,7 @@ from core.pipeline.steps import (
 )
 from core.config import Config, config as global_config
 from core.domain.composer import VideoComposer
+from core.domain.metadata import get_primary_golden_quote
 from core.domain.reader import DocumentReader
 from core.domain.summarizer import intelligent_summarize
 from core.generation_config import VideoGenerationConfig
@@ -66,42 +66,6 @@ def _validate_auto_mode_config(config: VideoGenerationConfig) -> None:
         llm_model=config.llm_model_step2,
     )
     Config.validate_model_provider_pair("image", config.get_effective_cover_server(), config.get_effective_cover_model())
-
-
-def _invoke_cover_generation_compat(
-    project_output_dir: str,
-    config: VideoGenerationConfig,
-    script_data: Optional[Dict[str, Any]],
-    raw_data: Optional[Dict[str, Any]],
-) -> Dict[str, Any]:
-    """Call cover generator with both new/legacy signatures."""
-    cover_size = config.get_effective_cover_size()
-    cover_server = config.get_effective_cover_server()
-    cover_model = config.get_effective_cover_model()
-    cover_style = config.cover_image_style
-    cover_count = max(1, int(config.cover_image_count))
-
-    params = inspect.signature(_run_cover_generation).parameters
-    if "cover_image_server" in params:
-        return _run_cover_generation(
-            project_output_dir,
-            cover_size,
-            cover_server,
-            cover_model,
-            cover_style,
-            cover_count,
-            script_data,
-            raw_data,
-        )
-    return _run_cover_generation(
-        project_output_dir,
-        cover_size,
-        cover_model,
-        cover_style,
-        cover_count,
-        script_data,
-        raw_data,
-    )
 
 
 def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
@@ -221,7 +185,7 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
     else:
         try:
             bgm_audio_path = _resolve_bgm_audio_path(config.bgm_filename, _get_project_root())
-            opening_golden_quote = (script_data or {}).get("golden_quote", "")
+            opening_golden_quote = get_primary_golden_quote(script_data or {}, "")
             opening_narration_audio_path = _invoke_opening_narration(
                 script_data,
                 paths.voice,
@@ -256,7 +220,16 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
 
     cover_result = None
     try:
-        cover_result = _invoke_cover_generation_compat(project_output_dir, config, script_data, raw_data)
+        cover_result = _run_cover_generation(
+            project_output_dir,
+            config.get_effective_cover_size(),
+            config.get_effective_cover_server(),
+            config.get_effective_cover_model(),
+            config.cover_image_style,
+            max(1, int(config.cover_image_count)),
+            script_data,
+            raw_data,
+        )
     except Exception as exc:
         logger.warning(f"封面生成失败: {exc}")
 
