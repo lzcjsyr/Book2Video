@@ -546,7 +546,7 @@ def _synthesize_single_voice(args) -> Dict[str, Any]:
     """
     合成单个语音的辅助函数（用于多线程）
     """
-    (segment_index, content, server, voice, output_dir,
+    (segment_index, content, server, voice, tts_model, output_dir,
      speech_rate, loudness_rate, emotion, emotion_scale,
      mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms) = args
 
@@ -561,6 +561,7 @@ def _synthesize_single_voice(args) -> Dict[str, Any]:
                 text=content,
                 output_filename=audio_path,
                 voice=voice,
+                model=tts_model,
                 speech_rate=speech_rate,
                 loudness_rate=loudness_rate,
                 emotion=emotion,
@@ -585,6 +586,7 @@ def _synthesize_single_voice(args) -> Dict[str, Any]:
 def synthesize_voice_for_segments(
     server: str,
     voice: str,
+    tts_model: str,
     script_data: Dict[str, Any],
     output_dir: str,
     target_segments: Optional[Iterable[int]] = None,
@@ -620,7 +622,7 @@ def synthesize_voice_for_segments(
                 raise ValueError("未找到需要生成语音的有效段落")
 
         audio_paths: List[str] = [""] * segment_count
-        task_args: List[Tuple[int, str, str, str, str, int, int, str, int, int, int, int]] = []
+        task_args: List[Tuple[int, str, str, str, str, str, int, int, str, int, int, int, int]] = []
 
         for idx, segment in enumerate(segments, 1):
             segment_index = int(segment.get("index") or idx)
@@ -642,7 +644,7 @@ def synthesize_voice_for_segments(
                     continue
 
             content = segment.get("content", "")
-            task_args.append((segment_index, content, server, voice, output_dir, speech_rate, loudness_rate, emotion, emotion_scale, mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms))
+            task_args.append((segment_index, content, server, voice, tts_model, output_dir, speech_rate, loudness_rate, emotion, emotion_scale, mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms))
 
         if task_args:
             max_workers = getattr(config, "MAX_CONCURRENT_VOICE_SYNTHESIS", 2)

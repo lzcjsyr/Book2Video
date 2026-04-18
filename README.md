@@ -184,7 +184,6 @@ OPENING_IMAGE_STYLE = "des01"                          # 开场图像风格
 MAX_CONCURRENT_IMAGE_GENERATION = 3                    # 并发数
 
 # ==================== 🎙️ 步骤4：语音合成 ====================
-VOICE = "zh_male_yuanboxiaoshu_moon_bigtts"            # 语音音色
 SPEED_RATIO = 1.2                                      # 语速调节 (0.8-2.0)
 LOUDNESS_RATIO = 1.0                                   # 音量调节 (0.5-2.0)
 MAX_CONCURRENT_VOICE_SYNTHESIS = 5                     # 并发数
@@ -242,8 +241,8 @@ GOOGLE_CLOUD_API_KEY=your_key    # Google Vertex AI 生图（单一配置）
 # GOOGLE_MAX_CONCURRENT_IMAGE_GENERATION=2
 
 # 语音合成（必需）
-BYTEDANCE_TTS_APPID=your_appid   # 豆包语音
-BYTEDANCE_TTS_ACCESS_TOKEN=your_token
+BYTEDANCE_TTS_API_KEY=your_api_key
+BYTEDANCE_TTS_VOICE_ID=your_voice_id
 ```
 
 ## 🛠️ 高级功能

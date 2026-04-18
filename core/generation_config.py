@@ -48,6 +48,7 @@ class VideoGenerationConfig:
     # ==================== 语音合成配置 ====================
     tts_server: str = "bytedance"
     voice: str = "zh_male_yuanboxiaoshu_moon_bigtts"
+    tts_model: str = "seed-tts-2.0-expressive"
     speech_rate: int = 0
     loudness_rate: int = 0
     emotion: str = "neutral"
@@ -142,6 +143,7 @@ class StepExecutionConfig:
     images_method: Optional[str] = None
     tts_server: Optional[str] = None
     voice: Optional[str] = None
+    tts_model: Optional[str] = None
     speech_rate: int = 0
     loudness_rate: int = 0
     emotion: str = "neutral"
@@ -192,6 +194,7 @@ class StepExecutionConfig:
             images_method=gen_config.images_method,
             tts_server=gen_config.tts_server,
             voice=gen_config.voice,
+            tts_model=gen_config.tts_model,
             speech_rate=gen_config.speech_rate,
             loudness_rate=gen_config.loudness_rate,
             emotion=gen_config.emotion,

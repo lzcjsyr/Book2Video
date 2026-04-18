@@ -107,11 +107,11 @@ def _create_wav_header(pcm_data_size, sample_rate=48000, channels=1, bits_per_sa
 
 def _request_bytedance_tts_pcm(
     *,
-    app_id: str,
-    access_token: str,
+    api_key: str,
     resource_id: str,
     text: str,
     voice: str,
+    model: str,
     speech_rate: int,
     loudness_rate: int,
     emotion: str,
@@ -120,8 +120,7 @@ def _request_bytedance_tts_pcm(
     """调用火山引擎TTS API并返回PCM音频数据。"""
     url = "https://openspeech.bytedance.com/api/v3/tts/unidirectional"
     headers = {
-        "X-Api-App-Id": app_id,
-        "X-Api-Access-Key": access_token,
+        "X-Api-Key": api_key,
         "X-Api-Resource-Id": resource_id,
         "Content-Type": "application/json",
     }
@@ -141,6 +140,8 @@ def _request_bytedance_tts_pcm(
             "additions": json.dumps({"silence_duration": 0}),
         },
     }
+    if model:
+        payload["req_params"]["model"] = model
 
     session = requests.Session()
     response = None
@@ -189,6 +190,7 @@ def text_to_audio_bytedance(
     output_filename,
     voice="zh_male_yuanboxiaoshu_moon_bigtts",
     encoding="mp3",
+    model: str = "",
     speech_rate: int = 0,
     loudness_rate: int = 0,
     emotion: str = "neutral",
@@ -205,6 +207,7 @@ def text_to_audio_bytedance(
         output_filename: 输出文件路径（.wav格式）
         voice: 音色ID
         encoding: 输出编码格式（保留参数，实际输出为wav）
+        model: 复刻2.0效果模型（如 seed-tts-2.0-expressive / seed-tts-2.0-standard）
         speech_rate: 语速 (-50到100, 0=正常, 100=2倍速, -50=0.5倍速)
         loudness_rate: 音量 (-50到100, 0=正常, 100=2倍音量, -50=0.5倍音量)
         emotion: 情感类型 (neutral, happy, sad等)
@@ -218,12 +221,12 @@ def text_to_audio_bytedance(
     _ = encoding  # 保留入参兼容，当前固定输出wav容器
 
     # ============ 1. 验证配置 ============
-    if not config.BYTEDANCE_TTS_APPID or not config.BYTEDANCE_TTS_ACCESS_TOKEN:
-        raise APIError("豆包语音配置不完整，请检查BYTEDANCE_TTS_APPID和BYTEDANCE_TTS_ACCESS_TOKEN")
+    api_key = (getattr(config, "BYTEDANCE_TTS_API_KEY", "") or "").strip()
+    if not api_key:
+        raise APIError("豆包语音配置不完整，请检查 BYTEDANCE_TTS_API_KEY")
 
-    APPID = config.BYTEDANCE_TTS_APPID
-    ACCESS_TOKEN = config.BYTEDANCE_TTS_ACCESS_TOKEN
     RESOURCE_ID = config.RESOURCE_ID
+    MODEL = str(model or getattr(config, "TTS_MODEL", "") or "").strip()
 
     # ============ 2. 参数验证和规范化 ============
     speech_rate = max(-50, min(100, int(speech_rate or 0)))
@@ -233,18 +236,18 @@ def text_to_audio_bytedance(
 
     logger.info(
         f"调用火山引擎TTS API - 资源: {RESOURCE_ID}, 音色: {voice}, "
-        f"文本长度: {len(text)}字符, 语速: {speech_rate}, 音量: {loudness_rate}, "
+        f"模型: {MODEL or '<default>'}, 文本长度: {len(text)}字符, 语速: {speech_rate}, 音量: {loudness_rate}, "
         f"情感: {emotion}({emotion_scale})"
     )
 
     try:
         # ============ 3. 请求TTS API，获取PCM ============
         audio_data = _request_bytedance_tts_pcm(
-            app_id=APPID,
-            access_token=ACCESS_TOKEN,
+            api_key=api_key,
             resource_id=RESOURCE_ID,
             text=text,
             voice=voice,
+            model=MODEL,
             speech_rate=speech_rate,
             loudness_rate=loudness_rate,
             emotion=emotion,

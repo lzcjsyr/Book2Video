@@ -43,10 +43,10 @@ def check_api_keys() -> List[str]:
         print("✅ Seedream API密钥: 已配置")
     
     # 检查TTS服务密钥
-    if not config.BYTEDANCE_TTS_APPID or not config.BYTEDANCE_TTS_ACCESS_TOKEN:
-        issues.append("❌ 错误: 豆包语音配置不完整（语音合成必需）")
+    if config.BYTEDANCE_TTS_API_KEY:
+        print("✅ 豆包语音 API Key: 已配置")
     else:
-        print("✅ 豆包语音配置: 已配置")
+        issues.append("❌ 错误: 豆包语音配置不完整（请配置 BYTEDANCE_TTS_API_KEY）")
     
     return issues
 
@@ -80,7 +80,7 @@ def check_config_params() -> List[str]:
     """检查配置参数有效性"""
     issues = []
     from core.config import (TARGET_LENGTH, NUM_SEGMENTS, IMAGE_SIZE, IMAGE_MODEL,
-                       TTS_SPEECH_RATE, TTS_LOUDNESS_RATE, TTS_EMOTION, TTS_EMOTION_SCALE)
+                       TTS_SPEECH_RATE, TTS_LOUDNESS_RATE, TTS_EMOTION, TTS_EMOTION_SCALE, TTS_MODEL)
     
     print("\n⚙️  检查配置参数:")
     
@@ -138,6 +138,18 @@ def check_config_params() -> List[str]:
         issues.append(f"⚠️  TTS情感强度 {TTS_EMOTION_SCALE} 超出范围 [1, 5]")
     else:
         print(f"✅ TTS情感: {TTS_EMOTION}({TTS_EMOTION_SCALE})")
+
+    voice_id = getattr(config, "BYTEDANCE_TTS_VOICE_ID", "") or getattr(config, "DEFAULT_VOICE", "")
+    if not voice_id:
+        issues.append("❌ 错误: 未配置声音ID（请在 .env 中设置 BYTEDANCE_TTS_VOICE_ID）")
+    else:
+        print(f"✅ TTS音色ID: {voice_id}")
+
+    valid_tts_models = {"seed-tts-2.0-expressive", "seed-tts-2.0-standard"}
+    if TTS_MODEL not in valid_tts_models:
+        issues.append(f"⚠️  TTS模型 {TTS_MODEL} 不在推荐范围 {sorted(valid_tts_models)}")
+    else:
+        print(f"✅ TTS模型: {TTS_MODEL}")
 
     return issues
 

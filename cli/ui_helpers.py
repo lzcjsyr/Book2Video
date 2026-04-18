@@ -679,7 +679,7 @@ def _prompt_segment_generation_scope(
 def _run_specific_step(
     target_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
     image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
-    tts_server, voice, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
+    tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
     enable_subtitles, bgm_filename,
     cover_image_size, cover_image_server, cover_image_model, cover_image_style, cover_image_count, opening_quote=True,
     mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100
@@ -751,6 +751,7 @@ def _run_specific_step(
             result = run_step_4(
                 tts_server,
                 voice,
+                tts_model,
                 project_output_dir,
                 opening_quote,
                 target_segments=selection["segments"],
@@ -767,6 +768,7 @@ def _run_specific_step(
             result = run_step_4(
                 tts_server,
                 voice,
+                tts_model,
                 project_output_dir,
                 opening_quote,
                 speech_rate=speech_rate,
@@ -797,6 +799,7 @@ def _run_specific_step(
             enable_subtitles,
             selected_bgm_filename,  # 使用用户选择的音乐
             voice,
+            tts_model,
             opening_quote,
             speech_rate=speech_rate,
             loudness_rate=loudness_rate,
@@ -850,7 +853,7 @@ def _run_specific_step(
 def _run_step_by_step_loop(
     project_output_dir, initial_step, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
     image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
-    tts_server, voice, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
+    tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
     enable_subtitles, bgm_filename,
     cover_image_size, cover_image_server, cover_image_model, cover_image_style, cover_image_count, opening_quote=True,
     mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100
@@ -863,7 +866,7 @@ def _run_step_by_step_loop(
         result = _run_specific_step(
             initial_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
             image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
-            tts_server, voice, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
+            tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
             enable_subtitles, bgm_filename,
             cover_image_size, cover_image_server, cover_image_model, cover_image_style, cover_image_count, opening_quote,
             mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms
@@ -901,7 +904,7 @@ def _run_step_by_step_loop(
         result = _run_specific_step(
             selected_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
             image_server, image_model, image_size, video_size, image_style_preset, opening_image_style, images_method,
-            tts_server, voice, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
+            tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
             enable_subtitles, bgm_filename,
             cover_image_size, cover_image_server, cover_image_model, cover_image_style, cover_image_count, opening_quote,
             mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms
@@ -938,6 +941,7 @@ def run_cli_main(
     image_model: str = _UNSET,
     voice: Optional[str] = _UNSET,
     resource_id: Optional[str] = _UNSET,
+    tts_model: Optional[str] = _UNSET,
     tts_emotion: Optional[str] = _UNSET,
     tts_emotion_scale: Optional[int] = _UNSET,
     tts_speech_rate: Optional[int] = _UNSET,
@@ -984,6 +988,7 @@ def run_cli_main(
             "image_model": image_model,
             "voice": voice,
             "resource_id": resource_id,
+            "tts_model": tts_model,
             "tts_emotion": tts_emotion,
             "tts_emotion_scale": tts_emotion_scale,
             "tts_speech_rate": tts_speech_rate,
@@ -1019,6 +1024,7 @@ def run_cli_main(
         image_model = params["image_model"]
         voice = params["voice"]
         resource_id = params.get("resource_id", "seed-icl-2.0")
+        tts_model = params.get("tts_model", getattr(config, "TTS_MODEL", ""))
         emotion = params["tts_emotion"]
         emotion_scale = params["tts_emotion_scale"]
         speech_rate = params["tts_speech_rate"]
@@ -1130,7 +1136,7 @@ def run_cli_main(
                 project_output_dir, selection["selected_step"],
                 llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
                 image_server, image_model, image_size, video_size, image_style_preset,
-                opening_image_style, images_method, tts_server, voice, speech_rate, loudness_rate,
+                opening_image_style, images_method, tts_server, voice, tts_model, speech_rate, loudness_rate,
                 emotion, emotion_scale, num_segments,
                 enable_subtitles, bgm_filename, cover_image_size, cover_image_server, cover_image_model,
                 cover_image_style, cover_image_count, opening_quote,
@@ -1158,6 +1164,7 @@ def run_cli_main(
             image_model=image_model,
             tts_server=tts_server,
             voice=voice,
+            tts_model=tts_model,
             image_style_preset=image_style_preset,
             opening_image_style=opening_image_style,
             images_method=images_method,
@@ -1207,7 +1214,7 @@ def run_cli_main(
             project_output_dir, 0,  # 不执行初始步骤，直接进入交互模式
             llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
             image_server, image_model, image_size, video_size, image_style_preset,
-            opening_image_style, images_method, tts_server, voice, speech_rate, loudness_rate,
+            opening_image_style, images_method, tts_server, voice, tts_model, speech_rate, loudness_rate,
             emotion, emotion_scale, num_segments,
             enable_subtitles, bgm_filename, cover_image_size, cover_image_server, cover_image_model,
             cover_image_style, cover_image_count, opening_quote,

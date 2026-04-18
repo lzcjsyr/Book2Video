@@ -153,6 +153,7 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
     step4 = _run_step_4(
         tts_server=config.tts_server,
         voice=config.voice,
+        tts_model=config.tts_model,
         project_output_dir=project_output_dir,
         opening_quote=config.opening_quote,
         speech_rate=config.speech_rate,
@@ -172,6 +173,7 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         enable_subtitles=config.enable_subtitles,
         bgm_filename=config.bgm_filename,
         voice=config.voice,
+        tts_model=config.tts_model,
         opening_quote=config.opening_quote,
         speech_rate=config.speech_rate,
         loudness_rate=config.loudness_rate,
@@ -190,6 +192,7 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
                 script_data,
                 paths.voice,
                 config.voice,
+                config.tts_model,
                 config.opening_quote,
                 speech_rate=config.speech_rate,
                 loudness_rate=config.loudness_rate,
