@@ -1,0 +1,299 @@
+<style>
+  .compare-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 18px;
+  }
+
+  .concept-card {
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 22px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.04);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.22);
+  }
+
+  .concept-head {
+    padding: 16px 16px 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .concept-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.08);
+  }
+
+  .frame {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+  }
+
+  .frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+    pointer-events: none;
+  }
+
+  .editorial-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(5,12,16,0.18), rgba(5,12,16,0.5)),
+      linear-gradient(135deg, #0f171d 0%, #24313a 52%, #12191f 100%);
+  }
+
+  .editorial-line {
+    position: absolute;
+    top: 42px;
+    left: 34px;
+    right: 34px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+  }
+
+  .editorial-label {
+    position: absolute;
+    top: 56px;
+    left: 34px;
+    font-size: 12px;
+    letter-spacing: 0.24em;
+    color: rgba(237,233,224,0.72);
+  }
+
+  .editorial-quote {
+    position: absolute;
+    left: 38px;
+    right: 38px;
+    top: 50%;
+    transform: translateY(-52%);
+    text-align: center;
+    color: #f6f0e5;
+    font-size: 39px;
+    line-height: 1.42;
+    font-weight: 700;
+  }
+
+  .editorial-quote .focus {
+    color: #f3d091;
+  }
+
+  .editorial-book {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 42px;
+    text-align: center;
+    font-size: 18px;
+    color: rgba(237,233,224,0.74);
+    letter-spacing: 0.08em;
+  }
+
+  .cinema-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 50% 30%, rgba(216,194,157,0.11), transparent 24%),
+      linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.5)),
+      linear-gradient(135deg, #111018 0%, #1f2230 50%, #0f1219 100%);
+  }
+
+  .cinema-vignette {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at center, transparent 45%, rgba(0,0,0,0.24) 100%),
+      linear-gradient(180deg, rgba(0,0,0,0.52), transparent 24%, transparent 76%, rgba(0,0,0,0.54));
+  }
+
+  .cinema-quote {
+    position: absolute;
+    left: 42px;
+    right: 42px;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+    color: #f1ece2;
+    font-size: 36px;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+
+  .cinema-book {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 40px;
+    text-align: center;
+    font-size: 18px;
+    color: rgba(241,236,226,0.72);
+  }
+
+  .data-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(7,11,18,0.14), rgba(7,11,18,0.44)),
+      linear-gradient(135deg, #10161f 0%, #192533 48%, #0f151d 100%);
+  }
+
+  .data-grid {
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(
+        90deg,
+        transparent 0 28px,
+        rgba(255,255,255,0.025) 28px 29px
+      ),
+      repeating-linear-gradient(
+        180deg,
+        transparent 0 28px,
+        rgba(255,255,255,0.022) 28px 29px
+      );
+  }
+
+  .data-pill {
+    position: absolute;
+    left: 34px;
+    top: 34px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.14);
+    color: rgba(223,231,240,0.8);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+  }
+
+  .data-quote {
+    position: absolute;
+    left: 40px;
+    right: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+    color: #f3f7fb;
+    font-size: 38px;
+    line-height: 1.38;
+    font-weight: 800;
+  }
+
+  .data-quote .accent {
+    color: #8bd0ff;
+  }
+
+  .data-book {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 42px;
+    text-align: center;
+    font-size: 18px;
+    color: rgba(223,231,240,0.74);
+  }
+
+  .meta {
+    padding: 16px;
+  }
+
+  .meta p {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: rgba(255,255,255,0.85);
+  }
+
+  .meta p:last-child {
+    margin-bottom: 0;
+  }
+
+  .recommend {
+    margin-top: 22px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  @media (max-width: 1200px) {
+    .compare-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<h2>更适合这类题材的开场方向</h2>
+<p class="subtitle">
+  你的项目是知识型读书解说，题材偏经济制度、历史解释、认知心理、社会理论和公共议题。
+  这类内容在 16:9 下更适合“克制但有抓手”的首屏，而不是特别炸裂的爆点短片感。
+</p>
+
+<div class="compare-grid">
+  <div class="concept-card card" data-choice="editorial" onclick="toggleSelect(this)">
+    <div class="concept-head">
+      <div class="concept-tag">A / 推荐</div>
+      <h3 style="margin:10px 0 0 0;">杂志政论感</h3>
+    </div>
+    <div class="frame">
+      <div class="editorial-bg"></div>
+      <div class="editorial-line"></div>
+      <div class="editorial-label">IDEA / SYSTEM / REALITY</div>
+      <div class="editorial-quote">真正拉开差距的，<br>不是努力，<br>而是你能不能看懂<span class="focus">系统</span>。</div>
+      <div class="editorial-book">-- 系统思维 --</div>
+    </div>
+    <div class="meta">
+      <p>最适合你现在的项目气质。像高质量知识栏目，而不是娱乐平台切片。</p>
+      <p>有钩子，但克制；兼容经济、历史、认知和社会议题。</p>
+    </div>
+  </div>
+
+  <div class="concept-card card" data-choice="cinema" onclick="toggleSelect(this)">
+    <div class="concept-head">
+      <div class="concept-tag">B / 更文学</div>
+      <h3 style="margin:10px 0 0 0;">电影书摘感</h3>
+    </div>
+    <div class="frame">
+      <div class="cinema-bg"></div>
+      <div class="cinema-vignette"></div>
+      <div class="cinema-quote">真正拉开差距的，<br>不是努力本身，<br>而是你是否拥有看透系统的能力。</div>
+      <div class="cinema-book">-- 系统思维 --</div>
+    </div>
+    <div class="meta">
+      <p>更有质感和留白，适合偏书摘、思想类、偏文艺的表达。</p>
+      <p>问题是传播性略弱，首屏抓停留不如 A 稳。</p>
+    </div>
+  </div>
+
+  <div class="concept-card card" data-choice="data" onclick="toggleSelect(this)">
+    <div class="concept-head">
+      <div class="concept-tag">C / 更现代</div>
+      <h3 style="margin:10px 0 0 0;">数据栏目感</h3>
+    </div>
+    <div class="frame">
+      <div class="data-bg"></div>
+      <div class="data-grid"></div>
+      <div class="data-pill">ANALYSIS MODE</div>
+      <div class="data-quote">真正拉开差距的，<br>不是努力，<br>而是你是否理解<span class="accent">规则</span>。</div>
+      <div class="data-book">-- 系统思维 --</div>
+    </div>
+    <div class="meta">
+      <p>适合制度分析、商业、AI 议题这类更“当代分析”的内容。</p>
+      <p>现代感强，但少一点人文厚度。</p>
+    </div>
+  </div>
+</div>
+
+<div class="recommend">
+  <strong>我的建议：</strong>
+  如果你想兼顾传播和质感，我会选 <strong>A「杂志政论感」</strong>。
+  它比刚才那个爆点版稳很多，但又不会像纯电影感那样太慢、太柔。
+</div>

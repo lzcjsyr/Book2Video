@@ -1,0 +1,265 @@
+<style>
+  .hero {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 28px;
+    background: #121920;
+    box-shadow: 0 26px 80px rgba(0,0,0,0.28);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+    pointer-events: none;
+  }
+
+  .bg {
+    position: absolute;
+    inset: -5%;
+    background:
+      radial-gradient(circle at 50% 22%, rgba(225, 201, 164, 0.12), transparent 24%),
+      linear-gradient(180deg, rgba(6,10,14,0.18), rgba(6,10,14,0.5)),
+      linear-gradient(135deg, #101820 0%, #26343d 52%, #131b22 100%);
+    animation: drift 5.4s ease-in-out infinite;
+  }
+
+  .texture {
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(
+        90deg,
+        transparent 0 36px,
+        rgba(255,255,255,0.018) 36px 37px
+      ),
+      linear-gradient(180deg, rgba(255,255,255,0.02), transparent 18%, transparent 82%, rgba(255,255,255,0.02));
+    opacity: 0.7;
+  }
+
+  .vignette {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at center, transparent 46%, rgba(0,0,0,0.22) 100%),
+      linear-gradient(180deg, rgba(0,0,0,0.44), transparent 24%, transparent 78%, rgba(0,0,0,0.48));
+  }
+
+  .ip-line {
+    position: absolute;
+    left: 34px;
+    right: 34px;
+    top: 42px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.56), transparent);
+    opacity: 0;
+    animation: fadeLine 5.4s ease-in-out infinite;
+  }
+
+  .ip-name {
+    position: absolute;
+    top: 56px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 18px;
+    letter-spacing: 0.14em;
+    color: rgba(236,231,222,0.82);
+    opacity: 0;
+    animation: fadeIp 5.4s ease-in-out infinite;
+  }
+
+  .quote-wrap {
+    position: absolute;
+    left: 28px;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-52%);
+    text-align: center;
+  }
+
+  .quote-line {
+    display: block;
+    font-size: 74px;
+    line-height: 1.14;
+    font-weight: 800;
+    color: #f3eee4;
+    text-shadow: 0 10px 28px rgba(0,0,0,0.38);
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  .quote-line + .quote-line {
+    margin-top: 12px;
+  }
+
+  .line-1 {
+    animation: lineOne 5.4s cubic-bezier(.22,.82,.2,1) infinite;
+  }
+
+  .line-2 {
+    animation: lineTwo 5.4s cubic-bezier(.22,.82,.2,1) infinite;
+  }
+
+  .line-3 {
+    animation: lineThree 5.4s cubic-bezier(.22,.82,.2,1) infinite;
+  }
+
+  .focus {
+    color: #e7c992;
+    position: relative;
+    display: inline-block;
+  }
+
+  .focus::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0.08em;
+    height: 0.18em;
+    background: rgba(231, 201, 146, 0.14);
+    z-index: -1;
+    opacity: 0;
+    animation: focusGlow 5.4s ease-in-out infinite;
+  }
+
+  .book {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 44px;
+    text-align: center;
+    font-size: 24px;
+    letter-spacing: 0.08em;
+    color: rgba(236,231,222,0.8);
+    opacity: 0;
+    animation: bookFade 5.4s ease-in-out infinite;
+  }
+
+  .book .dash {
+    opacity: 0.68;
+  }
+
+  .notes {
+    margin-top: 20px;
+    padding: 18px 20px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .notes p {
+    margin: 0 0 10px 0;
+  }
+
+  .notes p:last-child {
+    margin-bottom: 0;
+  }
+
+  .code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: #e7c992;
+  }
+
+  @keyframes drift {
+    0%, 100% { transform: scale(1.03) translateX(6px); filter: brightness(0.98) saturate(1); }
+    50% { transform: scale(1) translateX(-4px); filter: brightness(1.02) saturate(1.05); }
+  }
+
+  @keyframes fadeLine {
+    0%, 8%, 100% { opacity: 0; }
+    14%, 88% { opacity: 1; }
+  }
+
+  @keyframes fadeIp {
+    0%, 12%, 100% { opacity: 0; transform: translateY(6px); }
+    18%, 84% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes lineOne {
+    0%, 12%, 100% { opacity: 0; transform: translateY(14px); }
+    20%, 88% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes lineTwo {
+    0%, 24%, 100% { opacity: 0; transform: translateY(14px); }
+    34%, 90% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes lineThree {
+    0%, 36%, 100% { opacity: 0; transform: translateY(14px); }
+    46%, 92% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes focusGlow {
+    0%, 46%, 100% { opacity: 0; }
+    54%, 86% { opacity: 1; }
+  }
+
+  @keyframes bookFade {
+    0%, 48%, 100% { opacity: 0; transform: translateY(8px); }
+    58%, 90% { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 1200px) {
+    .quote-line {
+      font-size: 64px;
+    }
+
+    .book {
+      font-size: 22px;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .ip-name {
+      font-size: 16px;
+    }
+
+    .quote-wrap {
+      left: 24px;
+      right: 24px;
+    }
+
+    .quote-line {
+      font-size: 58px;
+      line-height: 1.12;
+    }
+
+    .book {
+      font-size: 20px;
+      bottom: 38px;
+    }
+  }
+</style>
+
+<h2>A 方向确认版 v1</h2>
+<p class="subtitle">
+  这次是你刚刚确认后的真正单版：<strong>杂志政论感 + 顶部中轴 Cody叩底 + 居中金句 + 底部书名</strong>。
+</p>
+
+<div class="hero">
+  <div class="bg"></div>
+  <div class="texture"></div>
+  <div class="vignette"></div>
+  <div class="ip-line"></div>
+  <div class="ip-name">CODY叩底</div>
+
+  <div class="quote-wrap">
+    <span class="quote-line line-1">真正拉开差距的，</span>
+    <span class="quote-line line-2">不是努力，</span>
+    <span class="quote-line line-3">而是你能不能看懂<span class="focus">系统</span>。</span>
+  </div>
+
+  <div class="book"><span class="dash">--</span> 系统思维 <span class="dash">--</span></div>
+</div>
+
+<div class="notes">
+  <p>这版才是我理解的“先按 A 做一版”。顶部是固定 IP 名称，底部是作品名，中间只让金句做主信息。</p>
+  <p>如果这版气质对了，后面实现时我会继续保留你项目现有的真实逻辑：<span class="code">居中断句</span>、<span class="code">底部书名</span>、<span class="code">正文字幕延后出现</span>。</p>
+  <p>这次调整重点是按手机观看的最佳实践收紧安全区并显著放大主信息：在 16:9 小窗里，第一眼必须先看清金句，其次才是 IP 和书名。</p>
+</div>

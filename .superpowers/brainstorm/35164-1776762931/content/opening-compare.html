@@ -1,0 +1,323 @@
+<style>
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 18px;
+  }
+
+  .concept-card {
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 24px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.04);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.25);
+  }
+
+  .concept-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .concept-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.08);
+  }
+
+  .frame {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: #0d0f14;
+  }
+
+  .frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+    pointer-events: none;
+  }
+
+  .burst-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 22% 18%, rgba(255,192,72,0.65), transparent 24%),
+      radial-gradient(circle at 78% 28%, rgba(255,91,91,0.42), transparent 20%),
+      linear-gradient(135deg, #16120f 0%, #24170f 28%, #120f10 100%);
+    transform: scale(1.08);
+  }
+
+  .burst-lines {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(120deg, transparent 0 44%, rgba(255,255,255,0.06) 46%, transparent 48%),
+      linear-gradient(104deg, transparent 0 58%, rgba(255,170,70,0.18) 60%, transparent 62%),
+      repeating-linear-gradient(
+        90deg,
+        transparent 0 28px,
+        rgba(255,255,255,0.03) 28px 29px
+      );
+    mix-blend-mode: screen;
+  }
+
+  .burst-badge {
+    position: absolute;
+    top: 28px;
+    left: 28px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #ffb300;
+    color: #17120b;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+  }
+
+  .burst-kicker {
+    position: absolute;
+    top: 86px;
+    left: 28px;
+    color: rgba(255,255,255,0.88);
+    font-size: 14px;
+    letter-spacing: 0.12em;
+  }
+
+  .burst-quote {
+    position: absolute;
+    left: 28px;
+    right: 28px;
+    top: 134px;
+    font-size: 42px;
+    line-height: 1.12;
+    font-weight: 900;
+    color: #fff5d7;
+    text-shadow: 0 8px 30px rgba(0,0,0,0.48);
+  }
+
+  .burst-quote .hit {
+    color: #ffcf4d;
+  }
+
+  .burst-emphasis {
+    position: absolute;
+    right: 24px;
+    bottom: 32px;
+    font-size: 62px;
+    font-weight: 900;
+    color: rgba(255,255,255,0.12);
+    letter-spacing: -0.04em;
+    transform: skew(-8deg);
+  }
+
+  .burst-beat {
+    position: absolute;
+    left: 28px;
+    bottom: 28px;
+    display: flex;
+    gap: 10px;
+  }
+
+  .burst-beat span {
+    width: 42px;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.24);
+  }
+
+  .burst-beat span:first-child {
+    background: #ffb300;
+    width: 78px;
+  }
+
+  .cinema-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(5,11,19,0.18) 0%, rgba(5,11,19,0.6) 100%),
+      radial-gradient(circle at 52% 36%, rgba(237,215,182,0.12), transparent 28%),
+      linear-gradient(135deg, #0a111a 0%, #172534 50%, #0b1018 100%);
+  }
+
+  .cinema-vignette {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at center, transparent 42%, rgba(4,6,10,0.34) 100%),
+      linear-gradient(180deg, rgba(0,0,0,0.54), transparent 22%, transparent 78%, rgba(0,0,0,0.56));
+  }
+
+  .cinema-hairline {
+    position: absolute;
+    left: 36px;
+    right: 36px;
+    top: 42px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.52), transparent);
+  }
+
+  .cinema-kicker {
+    position: absolute;
+    top: 56px;
+    left: 36px;
+    font-size: 12px;
+    letter-spacing: 0.28em;
+    color: rgba(238,229,214,0.72);
+    text-transform: uppercase;
+  }
+
+  .cinema-quote {
+    position: absolute;
+    left: 36px;
+    right: 120px;
+    top: 138px;
+    font-size: 36px;
+    line-height: 1.42;
+    color: #f2ebdc;
+    font-weight: 600;
+  }
+
+  .cinema-quote .focus {
+    color: #f6d39a;
+  }
+
+  .cinema-book {
+    position: absolute;
+    left: 36px;
+    bottom: 38px;
+    color: rgba(238,229,214,0.72);
+    font-size: 14px;
+    letter-spacing: 0.12em;
+  }
+
+  .cinema-mark {
+    position: absolute;
+    right: 42px;
+    top: 118px;
+    width: 54px;
+    height: 54px;
+    border: 1px solid rgba(246,211,154,0.45);
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(246,211,154,0.85);
+    font-size: 18px;
+  }
+
+  .meta {
+    padding: 18px;
+  }
+
+  .meta p {
+    margin: 0 0 10px 0;
+  }
+
+  .mini-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+    color: rgba(255,255,255,0.82);
+    font-size: 14px;
+  }
+
+  .mini-list strong {
+    color: #fff;
+  }
+
+  .recommend {
+    margin-top: 22px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  @media (max-width: 1100px) {
+    .compare-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<h2>开场金句首屏方向对比</h2>
+<p class="subtitle">
+  基于你当前项目的结构做概念草图：仍然是“背景素材 + 金句 + 书名 + 口播”，但首屏节奏完全不同。
+  点击卡片可以直接选方向。
+</p>
+
+<div class="compare-grid">
+  <div class="concept-card card" data-choice="burst" onclick="toggleSelect(this)">
+    <div class="concept-head">
+      <div>
+        <div class="concept-tag">A / 推荐给强留存开头</div>
+        <h3 style="margin:10px 0 0 0;">知识爆点 / 强刺激</h3>
+      </div>
+      <div style="color:#ffcf4d;font-weight:800;">前 1.5 秒抢注意力</div>
+    </div>
+    <div class="frame">
+      <div class="burst-bg"></div>
+      <div class="burst-lines"></div>
+      <div class="burst-badge">观点先砸下来</div>
+      <div class="burst-kicker">BOOK INSIGHT / HOOK FIRST</div>
+      <div class="burst-quote">真正拉开差距的，<br><span class="hit">不是努力</span>，而是你是否看透了系统。</div>
+      <div class="burst-emphasis">NOW</div>
+      <div class="burst-beat"><span></span><span></span><span></span></div>
+    </div>
+    <div class="meta">
+      <p>视觉逻辑：大字抢占中心，关键词单独做高亮，背景有能量线和局部闪烁，第一眼就是“有结论、有冲突”。</p>
+      <div class="mini-list">
+        <div><strong>0.0s - 0.4s：</strong> 背景快速推近，先出一个黄色“观点标签”</div>
+        <div><strong>0.4s - 1.2s：</strong> 金句分两段砸出来，关键词单独放大或闪白</div>
+        <div><strong>1.2s - 2.0s：</strong> 口播继续，画面轻微震动后压暗，进入正文第一段</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept-card card" data-choice="cinema" onclick="toggleSelect(this)">
+    <div class="concept-head">
+      <div>
+        <div class="concept-tag">B / 推荐给品牌感内容</div>
+        <h3 style="margin:10px 0 0 0;">电影感 / 高级质感</h3>
+      </div>
+      <div style="color:#f6d39a;font-weight:800;">先建立气质，再给观点</div>
+    </div>
+    <div class="frame">
+      <div class="cinema-bg"></div>
+      <div class="cinema-vignette"></div>
+      <div class="cinema-hairline"></div>
+      <div class="cinema-kicker">A QUIET OPENING</div>
+      <div class="cinema-mark">01</div>
+      <div class="cinema-quote">真正拉开差距的，<br>不是努力本身，而是你是否拥有<span class="focus">看透系统</span>的能力。</div>
+      <div class="cinema-book">《系统思维》 / opening quotation</div>
+    </div>
+    <div class="meta">
+      <p>视觉逻辑：画面更克制，层次依赖光影、留白和精细排版，不靠大喊大叫，像纪录片或电影预告的起手。</p>
+      <div class="mini-list">
+        <div><strong>0.0s - 0.8s：</strong> 背景慢推，先出细线和小标题，情绪先铺开</div>
+        <div><strong>0.8s - 2.0s：</strong> 金句逐行淡入，重点词做轻微提亮，不做爆闪</div>
+        <div><strong>2.0s - 3.0s：</strong> 书名和章节编号出现，随后平滑切到正文</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="recommend">
+  <strong>我的判断：</strong>
+  如果你的目标是短视频平台上的首屏留存，A 更容易立刻抓住人。
+  如果你的内容更偏书摘、认知、商业洞察，B 会更耐看，也更像系列化栏目。
+  一个很实用的折中方案是：用 B 的底色和排版，加入 A 的“关键词强化”。
+</div>

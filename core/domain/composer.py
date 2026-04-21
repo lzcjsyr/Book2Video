@@ -317,7 +317,7 @@ class VideoComposer:
 
     def _create_text_image_pil(self, text: str, font_size: int, font_path: str,
                                text_color: str, stroke_color: str, stroke_width: int,
-                               ttc_index: int = 0) -> Image.Image:
+                               ttc_index: int = 0, letter_spacing: int = 0) -> Image.Image:
         """
         使用 PIL 渲染文字到图片，完整保留 descender（下伸笔画）
 
@@ -342,15 +342,41 @@ class VideoComposer:
             temp_img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
             temp_draw = ImageDraw.Draw(temp_img)
 
+            letter_spacing = int(letter_spacing or 0)
+
             # 获取文字边界框 (left, top, right, bottom)
             # textbbox 会包含完整的 descender
-            bbox = temp_draw.textbbox((0, 0), text, font=font, anchor='lt', stroke_width=stroke_width)
+            if letter_spacing <= 0 or len(text) <= 1:
+                bbox = temp_draw.textbbox((0, 0), text, font=font, anchor='lt', stroke_width=stroke_width)
+            else:
+                cursor_x = 0.0
+                bbox = None
+                for idx, char in enumerate(text):
+                    char_bbox = temp_draw.textbbox(
+                        (cursor_x, 0),
+                        char,
+                        font=font,
+                        anchor='ls',
+                        stroke_width=stroke_width,
+                    )
+                    if bbox is None:
+                        bbox = list(char_bbox)
+                    else:
+                        bbox[0] = min(bbox[0], char_bbox[0])
+                        bbox[1] = min(bbox[1], char_bbox[1])
+                        bbox[2] = max(bbox[2], char_bbox[2])
+                        bbox[3] = max(bbox[3], char_bbox[3])
 
-            # 计算实际画布大小（包含描边空间）
-            width = bbox[2] - bbox[0] + stroke_width * 2
-            height = bbox[3] - bbox[1] + stroke_width * 2
+                    advance = temp_draw.textlength(char, font=font)
+                    cursor_x += advance
+                    if idx < len(text) - 1:
+                        cursor_x += letter_spacing
+
+                bbox = tuple(int(round(v)) for v in (bbox or (0, 0, 1, 1)))
 
             # 创建带透明背景的图片
+            width = max(1, bbox[2] - bbox[0] + stroke_width * 2)
+            height = max(1, bbox[3] - bbox[1] + stroke_width * 2)
             img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
             draw = ImageDraw.Draw(img)
 
@@ -370,15 +396,32 @@ class VideoComposer:
                 stroke = stroke_color
 
             # 绘制文字
-            draw.text(
-                (draw_x, draw_y),
-                text,
-                font=font,
-                fill=fill,
-                stroke_width=stroke_width,
-                stroke_fill=stroke,
-                anchor='lt'
-            )
+            if letter_spacing <= 0 or len(text) <= 1:
+                draw.text(
+                    (draw_x, draw_y),
+                    text,
+                    font=font,
+                    fill=fill,
+                    stroke_width=stroke_width,
+                    stroke_fill=stroke,
+                    anchor='lt'
+                )
+            else:
+                cursor_x = draw_x
+                for idx, char in enumerate(text):
+                    draw.text(
+                        (cursor_x, draw_y),
+                        char,
+                        font=font,
+                        fill=fill,
+                        stroke_width=stroke_width,
+                        stroke_fill=stroke,
+                        anchor='ls'
+                    )
+                    advance = draw.textlength(char, font=font)
+                    cursor_x += advance
+                    if idx < len(text) - 1:
+                        cursor_x += letter_spacing
 
             return img
 
@@ -413,6 +456,7 @@ class VideoComposer:
 
         # 使用 PIL 渲染文字，完整保留 descender
         line_spacing = int(config.OPENING_QUOTE_LINE_SPACING)
+        letter_spacing = int(getattr(config, "OPENING_QUOTE_LETTER_SPACING", 0) or 0)
         video_height = opening_base.h
         text_clips = []
 
@@ -430,7 +474,8 @@ class VideoComposer:
                         font_path=resolved_font or preferred_font_path,
                         text_color=text_color,
                         stroke_color=stroke_color,
-                        stroke_width=stroke_width
+                        stroke_width=stroke_width,
+                        letter_spacing=letter_spacing,
                     )
                     
                     # 转换为 NumPy 数组 (避免 IO)
@@ -473,7 +518,7 @@ class VideoComposer:
                     font_path=resolved_font or preferred_font_path,
                     text_color=title_color,
                     stroke_color=title_stroke_color,
-                    stroke_width=title_stroke_width
+                    stroke_width=title_stroke_width,
                 )
 
                 # 转换为 NumPy 数组
@@ -950,6 +995,7 @@ class VideoComposer:
                 "max_chars_per_line": config.SUBTITLE_MAX_CHARS_PER_LINE,
                 "max_lines": config.SUBTITLE_MAX_LINES,
                 "line_spacing": config.SUBTITLE_LINE_SPACING,
+                "letter_spacing": config.SUBTITLE_LETTER_SPACING,
                 "background_color": config.SUBTITLE_BACKGROUND_COLOR,
                 "background_opacity": config.SUBTITLE_BACKGROUND_OPACITY,
                 "background_horizontal_padding": config.SUBTITLE_BACKGROUND_H_PADDING,
@@ -1443,6 +1489,7 @@ class VideoComposer:
                 "max_chars_per_line": config.SUBTITLE_MAX_CHARS_PER_LINE,
                 "max_lines": config.SUBTITLE_MAX_LINES,
                 "line_spacing": config.SUBTITLE_LINE_SPACING,
+                "letter_spacing": config.SUBTITLE_LETTER_SPACING,
                 "background_color": config.SUBTITLE_BACKGROUND_COLOR,
                 "background_opacity": config.SUBTITLE_BACKGROUND_OPACITY,
                 "background_horizontal_padding": config.SUBTITLE_BACKGROUND_H_PADDING,
@@ -1571,6 +1618,7 @@ class VideoComposer:
         anchor_x = position[0] if isinstance(position, tuple) else "center"
         font_path = resolved_font or subtitle_config["font_family"]
         ttc_index = int(subtitle_config.get("ttc_index", 0))
+        letter_spacing = int(subtitle_config.get("letter_spacing", 0) or 0)
         
         # 使用 PIL 渲染主要文字（解决 MoviePy TextClip 底部裁切问题）
         text_img = self._create_text_image_pil(
@@ -1580,7 +1628,8 @@ class VideoComposer:
             text_color=subtitle_config["color"],
             stroke_color=subtitle_config["stroke_color"],
             stroke_width=subtitle_config["stroke_width"],
-            ttc_index=ttc_index
+            ttc_index=ttc_index,
+            letter_spacing=letter_spacing,
         )
         main_clip = ImageClip(np.array(text_img))
         
@@ -1640,7 +1689,8 @@ class VideoComposer:
                 text_color=shadow_color,
                 stroke_color=shadow_color,
                 stroke_width=subtitle_config["stroke_width"],
-                ttc_index=ttc_index
+                ttc_index=ttc_index,
+                letter_spacing=letter_spacing,
             )
             shadow_pos = (actual_x + shadow_offset[0], actual_y + shadow_offset[1])
             shadow_clip = ImageClip(np.array(shadow_img)).with_start(start_time).with_duration(duration).with_position(shadow_pos)
