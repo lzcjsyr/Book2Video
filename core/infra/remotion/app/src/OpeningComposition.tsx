@@ -71,7 +71,7 @@ export const OpeningComposition: React.FC<OpeningCompositionProps> = ({
 	const quoteFontSize = Math.max(88, Math.min(maxByHeight, maxByWidth, 122));
 	const lineGap = Math.max(18, Math.round(quoteFontSize * 0.18));
 	const bookFontSize = Math.max(44, Math.round(quoteFontSize * 0.44));
-	const ipFontSize = Math.max(34, Math.round(quoteFontSize * 0.32)); // 增大基础字号和比例
+	const ipFontSize = Math.max(44, Math.round(quoteFontSize * 0.42)); // 再次大幅增大 IP 字号，基本接近书名字号
 	const quoteOffsetY = lineCount >= 4 ? -0.6 : lineCount >= 3 ? -0.56 : -0.53;
 	const mastheadDraw = interpolate(frame, [0.08 * fps, 0.72 * fps], [0, 1], {
 		extrapolateLeft: "clamp",
@@ -159,8 +159,8 @@ export const OpeningComposition: React.FC<OpeningCompositionProps> = ({
 				>
 					<div
 						style={{
-							width: 24, // 加长发光线
-							height: 3, // 加粗发光线
+							width: 32, // 继续加长发光线
+							height: 4, // 继续加粗发光线
 							borderRadius: 999,
 							background: "linear-gradient(90deg, rgba(231,201,146,0.08), rgba(231,201,146,0.96))",
 							boxShadow: `0 0 12px rgba(231,201,146,${0.22 * mastheadGlow})`,
