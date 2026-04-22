@@ -88,7 +88,7 @@ VIDEO_SIZE = "1280x720"                                # 视频导出尺寸 (可
 VIDEO_OUTPUT_FPS = 30                                  # 视频导出帧率（步骤5最终成片）
 VIDEO_CODEC = "hevc"                                   # 视频编码: h264(兼容性好), hevc(H.265, M1效率高, 体积小)
 VIDEO_BITRATE_MODE = "quality"                         # 码率模式: auto(固定码率), quality(质量优先VBR)
-VIDEO_QUALITY_LEVEL = 75                               # 质量系数 (0-100, 仅quality模式有效, 推荐60-75)
+VIDEO_QUALITY_LEVEL = 70                               # 质量系数 (0-100, 仅quality模式有效, 推荐60-75)
 ENABLE_SUBTITLES = True                                # 是否启用字幕
 DEFAULT_BGM_FILENAME = "The Sound of Slience.mp3"      # 默认背景音乐（music/ 下，None=无音乐）
 
