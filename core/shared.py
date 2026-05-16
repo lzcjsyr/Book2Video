@@ -22,6 +22,7 @@ import os
 import json
 import logging
 import datetime
+import re
 from pathlib import Path
 from typing import Dict, Any, List
 
@@ -147,6 +148,14 @@ def get_file_info(file_path: str) -> Dict[str, Any]:
         }
     
     return safe_file_operation("获取文件信息", file_path, _get_info)
+
+def project_name_sort_key(project: Dict[str, Any]) -> tuple:
+    """按项目文件夹名前缀数字排序，非数字名称排在数字项目之后。"""
+    name = str(project.get("name", ""))
+    match = re.match(r"^(\d+)(?:\.|$)", name)
+    if match:
+        return (0, int(match.group(1)), name.lower())
+    return (1, name.lower())
 
 def retry_on_failure(max_retries: int = 3, delay: float = 1.0):
     """重试装饰器"""

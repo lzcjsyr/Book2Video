@@ -16,7 +16,7 @@ import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-from core.shared import logger, get_file_info, FileProcessingError
+from core.shared import logger, get_file_info, FileProcessingError, project_name_sort_key
 from core.infra.project_paths import ProjectPaths
 from core.config import OPENING_QUOTE
 
@@ -115,8 +115,8 @@ def scan_output_projects(output_dir: str = "output") -> List[Dict[str, Any]]:
         logger.warning(f"扫描输出目录失败: {e}")
         return []
 
-    # 最新修改在前
-    projects.sort(key=lambda x: x["modified_time"], reverse=True)
+    # 按项目文件夹名排序，保持选择列表与目录名前缀数字一致
+    projects.sort(key=project_name_sort_key)
     return projects
 
 

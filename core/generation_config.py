@@ -35,7 +35,7 @@ class VideoGenerationConfig:
     llm_server_step1: str = ""
     llm_model_step1: str = "moonshotai/Kimi-K2-Instruct-0905"
     llm_server_step2: str = ""
-    llm_model_step2: str = "moonshotai/Kimi-K2-Instruct-0905"
+    llm_model_step2: str = "Pro/moonshotai/Kimi-K2.6"
     
     # ==================== 图像生成配置 ====================
     image_server: str = ""

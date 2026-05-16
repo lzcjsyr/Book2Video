@@ -267,7 +267,6 @@ export const OpeningComposition: React.FC<OpeningCompositionProps> = ({
 												? {
 													color: ACCENT,
 													fontWeight: 900,
-													fontStyle: "italic",
 													background: `linear-gradient(transparent 64%, rgba(231,201,146,${0.15 + 0.25 * activeGlow}) 0)`,
 													// 阴影范围和不透明度同时呼吸
 													textShadow: `0 0 ${12 + 16 * activeGlow}px rgba(231,201,146,${0.15 + 0.3 * activeGlow})`,

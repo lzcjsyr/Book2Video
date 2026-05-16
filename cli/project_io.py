@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List
 
-from core.shared import FileProcessingError, get_file_info, logger
+from core.shared import FileProcessingError, get_file_info, logger, project_name_sort_key
 
 
 def _resolve_cli_path(path: str) -> str:
@@ -69,7 +69,7 @@ def scan_output_projects(output_dir: str = "output") -> List[Dict[str, Any]]:
         logger.warning(f"扫描输出目录失败: {exc}")
         return []
 
-    projects.sort(key=lambda item: item["modified_time"], reverse=True)
+    projects.sort(key=project_name_sort_key)
     return projects
 
 
