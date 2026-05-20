@@ -319,11 +319,14 @@ def run_step_1(
     project_output_dir, paths = _create_step1_project(input_file, output_dir)
     skill_path = os.path.join(_get_project_root(), "core", "skills", "video-book-direct-read")
     extract_path = os.path.join(paths.text, "_claude_agent_extract.txt")
+    coverage_ledger_path = os.path.join(paths.text, "_claude_agent_coverage_ledger.json")
 
     run_step1_agent(
         input_file=input_file,
         output_json=paths.raw_json(),
         extract_path=extract_path,
+        coverage_ledger_path=coverage_ledger_path,
+        text_dir=paths.text,
         num_segments=num_segments,
         skill_path=skill_path,
         repo_root=_get_project_root(),

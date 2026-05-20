@@ -11,11 +11,17 @@ STEP1_AGENT_PROMPT_TEMPLATE = """你在仓库根目录工作。
 
 任务：阅读 `{input_file}`，按已启用的原生 skill 生成第一步 raw JSON，保存到 `{output_json}`。
 
-执行顺序：
+执行顺序（必须按序，不可跳步）：
 1. 先读取 `{skill_path}` 和它指向的必要 references，先明确读取策略。
-2. 再抽取并阅读原书，抽取台账保存到 `{extract_path}`。
-3. 确保覆盖了原书的内容后，读取 skills 中指定的 references，明确写稿标准。
-4. 按 skill 要求完成多轮修改，最后生成并保存 JSON。
+2. 抽取原文到 `{extract_path}`（PDF/EPUB/DOCX 等必须先抽取，禁止直接 Read 大 PDF）。
+3. 按 `references/reading-strategy.md` 制定读取计划，**主要用 Bash**（`sed`/`awk`）按每窗 **23000 行** 连续读取 `{extract_path}`，逐窗建立覆盖台账。
+4. 将覆盖台账保存到 `{coverage_ledger_path}`，按 skill 完成覆盖自检（`coverage_check.passed=true`、所有窗口 `complete`、行覆盖率 >= 85%、首尾中段均覆盖）后再进入写稿。
+5. 覆盖自检通过后，再读 `writing-standard.md` 与 `revision-workflow.md`，完成多轮修订落盘，最后生成 `{output_json}`。
+
+按 skill 的硬性顺序（不要提前写 raw JSON）：
+- 先完成 `{extract_path}` 抽取与 Bash 连续读取，再写 `{coverage_ledger_path}`。
+- 覆盖自检未通过前，禁止写初稿、修订稿或 `{output_json}`。
+- 修订中间稿与 `_claude_agent_revision_audit.json` 落在 `{text_dir}`。
 
 硬性要求：
 - 输出 JSON 必须能被 Python `json.loads` 解析，且保存到 `{output_json}`。
@@ -26,6 +32,8 @@ def build_step1_agent_prompt(
     input_file: str,
     output_json: str,
     extract_path: str,
+    coverage_ledger_path: str,
+    text_dir: str,
     num_segments: int,
     skill_path: str,
 ) -> str:
@@ -34,6 +42,8 @@ def build_step1_agent_prompt(
         input_file=input_file,
         output_json=output_json,
         extract_path=extract_path,
+        coverage_ledger_path=coverage_ledger_path,
+        text_dir=text_dir,
         num_segments=num_segments,
         skill_path=skill_path,
     )

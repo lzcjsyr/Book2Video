@@ -1,6 +1,6 @@
 # Direct Large-Block Reading Strategy
 
-用这个 reference 执行“尽量直接读原文”的长文档方案。目标是用 Bash/Python 连续读取较大文本块，减少多轮 `Read` 带来的重复上下文成本。
+用这个 reference 执行“尽量直接读原文”的长文档方案。**正文阅读以 Bash 为主**，按固定行数切块连续读入上下文；Python 只用于统计规模、抽取 PDF/EPUB 和写入 JSON 台账。
 
 ## 1. 准备抽取文本
 
@@ -12,71 +12,95 @@
 output/<project>/text/_claude_agent_extract.txt
 ```
 
+如果输入本身已是 `.md` / `.txt`，也要复制或规范化到上述路径，后续所有正文读取都针对该文件。
+
 ## 2. 估算规模
 
-先确认：
+先用 **Bash** 统计规模（不要用 `Read` 扫全文）：
 
-- 文件大小
-- 总行数
+```bash
+EXTRACT="output/<project>/text/_claude_agent_extract.txt"
+wc -l "$EXTRACT"
+wc -c "$EXTRACT"
+```
+
+确认：
+
+- 总行数（写入台账 `source_total_lines`）
+- 总字符数（写入台账 `source_total_chars`）
 - 是否有目录、章节标题、页码线索
-- 是否明显超过单次工具输出的 token 或大小限制
-
-先用 Bash/Python 统计行数和字符数，再决定读取块大小。
 
 ## 3. 制定读取计划
 
-优先用 Bash/Python 连续读取或切块大文本，`Read` 主要用于 skill、reference 和小文件。
+### 默认窗口
 
-硬规则：
+- **工具**：优先 `Bash`（`sed` / `awk`），不要用 `Read` 读正文大块。
+- **目标块大小**：每个窗口 **23000 行**（`lines_per_window: 23000`）。
+- **推进方式**：窗口首尾相接、连续覆盖全书，禁止跳读抽样。
 
-- “已读”只指文本已经通过 Bash 输出或 Read 完整进入当前上下文。
-- 只写入临时文件、只看 head/tail、只读窗口开头，都不能算覆盖。
+示例：12 万行全书 → 计划 6 窗：`1-23000`、`23001-46000`、…、`115001-120000`（最后一窗不足 23000 行则读到文件末尾）。
 
-尺度：
+### 硬规则
 
-- 每块优先 30k-50k 中文字符。
-- 如果输出被截断、只剩 head/tail，立刻减半。
-- 如果 Bash 输出转为 tool-result，需要用 Read 补读完整窗口；否则缩小窗口。
-- 如果模型只能泛泛总结，也减半。
-- 优先连续覆盖，不要用跳读抽样冒充全文覆盖。
+- “已读”只指该窗口全文已通过 **Bash 标准输出**完整进入当前上下文。
+- 只写入临时文件、只看 `head`/`tail`、只读窗口开头，都不能算覆盖。
+- 禁止在覆盖台账通过前写初稿、修订稿或 `raw.json`。
+- `Read` 仅用于：skill、`references/`、小配置文件；**不要**用 `Read` 替代 Bash 读 `_claude_agent_extract.txt` 正文。
 
-可用命令示例：
+### 输出被截断时
+
+若 Bash 输出被截断、只剩 head/tail、或无法基于该窗做具体总结：
+
+1. 将当前窗 **减半**（23000 → 11500 → 5750 …），用更小行范围 **重读同一区间**；
+2. 台账里该窗标记 `coverage_status: partial`，减半重读通过后再改为 `complete`；
+3. 不要为了省事改用 `Read` 或跳读下一段。
+
+### 读取命令（首选 Bash）
 
 ```bash
-python3 - <<'PY'
-from pathlib import Path
-p = Path("output/<project>/text/_claude_agent_extract.txt")
-lines = p.read_text(errors="ignore").splitlines()
-start, end = 1, 2500
-print("\n".join(f"{i+1}\t{line}" for i, line in enumerate(lines[start-1:end], start-1)))
-PY
+EXTRACT="output/<project>/text/_claude_agent_extract.txt"
+START=1
+END=23000
+sed -n "${START},${END}p" "$EXTRACT" | awk '{print NR+('"$START"'-1) "\t" $0}'
 ```
 
-读取计划示例：
+下一窗：`START=23001`，`END=46000`，依此类推，直到 `START > 总行数`。
+
+也可用纯 `sed`（无行号）：
+
+```bash
+sed -n '23001,46000p' "$EXTRACT"
+```
+
+### 读取计划示例
 
 ```json
 {
   "source_file": "output/<project>/text/_claude_agent_extract.txt",
-  "read_strategy": "bash_large_block",
+  "read_strategy": "bash_line_window",
+  "lines_per_window": 23000,
   "unit": "line_range",
   "planned_windows": [
-    {"start_line": 1, "end_line": 2500, "estimated_chars": 60000},
-    {"start_line": 2501, "end_line": 5000, "estimated_chars": 60000}
+    {"start_line": 1, "end_line": 23000},
+    {"start_line": 23001, "end_line": 46000},
+    {"start_line": 46001, "end_line": 69000}
   ]
 }
 ```
 
 ## 4. 建立覆盖台账
 
-每次读取一个大块后，立即记录覆盖信息。覆盖台账不是完整摘要，而是证明哪些区域已经读过、这些区域对全书理解有什么作用。
+每读完一个 Bash 窗口，立即追加一条 `coverage_windows` 记录。台账不是摘要，而是证明哪些行已读过。
 
-台账结构：
+单窗结构：
 
 ```json
 {
   "window_id": 1,
-  "planned_range": "line 1-2500",
-  "actual_read_range": "line 1-2500",
+  "read_tool": "bash",
+  "lines_per_window": 23000,
+  "planned_range": "line 1-23000",
+  "actual_read_range": "line 1-23000",
   "coverage_status": "complete",
   "section_hint": "序章/第一章",
   "main_points_seen": ["这一窗口的核心信息"],
@@ -86,16 +110,46 @@ PY
 }
 ```
 
-## 5. 覆盖检查
+## 5. 覆盖检查与落盘
 
-写稿前检查：
+写稿前必须完成覆盖检查，并把完整台账保存到：
 
-- 是否覆盖开头、中段、结尾。
+```text
+output/<project>/text/_claude_agent_coverage_ledger.json
+```
+
+推荐顶层结构：
+
+```json
+{
+  "source_file": "output/<project>/text/_claude_agent_extract.txt",
+  "source_total_lines": 120000,
+  "source_total_chars": 4800000,
+  "read_strategy": "bash_line_window",
+  "lines_per_window": 23000,
+  "planned_windows": [],
+  "coverage_windows": [],
+  "coverage_check": {
+    "start_covered": true,
+    "middle_covered": true,
+    "end_covered": true,
+    "line_coverage_ratio": 0.92,
+    "all_windows_complete": true,
+    "passed": true
+  }
+}
+```
+
+检查项：
+
+- 是否用 Bash 连续读完所有计划窗口（默认每窗 23000 行，末窗可更短）。
+- 是否覆盖开头、中段、结尾（首尾各约 5% 行，以及全书中间带）。
 - 是否覆盖目录或主要章节。
-- 是否存在明显未读的大段。
 - 是否所有窗口都是 `coverage_status: complete`；`partial` 不能进入写稿。
+- 连续窗口合并后的行覆盖率是否 >= 85%。
 - 是否只读了最容易读的局部。
-- 是否已经出现上下文压力，导致前面窗口只能靠粗略记忆。
+
+只有 `coverage_check.passed=true` 且上述条件都满足，才能进入 `writing-standard.md` 的写稿流程。
 
 ## 6. 全书理解
 
@@ -113,7 +167,7 @@ PY
 
 遇到以下情况，停止直接读法并建议切换：
 
-- 读取窗口太多，覆盖台账难以稳定维护。
+- 即使减半到很小窗口，Bash 输出仍无法完整进入上下文。
 - 文档超过可控规模，无法在一次 Agent 会话中可靠保持全书上下文。
-- 章节多且论证复杂，直接读法容易遗漏。
+- 章节多且论证复杂，连续 Bash 读法仍频繁遗漏。
 - 用户要求可审计证据链、短引文、限制条件和回查文件。

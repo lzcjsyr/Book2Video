@@ -36,6 +36,25 @@ def test_writing_standard_keeps_single_clean_raw_json_schema():
     assert "JSON 没有尾随逗号" in standard
 
 
+def test_skill_entry_requires_coverage_ledger_before_scripting():
+    skill = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+    reading = (SKILL_DIR / "references" / "reading-strategy.md").read_text(encoding="utf-8")
+
+    assert "_claude_agent_coverage_ledger.json" in reading
+    assert "coverage_check.passed=true" in skill
+    assert "行覆盖率" in reading
+
+
+def test_reading_strategy_uses_bash_with_23000_line_windows():
+    reading = (SKILL_DIR / "references" / "reading-strategy.md").read_text(encoding="utf-8")
+
+    assert "23000" in reading
+    assert "lines_per_window" in reading
+    assert "bash_line_window" in reading
+    assert "sed" in reading
+    assert "优先 `Bash`" in reading or "以 Bash 为主" in reading or "正文阅读以 Bash 为主" in reading
+
+
 def test_skill_no_longer_references_separate_output_contract():
     assert not (SKILL_DIR / "references" / "output-contract.md").exists()
 

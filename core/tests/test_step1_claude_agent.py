@@ -25,11 +25,23 @@ def test_run_step_1_uses_claude_agent_skill_and_loads_raw_json(monkeypatch, tmp_
 
     captured = {}
 
-    def fake_run_step1_agent(*, input_file, output_json, extract_path, num_segments, skill_path, repo_root):
+    def fake_run_step1_agent(
+        *,
+        input_file,
+        output_json,
+        extract_path,
+        coverage_ledger_path,
+        text_dir,
+        num_segments,
+        skill_path,
+        repo_root,
+    ):
         captured.update(
             input_file=input_file,
             output_json=output_json,
             extract_path=extract_path,
+            coverage_ledger_path=coverage_ledger_path,
+            text_dir=text_dir,
             num_segments=num_segments,
             skill_path=skill_path,
             repo_root=repo_root,
@@ -48,6 +60,7 @@ def test_run_step_1_uses_claude_agent_skill_and_loads_raw_json(monkeypatch, tmp_
     assert captured["input_file"] == str(input_file)
     assert captured["output_json"] == str(raw_json_path)
     assert Path(captured["extract_path"]).name == "_claude_agent_extract.txt"
+    assert Path(captured["coverage_ledger_path"]).name == "_claude_agent_coverage_ledger.json"
     assert captured["num_segments"] == 70
     assert captured["skill_path"].endswith("core/skills/video-book-direct-read")
     assert captured["repo_root"] == steps._get_project_root()
@@ -91,6 +104,8 @@ def test_step1_agent_prompt_includes_absolute_skill_path_and_target_segments(tmp
         input_file=str(tmp_path / "book.pdf"),
         output_json=str(tmp_path / "output" / "text" / "raw.json"),
         extract_path=str(tmp_path / "output" / "text" / "_claude_agent_extract.txt"),
+        coverage_ledger_path=str(tmp_path / "output" / "text" / "_claude_agent_coverage_ledger.json"),
+        text_dir=str(tmp_path / "output" / "text"),
         num_segments=70,
         skill_path=str(skill_path),
     )
@@ -98,3 +113,5 @@ def test_step1_agent_prompt_includes_absolute_skill_path_and_target_segments(tmp
     assert str(skill_path) in prompt
     assert str(skill_path).startswith("/")
     assert "`target_segments` 必须写为 70" in prompt
+    assert "_claude_agent_coverage_ledger.json" in prompt
+    assert "覆盖自检" in prompt
