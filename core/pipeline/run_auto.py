@@ -16,10 +16,10 @@ from typing import Any, Dict, List, Optional
 
 from core.pipeline.steps import (
     _get_project_root,
-    _initialize_project,
     _invoke_opening_narration,
     _resolve_bgm_audio_path,
     _run_cover_generation,
+    run_step_1 as _run_step_1,
     run_step_1_5 as _run_step_1_5,
     run_step_2 as _run_step_2,
     run_step_3 as _run_step_3,
@@ -28,8 +28,6 @@ from core.pipeline.steps import (
 )
 from core.config import Config, config as global_config
 from core.domain.composer import VideoComposer
-from core.domain.reader import DocumentReader
-from core.domain.summarizer import intelligent_summarize
 from core.generation_config import VideoGenerationConfig
 from core.infra.project_paths import ProjectPaths
 from core.shared import load_json_file, logger
@@ -43,18 +41,6 @@ def _validate_auto_mode_config(config: VideoGenerationConfig) -> None:
     validated_segments = max(Config.MIN_NUM_SEGMENTS, num_segments)
 
     Config.validate_parameters(
-        target_length=config.target_length,
-        num_segments=validated_segments,
-        llm_server=config.llm_server_step1,
-        image_server=config.image_server,
-        tts_server=config.tts_server,
-        image_model=config.image_model,
-        image_size=config.image_size,
-        images_method=config.images_method,
-        llm_model=config.llm_model_step1,
-    )
-    Config.validate_parameters(
-        target_length=config.target_length,
         num_segments=validated_segments,
         llm_server=config.llm_server_step2,
         image_server=config.image_server,
@@ -75,21 +61,13 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
     except Exception as exc:
         return {"success": False, "message": f"参数验证失败: {exc}"}
 
-    reader = DocumentReader()
-    document_content, original_length = reader.read(config.input_file)
-
-    raw_data = intelligent_summarize(
-        config.llm_server_step1,
-        config.llm_model_step1,
-        document_content,
-        config.target_length,
-        config.num_segments,
-    )
-
-    project_output_dir, _, _ = _initialize_project(raw_data, config.output_dir)
+    step1 = _run_step_1(config.input_file, config.output_dir, config.num_segments)
+    if not step1.get("success"):
+        return {"success": False, "message": step1.get("message", "步骤1处理失败")}
+    project_output_dir = step1["project_output_dir"]
     paths = ProjectPaths(project_output_dir)
 
-    step15 = _run_step_1_5(project_output_dir, config.num_segments, is_new_project=True, raw_data=raw_data, auto_mode=True)
+    step15 = _run_step_1_5(project_output_dir, config.num_segments, is_new_project=True, auto_mode=True)
     if not step15.get("success"):
         return {"success": False, "message": step15.get("message", "步骤1.5处理失败")}
     script_data = step15.get("script_data")
@@ -107,6 +85,7 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
     step2 = _run_step_2(
         config.llm_server_step2,
         config.llm_model_step2,
+        config.llm_base_url_step2,
         project_output_dir,
         script_path=script_path if script_path and os.path.exists(script_path) else None,
         images_method=config.images_method,
@@ -132,8 +111,9 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         project_output_dir=project_output_dir,
         images_method=config.images_method,
         opening_quote=config.opening_quote,
-        llm_model=config.llm_model_step2,
-        llm_server=config.llm_server_step2,
+        llm_model=config.llm_model_step3,
+        llm_server=config.llm_server_step3,
+        llm_base_url=config.llm_base_url_step3,
     )
     if not step3.get("success"):
         failed_image_segments = step3.get("failed_segments") or step3.get("failed_image_segments") or []

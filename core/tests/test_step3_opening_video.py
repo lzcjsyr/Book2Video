@@ -100,3 +100,41 @@ def test_run_step_3_reuses_existing_opening_video_when_not_regenerating(monkeypa
 
     assert result["success"] is True
     assert result["opening_image_path"] == str(existing_opening)
+
+
+def test_run_step_3_forwards_llm_config_to_image_prompt_safety(monkeypatch, project_dir: Path):
+    captured = {}
+
+    def fake_load_json_file(path):
+        candidate = Path(path)
+        if not candidate.exists():
+            return None
+        return json.loads(candidate.read_text(encoding="utf-8"))
+
+    def fake_segment_images(*args, **kwargs):
+        captured.update(kwargs)
+        segment_path = project_dir / "images" / "segment_1.png"
+        segment_path.write_bytes(b"segment-image")
+        return {"image_paths": [str(segment_path)], "failed_segments": [], "processed_segments": [1]}
+
+    monkeypatch.setattr(steps, "load_json_file", fake_load_json_file)
+    monkeypatch.setattr(steps, "generate_images_for_segments", fake_segment_images)
+    monkeypatch.setattr(steps, "render_opening_video", lambda *args, **kwargs: None)
+
+    result = steps.run_step_3(
+        image_server="doubao",
+        image_model="model",
+        image_size="1280x720",
+        image_style_preset="style01",
+        project_output_dir=str(project_dir),
+        images_method="keywords",
+        opening_quote=False,
+        llm_model="some-llm",
+        llm_server="siliconflow",
+        llm_base_url="https://api.siliconflow.cn/v1",
+    )
+
+    assert result["success"] is True
+    assert captured["llm_model"] == "some-llm"
+    assert captured["llm_server"] == "siliconflow"
+    assert captured["llm_base_url"] == "https://api.siliconflow.cn/v1"

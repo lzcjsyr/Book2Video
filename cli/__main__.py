@@ -39,8 +39,7 @@ if __name__ == "__main__":
         # 初始化 CLI 日志，使后续模块共享统一配置
         setup_cli_logging()
 
-        default_params = get_generation_params()
-        result = run_cli_main(**default_params)
+        result = run_cli_main(**get_generation_params())
         
         # 处理结果
         if result.get("success"):

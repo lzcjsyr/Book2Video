@@ -38,7 +38,6 @@ class GenerationRequest:
     """Full pipeline generation request."""
     input_file: str
     output_dir: str
-    target_length: int = 800
     num_segments: int = 10
     llm_server: str = ""
     llm_model: str = ""

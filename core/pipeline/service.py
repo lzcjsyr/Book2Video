@@ -34,17 +34,11 @@ class StepRunner:
         self,
         input_file: str,
         output_dir: str,
-        llm_server: str,
-        llm_model: str,
-        target_length: int,
         num_segments: int,
     ) -> Dict[str, Any]:
         return _run_step_1(
             input_file=input_file,
             output_dir=output_dir,
-            llm_server=llm_server,
-            llm_model=llm_model,
-            target_length=target_length,
             num_segments=num_segments,
         )
 
@@ -70,6 +64,7 @@ class StepRunner:
         self,
         llm_server: str,
         llm_model: str,
+        llm_base_url: str,
         project_output_dir: str,
         script_path: Optional[str] = None,
         images_method: str = "keywords",
@@ -77,6 +72,7 @@ class StepRunner:
         return _run_step_2(
             llm_server=llm_server,
             llm_model=llm_model,
+            llm_base_url=llm_base_url,
             project_output_dir=project_output_dir,
             script_path=script_path,
             images_method=images_method,
@@ -95,6 +91,7 @@ class StepRunner:
         regenerate_opening: bool = True,
         llm_model: Optional[str] = None,
         llm_server: Optional[str] = None,
+        llm_base_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         return _run_step_3(
             image_server=image_server,
@@ -108,6 +105,7 @@ class StepRunner:
             regenerate_opening=regenerate_opening,
             llm_model=llm_model,
             llm_server=llm_server,
+            llm_base_url=llm_base_url,
         )
 
     def run_step_4(

@@ -17,7 +17,6 @@ from core.domain.metadata import (
     strip_book_title_marks,
 )
 from core.prompts import (
-    summarize_system_prompt,
     keywords_extraction_prompt,
     description_summary_system_prompt,
 )
@@ -89,87 +88,13 @@ def parse_json_robust(raw_text: str) -> Dict[str, Any]:
             logger.error(f"原始snippet: {snippet}")
             raise ValueError(f"JSON解析失败: {e2}")
 
-def intelligent_summarize(server: str, model: str, content: str, target_length: int, num_segments: int) -> Dict[str, Any]:
-    """
-    智能缩写 - 第一次LLM处理
-    新逻辑：LLM生成完整口播终稿（content），返回原始数据，不进行分段。
-    """
-    try:
-        user_message = f"""请将以下内容智能压缩为约{target_length}字的口播终稿，不要分段：
-
-原文内容：
-{content}
-
-要求：
-1. 保持核心信息与清晰逻辑，语言适合口播
-2. 输出完整终稿到 content 字段，勿做任何分段
-3. 总字数控制在{target_length}字左右
-"""
-
-        # 使用8192 tokens以确保完整输出，足够容纳5000字中文内容和JSON结构
-        max_tokens = 8192
-        output = text_to_text(
-            server=server,
-            model=model,
-            prompt=user_message,
-            system_message=summarize_system_prompt,
-            max_tokens=max_tokens,
-            temperature=config.LLM_TEMPERATURE_SCRIPT,
-        )
-
-        if output is None:
-            raise ValueError("未能从 API 获取响应。")
-
-        parsed = parse_json_robust(output)
-
-        if "content" not in parsed:
-            raise ValueError("生成的 JSON 缺少必需字段：content")
-
-        video_titles = normalize_text_list(parsed.get("video_titles"))
-        if not video_titles:
-            raise ValueError("生成的 JSON 缺少必需字段：video_titles")
-
-        title = video_titles[0]
-        source_name = strip_book_title_marks(parsed.get("source_name"))
-        if not source_name:
-            raise ValueError("生成的 JSON 缺少必需字段：source_name")
-
-        cover_titles = normalize_text_list(parsed.get("cover_titles"))
-        if not cover_titles:
-            cover_titles = [title]
-
-        cover_subtitles = normalize_text_list(parsed.get("cover_subtitles"))
-        golden_quotes = normalize_text_list(parsed.get("golden_quotes"))
-
-        full_text = (parsed.get("content") or "").strip()
-        if not full_text:
-            raise ValueError("生成的 content 为空")
-
-        # 返回原始数据，不进行分段
-        raw_data: Dict[str, Any] = {
-            "source_name": source_name,
-            "video_titles": video_titles,
-            "cover_titles": cover_titles,
-            "cover_subtitles": cover_subtitles,
-            "golden_quotes": golden_quotes,
-            "content": full_text,
-            "total_length": len(full_text),
-            "target_segments": num_segments,
-            "created_time": datetime.datetime.now().isoformat(),
-            "model_info": {
-                "llm_server": server,
-                "llm_model": model,
-                "generation_type": "raw_generation"
-            }
-        }
-
-        return raw_data
-
-    except Exception as e:
-        raise ValueError(f"智能缩写处理错误: {e}")
-
-
-def generate_description_summary(server: str, model: str, content: str, max_chars: int = 100) -> Dict[str, Any]:
+def generate_description_summary(
+    server: str,
+    model: str,
+    base_url: str,
+    content: str,
+    max_chars: int = 100,
+) -> Dict[str, Any]:
     """为描述模式生成配图背景小结"""
     try:
         user_message = f"""请基于以下文案内容生成一段不超过{max_chars}字的简介，概述内容的核心信息，：
@@ -196,6 +121,7 @@ def generate_description_summary(server: str, model: str, content: str, max_char
                 system_message=description_summary_system_prompt,
                 max_tokens=4096,
                 temperature=config.LLM_TEMPERATURE_KEYWORDS,
+                base_url=base_url,
             )
 
             if output is None:
@@ -538,7 +464,7 @@ def _split_text_into_segments(full_text: str, num_segments: int, mode: str = "au
     return result
 
 
-def extract_keywords(server: str, model: str, script_data: Dict[str, Any]) -> Dict[str, Any]:
+def extract_keywords(server: str, model: str, base_url: str, script_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     要点提取 - 第二次LLM处理
     为每个段落提取关键词和氛围词
@@ -559,7 +485,8 @@ def extract_keywords(server: str, model: str, script_data: Dict[str, Any]) -> Di
             prompt=user_message,
             system_message=keywords_extraction_prompt,
             max_tokens=4096,
-            temperature=config.LLM_TEMPERATURE_KEYWORDS
+            temperature=config.LLM_TEMPERATURE_KEYWORDS,
+            base_url=base_url,
         )
 
         if output is None:

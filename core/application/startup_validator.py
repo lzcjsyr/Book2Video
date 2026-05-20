@@ -8,7 +8,6 @@ from core.config import Config
 
 def validate_startup_args(
     *,
-    target_length: int,
     num_segments: int,
     image_size: str,
     llm_model: str,
@@ -22,7 +21,6 @@ def validate_startup_args(
 
     # Reuse central validation to keep behavior aligned with runtime.
     Config.validate_parameters(
-        target_length=target_length,
         num_segments=num_segments,
         llm_server=llm_server,
         image_server=image_server,
@@ -35,4 +33,3 @@ def validate_startup_args(
 
 
 __all__ = ["validate_startup_args"]
-

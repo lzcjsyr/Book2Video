@@ -13,31 +13,14 @@ STEP1_AGENT_PROMPT_TEMPLATE = """你在仓库根目录工作。
 
 执行顺序：
 1. 先读取 `{skill_path}` 和它指向的必要 references，先明确读取策略。
-2. 再抽取并阅读原书。
-3. 确保覆盖了原书的内容后，读取skills中指定的references，明确写稿标准。
-3. 最后生成并保存 JSON，在根据skills的要求进行多轮修改。
+2. 再抽取并阅读原书，抽取台账保存到 `{extract_path}`。
+3. 确保覆盖了原书的内容后，读取 skills 中指定的 references，明确写稿标准。
+4. 按 skill 要求完成多轮修改，最后生成并保存 JSON。
 
 硬性要求：
 - 输出 JSON 必须能被 Python `json.loads` 解析，且保存到 `{output_json}`。
+- `target_segments` 必须写为 {num_segments}。
 - JSON schema、字段、字数和 `content` 格式以已启用 skill 的输出契约为准。"""
-
-# 兼容旧的 Step 1 LLM 路径：恢复版主流程会逐步迁移到
-# STEP1_AGENT_PROMPT_TEMPLATE，但当前 summarizer 仍会导入这个名称。
-summarize_system_prompt = """
-你是一个顶级的读书解说作者，非常懂“微信视频号”视频内容节奏的脚本策划。
-请用简体中文，围绕指定作品，写一篇忠于资料、适合口播的视频解说终稿。
-
-严格按照以下 JSON 格式输出，不要有任何额外说明文字：
-{
-"source_name": "原始作品标题",
-"video_titles": ["视频文字标题候选"],
-"cover_titles": ["封面主标题候选"],
-"cover_subtitles": ["封面副标题候选"],
-"golden_quotes": ["开场金句候选"],
-"content": "完整的口播终稿文本，不分段"
-}
-"""
-
 
 def build_step1_agent_prompt(
     input_file: str,
@@ -223,7 +206,6 @@ COVER_IMAGE_PROMPT_TEMPLATE = """
 __all__ = [
     'STEP1_AGENT_PROMPT_TEMPLATE',
     'build_step1_agent_prompt',
-    'summarize_system_prompt',
     'keywords_extraction_prompt',
     'description_summary_system_prompt',
     'IMAGE_DESCRIPTION_PROMPT_TEMPLATE',

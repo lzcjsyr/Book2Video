@@ -160,11 +160,9 @@ python -m cli
 # ==================== 全局配置 ====================
 OPENING_QUOTE = True                                   # 开场金句开关（影响步骤3+5）
 
-# ==================== 📝 步骤1：智能总结 ====================
-LLM_SERVER_STEP1 = "siliconflow"                         # 步骤1 LLM供应商
-LLM_MODEL_STEP1 = "moonshotai/Kimi-K2-Instruct-0905"   # 步骤1 LLM模型
-TARGET_LENGTH = 2000                                    # 目标字数 (500-5000)
-LLM_TEMPERATURE_SCRIPT = 0.7                            # 生成随机性 (0-1)
+# ==================== 📝 步骤1：Claude Agent SDK写作 ====================
+# 步骤1固定调用 core/skills/video-book-direct-read 生成 raw.json
+# 文稿字数和字段格式由该 skill 的 output-contract.md 管理
 
 # ==================== ✂️ 步骤1.5：脚本分段 ====================
 NUM_SEGMENTS = 25                                       # 视频分段数量 (5-50)

@@ -677,7 +677,9 @@ def _prompt_segment_generation_scope(
 
 
 def _run_specific_step(
-    target_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+    target_step, project_output_dir,
+    llm_server_step2, llm_model_step2, llm_base_url_step2,
+    llm_server_step3, llm_model_step3, llm_base_url_step3,
     image_server, image_model, image_size, video_size, image_style_preset, images_method,
     tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
     enable_subtitles, bgm_filename,
@@ -695,7 +697,13 @@ def _run_specific_step(
             return {"success": False, "message": "用户取消", "cancelled": True}
         result = run_step_1_5(project_output_dir, num_segments, split_mode=split_mode)
     elif target_step == 2:
-        result = run_step_2(llm_server_step2, llm_model_step2, project_output_dir, images_method=images_method)
+        result = run_step_2(
+            llm_server_step2,
+            llm_model_step2,
+            llm_base_url_step2,
+            project_output_dir,
+            images_method=images_method,
+        )
     elif target_step == 3:
         # 让用户选择段落图片风格
         selected_style = prompt_image_style_choice(style_type="segment")
@@ -721,8 +729,9 @@ def _run_specific_step(
                 opening_quote,
                 target_segments=selection["segments"],
                 regenerate_opening=selection.get("regenerate_opening", False),
-                llm_model=llm_model_step2,
-                llm_server=llm_server_step2,
+                llm_model=llm_model_step3,
+                llm_server=llm_server_step3,
+                llm_base_url=llm_base_url_step3,
             )
         else:
             result = run_step_3(
@@ -733,8 +742,9 @@ def _run_specific_step(
                 project_output_dir,
                 images_method,
                 opening_quote,
-                llm_model=llm_model_step2,
-                llm_server=llm_server_step2,
+                llm_model=llm_model_step3,
+                llm_server=llm_server_step3,
+                llm_base_url=llm_base_url_step3,
             )
     elif target_step == 4:
         selection = _prompt_segment_generation_scope(
@@ -849,7 +859,9 @@ def _run_specific_step(
 
 
 def _run_step_by_step_loop(
-    project_output_dir, initial_step, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+    project_output_dir, initial_step,
+    llm_server_step2, llm_model_step2, llm_base_url_step2,
+    llm_server_step3, llm_model_step3, llm_base_url_step3,
     image_server, image_model, image_size, video_size, image_style_preset, images_method,
     tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
     enable_subtitles, bgm_filename,
@@ -862,7 +874,9 @@ def _run_step_by_step_loop(
     # 首先执行指定的步骤
     if initial_step > 0:
         result = _run_specific_step(
-            initial_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+            initial_step, project_output_dir,
+            llm_server_step2, llm_model_step2, llm_base_url_step2,
+            llm_server_step3, llm_model_step3, llm_base_url_step3,
             image_server, image_model, image_size, video_size, image_style_preset, images_method,
             tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
             enable_subtitles, bgm_filename,
@@ -900,7 +914,9 @@ def _run_step_by_step_loop(
         
         # 执行选择的步骤
         result = _run_specific_step(
-            selected_step, project_output_dir, llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+            selected_step, project_output_dir,
+            llm_server_step2, llm_model_step2, llm_base_url_step2,
+            llm_server_step3, llm_model_step3, llm_base_url_step3,
             image_server, image_model, image_size, video_size, image_style_preset, images_method,
             tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
             enable_subtitles, bgm_filename,
@@ -927,14 +943,15 @@ def _run_step_by_step_loop(
 
 def run_cli_main(
     input_file=None,
-    target_length: int = _UNSET,
     num_segments: int = _UNSET,
     image_size: Optional[str] = _UNSET,
     video_size: Optional[str] = _UNSET,
-    llm_server_step1: str = _UNSET,
-    llm_model_step1: str = _UNSET,
     llm_server_step2: str = _UNSET,
     llm_model_step2: str = _UNSET,
+    llm_base_url_step2: str = _UNSET,
+    llm_server_step3: str = _UNSET,
+    llm_model_step3: str = _UNSET,
+    llm_base_url_step3: str = _UNSET,
     image_server: str = _UNSET,
     image_model: str = _UNSET,
     voice: Optional[str] = _UNSET,
@@ -973,14 +990,15 @@ def run_cli_main(
         
         params = get_generation_params()
         overrides = {
-            "target_length": target_length,
             "num_segments": num_segments,
             "image_size": image_size,
             "video_size": video_size,
-            "llm_server_step1": llm_server_step1,
-            "llm_model_step1": llm_model_step1,
             "llm_server_step2": llm_server_step2,
             "llm_model_step2": llm_model_step2,
+            "llm_base_url_step2": llm_base_url_step2,
+            "llm_server_step3": llm_server_step3,
+            "llm_model_step3": llm_model_step3,
+            "llm_base_url_step3": llm_base_url_step3,
             "image_server": image_server,
             "image_model": image_model,
             "voice": voice,
@@ -1008,14 +1026,15 @@ def run_cli_main(
             if value is not _UNSET:
                 params[key] = value
 
-        target_length = params["target_length"]
         num_segments = params["num_segments"]
         image_size = params["image_size"]
         video_size = params.get("video_size")
-        llm_server_step1 = params["llm_server_step1"]
-        llm_model_step1 = params["llm_model_step1"]
         llm_server_step2 = params["llm_server_step2"]
         llm_model_step2 = params["llm_model_step2"]
+        llm_base_url_step2 = params["llm_base_url_step2"]
+        llm_server_step3 = params["llm_server_step3"]
+        llm_model_step3 = params["llm_model_step3"]
+        llm_base_url_step3 = params["llm_base_url_step3"]
         image_server = params["image_server"]
         image_model = params["image_model"]
         voice = params["voice"]
@@ -1072,11 +1091,7 @@ def run_cli_main(
     tts_server = "bytedance"  # 目前只支持bytedance TTS
     try:
         config.validate_parameters(
-            target_length, num_segments, llm_server_step1, image_server,
-            tts_server, image_model, image_size, images_method=images_method, llm_model=llm_model_step1
-        )
-        config.validate_parameters(
-            target_length, num_segments, llm_server_step2, image_server,
+            num_segments, llm_server_step2, image_server,
             tts_server, image_model, image_size, images_method=images_method, llm_model=llm_model_step2
         )
         config.validate_model_provider_pair("image", cover_image_server, cover_image_model)
@@ -1085,16 +1100,7 @@ def run_cli_main(
         try:
             from core.application.provider_resolver import validate_startup_args
 
-            llm_server_step1, image_server, tts_server = validate_startup_args(
-                target_length=target_length,
-                num_segments=num_segments,
-                image_size=image_size,
-                llm_model=llm_model_step1,
-                image_model=image_model,
-                voice=voice,
-            )
             llm_server_step2, _, _ = validate_startup_args(
-                target_length=target_length,
                 num_segments=num_segments,
                 image_size=image_size,
                 llm_model=llm_model_step2,
@@ -1104,11 +1110,7 @@ def run_cli_main(
             cover_image_server = image_server
 
             config.validate_parameters(
-                target_length, num_segments, llm_server_step1, image_server,
-                tts_server, image_model, image_size, images_method=images_method, llm_model=llm_model_step1
-            )
-            config.validate_parameters(
-                target_length, num_segments, llm_server_step2, image_server,
+                num_segments, llm_server_step2, image_server,
                 tts_server, image_model, image_size, images_method=images_method, llm_model=llm_model_step2
             )
             config.validate_model_provider_pair("image", cover_image_server, cover_image_model)
@@ -1129,7 +1131,8 @@ def run_cli_main(
             images_method = selection.get("image_method") or images_method
             return _run_step_by_step_loop(
             project_output_dir, selection["selected_step"],
-            llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+            llm_server_step2, llm_model_step2, llm_base_url_step2,
+            llm_server_step3, llm_model_step3, llm_base_url_step3,
             image_server, image_model, image_size, video_size, image_style_preset,
             images_method, tts_server, voice, tts_model, speech_rate, loudness_rate,
             emotion, emotion_scale, num_segments,
@@ -1148,13 +1151,14 @@ def run_cli_main(
         gen_config = VideoGenerationConfig(
             input_file=input_file,
             output_dir=output_dir,
-            target_length=target_length,
             num_segments=num_segments,
             image_size=image_size,
-            llm_server_step1=llm_server_step1,
-            llm_model_step1=llm_model_step1,
             llm_server_step2=llm_server_step2,
             llm_model_step2=llm_model_step2,
+            llm_base_url_step2=llm_base_url_step2,
+            llm_server_step3=llm_server_step3,
+            llm_model_step3=llm_model_step3,
+            llm_base_url_step3=llm_base_url_step3,
             image_server=image_server,
             image_model=image_model,
             tts_server=tts_server,
@@ -1190,7 +1194,11 @@ def run_cli_main(
         return result
     else:  # step mode
         # 先执行步骤1创建项目
-        result = run_step_1(input_file, output_dir, llm_server_step1, llm_model_step1, target_length, num_segments)
+        result = run_step_1(
+            input_file,
+            output_dir,
+            num_segments,
+        )
         if not result.get("success"):
             print(f"\n❌ 步骤1失败: {result.get('message')}")
             return result
@@ -1206,7 +1214,8 @@ def run_cli_main(
 
         return _run_step_by_step_loop(
             project_output_dir, 0,  # 不执行初始步骤，直接进入交互模式
-            llm_server_step1, llm_model_step1, llm_server_step2, llm_model_step2,
+            llm_server_step2, llm_model_step2, llm_base_url_step2,
+            llm_server_step3, llm_model_step3, llm_base_url_step3,
             image_server, image_model, image_size, video_size, image_style_preset,
             images_method, tts_server, voice, tts_model, speech_rate, loudness_rate,
             emotion, emotion_scale, num_segments,

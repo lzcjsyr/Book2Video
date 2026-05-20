@@ -29,10 +29,6 @@ from core.infra.ai.tts_client import text_to_audio_bytedance
 import requests
 
 
-# 常量定义
-MAX_PROMPT_SAFETY_ATTEMPTS = 3
-
-
 def _download_to_path(url: str, output_path: str, error_msg: str = "下载失败") -> None:
     try:
         resp = requests.get(url, timeout=30)
@@ -114,69 +110,32 @@ def _strip_code_fences(text: str) -> str:
 
 
 def _desensitize_image_prompt(original_prompt: str, safety_options: Optional[Dict[str, Any]]) -> Optional[str]:
-    """使用LLM对图像提示词进行脱敏，必要时回退主模型。"""
+    """使用步骤3配置的LLM对图像提示词进行脱敏。"""
     if not original_prompt or not safety_options:
         return None
 
-    safety_model = safety_options.get("safety_model")
-    primary_model = safety_options.get("llm_model")
-    primary_server = safety_options.get("llm_server")
-    max_tokens = safety_options.get("max_tokens", 800)
-    temperature = safety_options.get("temperature", 0.2)
+    server = safety_options.get("llm_server")
+    model = safety_options.get("llm_model")
+    base_url = safety_options.get("llm_base_url")
+    if not (server and model and base_url):
+        return None
 
-    candidates: List[Tuple[str, str]] = []
-    if safety_model:
-        safety_server = safety_options.get("safety_server")
-        if not safety_server:
-            # 兼容旧配置：未显式提供 safety_server 时按模型前缀自动推断
-            try:
-                from core.application.provider_resolver import auto_detect_server_from_model
-
-                safety_server = auto_detect_server_from_model(safety_model, "llm")
-            except Exception:
-                safety_server = primary_server
-        if not safety_server:
-            raise ValueError("提示词脱敏配置错误: 提供了 safety_model 但无法推断 safety_server")
-        candidates.append((safety_server, safety_model))
-
-    if primary_model:
-        if not primary_server:
-            raise ValueError("提示词脱敏配置错误: 提供了 llm_model 但未提供 llm_server")
-        candidates.append((primary_server, primary_model))
-
-    seen: Set[Tuple[str, str]] = set()
-    for server, model in candidates:
-        if not server or not model:
-            continue
-        key = (server, model)
-        if key in seen:
-            continue
-        seen.add(key)
-
-        try:
-            response = text_to_text(
-                server=server,
-                model=model,
-                prompt=IMAGE_PROMPT_SAFETY_TEMPLATE.format(prompt=original_prompt),
-                system_message="",
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
-            cleaned = _strip_code_fences(response)
-            if cleaned:
-                logger.info(f"提示词脱敏成功，使用模型 {model}")
-                return cleaned
-        except APIError as api_error:
-            message = str(api_error)
-            if "未配置" in message or "API_KEY" in message.upper():
-                logger.warning(f"提示词脱敏模型 {model} 缺少可用的 API Key，尝试回退模型")
-                continue
-            logger.warning(f"提示词脱敏调用失败: {api_error}")
-            return None
-        except Exception as exc:
-            logger.warning(f"提示词脱敏出现异常: {exc}")
-            return None
-
+    try:
+        response = text_to_text(
+            server=server,
+            model=model,
+            base_url=base_url,
+            prompt=IMAGE_PROMPT_SAFETY_TEMPLATE.format(prompt=original_prompt),
+            system_message="",
+            max_tokens=safety_options.get("max_tokens", 800),
+            temperature=safety_options.get("temperature", 0.2),
+        )
+        cleaned = _strip_code_fences(response)
+        if cleaned:
+            logger.info(f"提示词脱敏成功，使用模型 {model}")
+            return cleaned
+    except Exception as exc:
+        logger.warning(f"提示词脱敏调用失败: {exc}")
     return None
 
 
@@ -282,7 +241,7 @@ def _generate_single_image(args) -> Dict[str, Any]:
 
     prompt_in_use = initial_prompt
     desensitize_attempts = 0
-    max_desensitize = safety_options.get("max_attempts", MAX_PROMPT_SAFETY_ATTEMPTS) if safety_options else 0
+    max_desensitize = int(safety_options.get("max_attempts", 0)) if safety_options else 0
 
     attempt = 0
     max_attempts = 5
@@ -320,8 +279,7 @@ def _generate_single_image(args) -> Dict[str, Any]:
                     prompt_in_use = sanitized
                     logger.debug(f"第{segment_index}段图像提示词已脱敏: {prompt_in_use}")
                     continue
-                else:
-                    logger.warning(f"第{segment_index}段提示词脱敏失败")
+                logger.warning(f"第{segment_index}段提示词脱敏失败")
 
             attempt += 1
 
@@ -357,6 +315,7 @@ def generate_images_for_segments(
     target_segments: Optional[Iterable[int]] = None,
     llm_model: Optional[str] = None,
     llm_server: Optional[str] = None,
+    llm_base_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     """为每个段落生成图像（支持多线程并发）"""
     try:
@@ -462,13 +421,13 @@ def generate_images_for_segments(
                 if os.path.exists(existing_path):
                     image_paths[position] = existing_path
         failed_segments: List[int] = []
-
         safety_options: Optional[Dict[str, Any]] = None
-        if llm_model:
+        if llm_model and llm_server and llm_base_url:
             safety_options = {
                 "llm_model": llm_model,
                 "llm_server": llm_server,
-                "max_attempts": MAX_PROMPT_SAFETY_ATTEMPTS,
+                "llm_base_url": llm_base_url,
+                "max_attempts": 3,
                 "max_tokens": 800,
                 "temperature": 0.2,
             }

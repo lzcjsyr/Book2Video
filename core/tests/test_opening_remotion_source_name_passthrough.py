@@ -72,6 +72,8 @@ def test_render_opening_video_distributes_line_appearance_times(monkeypatch, tmp
     captured = {}
 
     monkeypatch.setattr(opening_renderer, "_ensure_remotion_app_dependencies", lambda _app_dir: None)
+    monkeypatch.setattr(config, "OPENING_REMOTION_FIRST_LINE_SECONDS", 0.5)
+    monkeypatch.setattr(config, "OPENING_REMOTION_LAST_LINE_SECONDS", 2.0)
     monkeypatch.setattr(
         opening_renderer,
         "_split_quote_lines",

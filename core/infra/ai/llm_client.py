@@ -12,7 +12,16 @@ from core.config import config
 from core.shared import logger, APIError, retry_on_failure
 
 @retry_on_failure(max_retries=2, delay=2.0)
-def text_to_text(server, model, prompt, system_message="", max_tokens=4000, temperature=0.5, output_format="text"):
+def text_to_text(
+    server,
+    model,
+    prompt,
+    system_message="",
+    max_tokens=4000,
+    temperature=0.5,
+    output_format="text",
+    base_url="",
+):
     logger.info(f"调用{server}的{model}模型生成文本，提示词长度: {len(prompt)}字符")
     messages = [
         {"role": "system", "content": system_message},
@@ -23,14 +32,14 @@ def text_to_text(server, model, prompt, system_message="", max_tokens=4000, temp
             if not config.OPENROUTER_API_KEY:
                 raise APIError("OPENROUTER_API_KEY未配置")
             api_key = config.OPENROUTER_API_KEY
-            base_url = config.OPENROUTER_BASE_URL
         elif server == "siliconflow":
             if not config.SILICONFLOW_KEY:
                 raise APIError("SILICONFLOW_KEY未配置")
             api_key = config.SILICONFLOW_KEY
-            base_url = config.SILICONFLOW_BASE_URL
         else:
             raise ValueError(f"不支持的服务商: {server}，支持的服务商: {config.SUPPORTED_LLM_SERVERS}")
+        if not base_url:
+            raise APIError("LLM base URL未配置")
 
         client = OpenAI(api_key=api_key, base_url=base_url)
         request_params = {

@@ -28,14 +28,15 @@ class VideoGenerationConfig:
     output_dir: str
     
     # ==================== 内容生成参数 ====================
-    target_length: int = 800
     num_segments: int = 6
     
     # ==================== LLM 配置 ====================
-    llm_server_step1: str = ""
-    llm_model_step1: str = "moonshotai/Kimi-K2-Instruct-0905"
     llm_server_step2: str = ""
+    llm_base_url_step2: str = ""
     llm_model_step2: str = "Pro/moonshotai/Kimi-K2.6"
+    llm_server_step3: str = ""
+    llm_base_url_step3: str = ""
+    llm_model_step3: str = "Pro/moonshotai/Kimi-K2.6"
     
     # ==================== 图像生成配置 ====================
     image_server: str = ""
@@ -133,6 +134,7 @@ class StepExecutionConfig:
     
     # 可选参数（不同步骤需要不同参数）
     llm_server: Optional[str] = None
+    llm_base_url: Optional[str] = None
     llm_model: Optional[str] = None
     image_server: Optional[str] = None
     image_model: Optional[str] = None
@@ -172,17 +174,15 @@ class StepExecutionConfig:
         Returns:
             StepExecutionConfig: 步骤执行配置
         """
-        # 根据步骤号选择LLM配置
-        if step_number == 1:
-            llm_server = gen_config.llm_server_step1
-            llm_model = gen_config.llm_model_step1
-        else:  # step 2 或其他
-            llm_server = gen_config.llm_server_step2
-            llm_model = gen_config.llm_model_step2
+        _ = step_number
+        llm_server = gen_config.llm_server_step2
+        llm_base_url = gen_config.llm_base_url_step2
+        llm_model = gen_config.llm_model_step2
             
         return cls(
             project_output_dir=project_output_dir,
             llm_server=llm_server,
+            llm_base_url=llm_base_url,
             llm_model=llm_model,
             image_server=gen_config.image_server,
             image_model=gen_config.image_model,

@@ -12,6 +12,7 @@
 import datetime
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 from core.config import Config, config
@@ -30,11 +31,11 @@ from core.infra.ai.image_client import (
     generate_images_for_segments,
     synthesize_voice_for_segments,
 )
+from core.infra.ai.claude_agent import run_step1_agent
 from core.domain.summarizer import (
     export_plain_text_segments,
     extract_keywords,
     generate_description_summary,
-    intelligent_summarize,
     process_raw_to_script,
 )
 from core.infra.ai import text_to_audio_bytedance
@@ -72,6 +73,50 @@ def _initialize_project(raw_data: Dict[str, Any], output_dir: str) -> tuple:
         pass
 
     return project_output_dir, paths.raw_json(), raw_docx_path
+
+
+def _safe_project_stem(input_file: str) -> str:
+    stem = os.path.splitext(os.path.basename(input_file))[0].strip() or "untitled"
+    return re.sub(r'[\\/:*?"<>|\s]+', "_", stem).strip("_") or "untitled"
+
+
+def _create_step1_project(input_file: str, output_dir: str) -> tuple[str, ProjectPaths]:
+    current_time = datetime.datetime.now()
+    project_folder = f"{_safe_project_stem(input_file)}_{current_time.strftime('%m%d_%H%M')}"
+    project_output_dir = os.path.join(output_dir, project_folder)
+    paths = ProjectPaths(project_output_dir)
+    paths.ensure_dirs_exist()
+    return project_output_dir, paths
+
+
+def load_step1_agent_raw(raw_json_path: str, expected_segments: int) -> Dict[str, Any]:
+    raw_data = load_json_file(raw_json_path)
+    required_fields = {
+        "source_name": str,
+        "video_titles": list,
+        "cover_titles": list,
+        "cover_subtitles": list,
+        "golden_quotes": list,
+        "comment_hook_options": list,
+        "share_hook_options": list,
+        "content": str,
+        "total_length": int,
+        "target_segments": int,
+    }
+    errors: List[str] = []
+    for field, expected_type in required_fields.items():
+        if field not in raw_data:
+            errors.append(field)
+        elif not isinstance(raw_data[field], expected_type):
+            errors.append(f"{field}类型错误")
+    if raw_data.get("target_segments") != expected_segments:
+        errors.append("target_segments")
+    content = raw_data.get("content")
+    if isinstance(content, str) and ("\n" in content or "\r" in content):
+        errors.append("content不能分段")
+    if errors:
+        raise ValueError(f"Step 1 raw JSON不符合输出契约: {', '.join(errors)}")
+    return raw_data
 
 
 def _resolve_bgm_audio_path(bgm_filename: Optional[str], project_root: str) -> Optional[str]:
@@ -269,22 +314,34 @@ def _resolve_segment_media_path(paths: ProjectPaths, index: int) -> Optional[str
 def run_step_1(
     input_file: str,
     output_dir: str,
-    llm_server: str,
-    llm_model: str,
-    target_length: int,
     num_segments: int,
 ) -> Dict[str, Any]:
-    reader = DocumentReader()
-    document_content, _ = reader.read(input_file)
-    raw_data = intelligent_summarize(llm_server, llm_model, document_content, target_length, num_segments)
+    project_output_dir, paths = _create_step1_project(input_file, output_dir)
+    skill_path = os.path.join(_get_project_root(), "core", "skills", "video-book-direct-read")
+    extract_path = os.path.join(paths.text, "_claude_agent_extract.txt")
 
-    project_output_dir, raw_json_path, raw_docx_path = _initialize_project(raw_data, output_dir)
+    run_step1_agent(
+        input_file=input_file,
+        output_json=paths.raw_json(),
+        extract_path=extract_path,
+        num_segments=num_segments,
+        skill_path=skill_path,
+        repo_root=_get_project_root(),
+    )
+    raw_data = load_step1_agent_raw(paths.raw_json(), expected_segments=num_segments)
+
+    raw_docx_path = None
+    try:
+        export_raw_to_docx(raw_data, paths.raw_docx())
+        raw_docx_path = paths.raw_docx()
+    except Exception:
+        pass
 
     return {
         "success": True,
         "project_output_dir": project_output_dir,
         "raw": {
-            "raw_json_path": raw_json_path,
+            "raw_json_path": paths.raw_json(),
             "raw_docx_path": raw_docx_path,
             "total_length": raw_data.get("total_length", 0),
         },
@@ -403,6 +460,7 @@ def run_step_1_5(
 def run_step_2(
     llm_server: str,
     llm_model: str,
+    llm_base_url: str,
     project_output_dir: str,
     script_path: Optional[str] = None,
     images_method: str = "keywords",
@@ -420,14 +478,14 @@ def run_step_2(
             project_output_dir, raw_data=raw_data, script_data=script_data
         )
         description_data = generate_description_summary(
-            llm_server, llm_model, description_source or "", max_chars=200
+            llm_server, llm_model, llm_base_url, description_source or "", max_chars=200
         )
         description_path = paths.mini_summary_json()
         with open(description_path, "w", encoding="utf-8") as handle:
             json.dump(description_data, handle, ensure_ascii=False, indent=2)
         return {"success": True, "mini_summary_path": description_path}
 
-    keywords_data = extract_keywords(llm_server, llm_model, script_data)
+    keywords_data = extract_keywords(llm_server, llm_model, llm_base_url, script_data)
     keywords_path = paths.keywords_json()
     with open(keywords_path, "w", encoding="utf-8") as handle:
         json.dump(keywords_data, handle, ensure_ascii=False, indent=2)
@@ -446,6 +504,7 @@ def run_step_3(
     regenerate_opening: bool = True,
     llm_model: Optional[str] = None,
     llm_server: Optional[str] = None,
+    llm_base_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     paths = ProjectPaths(project_output_dir)
     paths.ensure_dirs_exist()
@@ -473,8 +532,6 @@ def run_step_3(
             return {"success": False, "message": f"段落选择无效，请输入 1-{total_segments} 之间的数字"}
 
     images_method = images_method or getattr(config, "SUPPORTED_IMAGE_METHODS", ["keywords"])[0]
-    if llm_model and not llm_server:
-        return {"success": False, "message": "步骤3参数错误: 配置了 llm_model 但未配置 llm_server"}
 
     keywords_data = None
     description_data = None
@@ -521,6 +578,7 @@ def run_step_3(
             target_segments=generation_targets,
             llm_model=llm_model,
             llm_server=llm_server,
+            llm_base_url=llm_base_url,
         )
     else:
         image_paths = []
@@ -799,7 +857,6 @@ def _run_cover_generation(
         raise ValueError("封面参数错误: cover_image_server 不能为空")
     try:
         Config.validate_parameters(
-            target_length=config.MIN_TARGET_LENGTH,
             num_segments=config.MIN_NUM_SEGMENTS,
             llm_server=config.SUPPORTED_LLM_SERVERS[0],
             image_server=cover_image_server,
