@@ -9,7 +9,7 @@
 推荐保存路径：
 
 ```text
-output/<project>/text/_claude_agent_extract.txt
+output/<project>/text/_extract.txt
 ```
 
 如果输入本身已是 `.md` / `.txt`，也要复制或规范化到上述路径，后续所有正文读取都针对该文件。
@@ -19,7 +19,7 @@ output/<project>/text/_claude_agent_extract.txt
 先用 **Bash** 统计规模（不要用 `Read` 扫全文）：
 
 ```bash
-EXTRACT="output/<project>/text/_claude_agent_extract.txt"
+EXTRACT="output/<project>/text/_extract.txt"
 wc -l "$EXTRACT"
 wc -c "$EXTRACT"
 ```
@@ -45,7 +45,7 @@ wc -c "$EXTRACT"
 - “已读”只指该窗口全文已通过 **Bash 标准输出**完整进入当前上下文。
 - 只写入临时文件、只看 `head`/`tail`、只读窗口开头，都不能算覆盖。
 - 禁止在覆盖台账通过前写初稿、修订稿或 `raw.json`。
-- `Read` 仅用于：skill、`references/`、小配置文件；**不要**用 `Read` 替代 Bash 读 `_claude_agent_extract.txt` 正文。
+- `Read` 仅用于：skill、`references/`、小配置文件；**不要**用 `Read` 替代 Bash 读 `_extract.txt` 正文。
 
 ### 输出被截断时
 
@@ -58,7 +58,7 @@ wc -c "$EXTRACT"
 ### 读取命令（首选 Bash）
 
 ```bash
-EXTRACT="output/<project>/text/_claude_agent_extract.txt"
+EXTRACT="output/<project>/text/_extract.txt"
 START=1
 END=23000
 sed -n "${START},${END}p" "$EXTRACT" | awk '{print NR+('"$START"'-1) "\t" $0}'
@@ -76,7 +76,7 @@ sed -n '23001,46000p' "$EXTRACT"
 
 ```json
 {
-  "source_file": "output/<project>/text/_claude_agent_extract.txt",
+  "source_file": "output/<project>/text/_extract.txt",
   "read_strategy": "bash_line_window",
   "lines_per_window": 23000,
   "unit": "line_range",
@@ -115,14 +115,14 @@ sed -n '23001,46000p' "$EXTRACT"
 写稿前必须完成覆盖检查，并把完整台账保存到：
 
 ```text
-output/<project>/text/_claude_agent_coverage_ledger.json
+output/<project>/text/_coverage_ledger.json
 ```
 
 推荐顶层结构：
 
 ```json
 {
-  "source_file": "output/<project>/text/_claude_agent_extract.txt",
+  "source_file": "output/<project>/text/_extract.txt",
   "source_total_lines": 120000,
   "source_total_chars": 4800000,
   "read_strategy": "bash_line_window",

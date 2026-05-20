@@ -9,12 +9,12 @@
 按顺序生成：
 
 ```text
-_claude_agent_draft_v1.txt
-_claude_agent_draft_v2_faithfulness.txt
-_claude_agent_draft_v3_structure.txt
-_claude_agent_draft_v4_oral_style.txt
-_claude_agent_draft_final.txt
-_claude_agent_revision_audit.json
+_draft_v1.txt
+_draft_v2_faithfulness.txt
+_draft_v3_structure.txt
+_draft_v4_oral_style.txt
+_draft_final.txt
+_revision_audit.json
 ```
 
 不要跳过任何一轮，不要直接从初稿生成最终 JSON。每轮都先读对应的 `input_path`，不要凭记忆改。每一轮可以用多次 Agent/tool 调用完成，不要求一轮输出一次性改完。
@@ -53,7 +53,7 @@ _claude_agent_revision_audit.json
 
 ## Revision audit
 
-`_claude_agent_revision_audit.json` 只能基于相邻版本的真实差异来写。
+`_revision_audit.json` 只能基于相邻版本的真实差异来写。
 
 结构保持精简：
 
@@ -62,11 +62,11 @@ _claude_agent_revision_audit.json
   "revision_basis": {
     "meaningful_difference": true,
     "draft_paths": {
-      "v1": "_claude_agent_draft_v1.txt",
-      "v2_faithfulness": "_claude_agent_draft_v2_faithfulness.txt",
-      "v3_structure": "_claude_agent_draft_v3_structure.txt",
-      "v4_oral_style": "_claude_agent_draft_v4_oral_style.txt",
-      "final": "_claude_agent_draft_final.txt"
+      "v1": "_draft_v1.txt",
+      "v2_faithfulness": "_draft_v2_faithfulness.txt",
+      "v3_structure": "_draft_v3_structure.txt",
+      "v4_oral_style": "_draft_v4_oral_style.txt",
+      "final": "_draft_final.txt"
     },
     "diff_summary": "四轮修订后的核心变化"
   },
@@ -100,4 +100,4 @@ _claude_agent_revision_audit.json
 
 ## Package JSON
 
-最后用 `_claude_agent_draft_final.txt` 生成 raw JSON。优先用 Python `json.dump` 写入并用 `json.load` 验证。`content` 可去掉 final draft 的换行和多余空白，但不能改正文措辞。
+最后用 `_draft_final.txt` 生成 raw JSON。优先用 Python `json.dump` 写入并用 `json.load` 验证。`content` 可去掉 final draft 的换行和多余空白，但不能改正文措辞。

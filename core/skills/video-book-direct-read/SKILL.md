@@ -21,8 +21,8 @@ description: 用 Bash 按每窗 23000 行连续读取长书全文，建立覆盖
 ## 运行原则
 
 - 先覆盖，再写稿。没有覆盖台账，不要进入初稿或最终 JSON。
-- 覆盖台账用于证明“读到了哪些区域”，不是普通摘要；写稿前你必须自己核对 `_claude_agent_coverage_ledger.json` 是否真实、完整。
-- 最终 JSON 前必须产生 `_claude_agent_draft_v1.txt`、`_claude_agent_draft_v2_faithfulness.txt`、`_claude_agent_draft_v3_structure.txt`、`_claude_agent_draft_v4_oral_style.txt`、`_claude_agent_draft_final.txt`、`_claude_agent_revision_audit.json`，且 audit 必须基于相邻版本差异。
+- 覆盖台账用于证明“读到了哪些区域”，不是普通摘要；写稿前你必须自己核对 `_coverage_ledger.json` 是否真实、完整。
+- 最终 JSON 前必须产生 `_draft_v1.txt`、`_draft_v2_faithfulness.txt`、`_draft_v3_structure.txt`、`_draft_v4_oral_style.txt`、`_draft_final.txt`、`_revision_audit.json`，且 audit 必须基于相邻版本差异。
 - 不要把局部段落误说成全书观点。
 - 正文只用 Bash 读，默认每窗 23000 行；截断时减半重读，不要改用 `Read` 或跳读抽样。
 - 最终输出只应是项目可用的 raw JSON，除非用户要求展示过程。
@@ -34,5 +34,5 @@ description: 用 Bash 按每窗 23000 行连续读取长书全文，建立覆盖
 - 已覆盖开头、中段、结尾和主要章节，且台账中 `coverage_check.passed=true` 与事实一致。
 - 每个重要判断能回忆到对应读取窗口。
 - 文稿符合 `writing-standard.md` 的开头、节奏、文风、禁用表达和修订要求。
-- 修订过程已按 `revision-workflow.md` 逐轮落盘，终稿来自 `_claude_agent_draft_final.txt`，audit 能对应每一轮的真实差异。
+- 修订过程已按 `revision-workflow.md` 逐轮落盘，终稿来自 `_draft_final.txt`，audit 能对应每一轮的真实差异。
 - JSON 符合 `writing-standard.md` 的最终 JSON 输出契约。

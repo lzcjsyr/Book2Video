@@ -21,7 +21,7 @@ STEP1_AGENT_PROMPT_TEMPLATE = """你在仓库根目录工作。
 按 skill 的硬性顺序（不要提前写 raw JSON）：
 - 先完成 `{extract_path}` 抽取与 Bash 连续读取，再写 `{coverage_ledger_path}`。
 - 覆盖自检未通过前，禁止写初稿、修订稿或 `{output_json}`。
-- 修订中间稿与 `_claude_agent_revision_audit.json` 落在 `{text_dir}`。
+- 修订中间稿与 `_revision_audit.json` 落在 `{text_dir}`。
 
 硬性要求：
 - 输出 JSON 必须能被 Python `json.loads` 解析，且保存到 `{output_json}`。

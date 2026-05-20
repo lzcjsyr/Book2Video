@@ -40,7 +40,7 @@ def test_skill_entry_requires_coverage_ledger_before_scripting():
     skill = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
     reading = (SKILL_DIR / "references" / "reading-strategy.md").read_text(encoding="utf-8")
 
-    assert "_claude_agent_coverage_ledger.json" in reading
+    assert "_coverage_ledger.json" in reading
     assert "coverage_check.passed=true" in skill
     assert "行覆盖率" in reading
 

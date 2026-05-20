@@ -31,7 +31,12 @@ from core.infra.ai.image_client import (
     generate_images_for_segments,
     synthesize_voice_for_segments,
 )
-from core.infra.ai.claude_agent import run_step1_agent
+from core.infra.ai.claude_agent import (
+    STEP1_COVERAGE_LEDGER_NAME,
+    STEP1_EXTRACT_NAME,
+    STEP1_SESSION_LOG_NAME,
+    run_step1_agent,
+)
 from core.domain.summarizer import (
     export_plain_text_segments,
     extract_keywords,
@@ -318,14 +323,16 @@ def run_step_1(
 ) -> Dict[str, Any]:
     project_output_dir, paths = _create_step1_project(input_file, output_dir)
     skill_path = os.path.join(_get_project_root(), "core", "skills", "video-book-direct-read")
-    extract_path = os.path.join(paths.text, "_claude_agent_extract.txt")
-    coverage_ledger_path = os.path.join(paths.text, "_claude_agent_coverage_ledger.json")
+    extract_path = os.path.join(paths.text, STEP1_EXTRACT_NAME)
+    coverage_ledger_path = os.path.join(paths.text, STEP1_COVERAGE_LEDGER_NAME)
+    session_log_path = os.path.join(paths.text, STEP1_SESSION_LOG_NAME)
 
     run_step1_agent(
         input_file=input_file,
         output_json=paths.raw_json(),
         extract_path=extract_path,
         coverage_ledger_path=coverage_ledger_path,
+        session_log_path=session_log_path,
         text_dir=paths.text,
         num_segments=num_segments,
         skill_path=skill_path,
