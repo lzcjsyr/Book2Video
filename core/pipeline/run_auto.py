@@ -66,6 +66,13 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         return {"success": False, "message": step1.get("message", "步骤1处理失败")}
     project_output_dir = step1["project_output_dir"]
     paths = ProjectPaths(project_output_dir)
+    raw_data = load_json_file(paths.raw_json()) if os.path.exists(paths.raw_json()) else {}
+    original_length = int(
+        (step1.get("raw") or {}).get("total_length")
+        or raw_data.get("total_length")
+        or len(raw_data.get("content") or "")
+        or 0
+    )
 
     step15 = _run_step_1_5(project_output_dir, config.num_segments, is_new_project=True, auto_mode=True)
     if not step15.get("success"):

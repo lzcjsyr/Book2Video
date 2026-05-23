@@ -13,7 +13,7 @@ STEP1_AGENT_PROMPT_TEMPLATE = """你在仓库根目录工作。
 
 执行顺序（必须按序，不可跳步）：
 1. 先读取 `{skill_path}` 和它指向的必要 references，先明确读取策略。
-2. 抽取原文到 `{extract_path}`（PDF/EPUB/DOCX 等必须先抽取，禁止直接 Read 大 PDF）。
+2. 抽取原文到 `{extract_path}`（PDF/EPUB/MOBI/AZW3/DOCX/DOC 等先抽取；.md/.txt 复制或规范化到该路径；禁止直接 Read 大 PDF）。
 3. 按 `references/reading-strategy.md` 制定读取计划，**主要用 Bash**（`sed`/`awk`）按每窗 **23000 行** 连续读取 `{extract_path}`，逐窗建立覆盖台账。
 4. 将覆盖台账保存到 `{coverage_ledger_path}`，按 skill 完成覆盖自检（`coverage_check.passed=true`、所有窗口 `complete`、行覆盖率 >= 85%、首尾中段均覆盖）后再进入写稿。
 5. 覆盖自检通过后，再读 `writing-standard.md` 与 `revision-workflow.md`，完成多轮修订落盘，最后生成 `{output_json}`。

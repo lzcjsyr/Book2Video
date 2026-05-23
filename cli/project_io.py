@@ -5,7 +5,13 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List
 
-from core.shared import FileProcessingError, get_file_info, logger, project_name_sort_key
+from core.shared import (
+    FileProcessingError,
+    SUPPORTED_INPUT_EXTENSIONS,
+    get_file_info,
+    logger,
+    project_name_sort_key,
+)
 
 
 def _resolve_cli_path(path: str) -> str:
@@ -22,7 +28,6 @@ def scan_input_files(input_dir: str = "input") -> List[Dict[str, Any]]:
         logger.warning(f"输入目录不存在: {input_dir}")
         return []
 
-    supported_extensions = [".pdf", ".epub", ".mobi", ".azw3", ".docx", ".doc"]
     files: List[Dict[str, Any]] = []
     logger.info(f"CLI 正在扫描输入目录: {input_dir}")
 
@@ -32,7 +37,7 @@ def scan_input_files(input_dir: str = "input") -> List[Dict[str, Any]]:
             if os.path.isdir(file_path):
                 continue
             extension = Path(file_path).suffix.lower()
-            if extension in supported_extensions:
+            if extension in SUPPORTED_INPUT_EXTENSIONS:
                 files.append(get_file_info(file_path))
     except Exception as exc:
         logger.error(f"扫描输入目录失败: {exc}")

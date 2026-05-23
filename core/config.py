@@ -399,9 +399,12 @@ class Config:
         llm_model: str = None,
     ) -> None:
         """验证所有参数的有效性"""
-        _ = (llm_server, llm_model)
         if not cls.MIN_NUM_SEGMENTS <= num_segments <= cls.MAX_NUM_SEGMENTS:
             raise ValueError(f"num_segments必须在{cls.MIN_NUM_SEGMENTS}-{cls.MAX_NUM_SEGMENTS}之间")
+        if llm_server not in cls.SUPPORTED_LLM_SERVERS:
+            raise ValueError(f"不支持的LLM服务商: {llm_server}，支持的服务商: {cls.SUPPORTED_LLM_SERVERS}")
+        if llm_model is not None and not str(llm_model).strip():
+            raise ValueError("LLM模型不能为空")
         if image_server not in cls.SUPPORTED_IMAGE_SERVERS:
             raise ValueError(f"不支持的图像服务商: {image_server}，支持的服务商: {cls.SUPPORTED_IMAGE_SERVERS}")
         if tts_server not in cls.SUPPORTED_TTS_SERVERS:

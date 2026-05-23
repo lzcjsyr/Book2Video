@@ -64,6 +64,24 @@ def test_config_exposes_current_runtime_params():
     )
 
 
+def test_config_rejects_unsupported_llm_server():
+    import pytest
+
+    from core.config import config
+
+    with pytest.raises(ValueError, match="不支持的LLM服务商"):
+        config.validate_parameters(
+            num_segments=5,
+            llm_server="unknown",
+            image_server="google",
+            tts_server="bytedance",
+            image_model="gemini-3.1-flash-image-preview",
+            image_size="1280x720",
+            images_method="description",
+            llm_model="model",
+        )
+
+
 def test_recovered_config_keeps_cover_validation_usable(monkeypatch, tmp_path):
     from core.pipeline import steps
 

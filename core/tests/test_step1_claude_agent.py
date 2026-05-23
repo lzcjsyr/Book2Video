@@ -1,6 +1,9 @@
 import json
 from pathlib import Path
 
+import anyio
+from claude_agent_sdk import ResultMessage
+
 from core.infra.ai import claude_agent
 from core.pipeline import steps
 
@@ -96,6 +99,44 @@ def test_build_step1_agent_env_uses_mimo_gateway(monkeypatch):
     assert env["ANTHROPIC_MODEL"] == "mimo-v2.5"
 
 
+def test_step1_agent_allows_200_turns(monkeypatch, tmp_path: Path):
+    captured = {}
+    output_json = tmp_path / "text" / "raw.json"
+
+    async def fake_query(*, prompt, options):
+        captured["max_turns"] = options.max_turns
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+        output_json.write_text(json.dumps(_valid_raw(), ensure_ascii=False), encoding="utf-8")
+        yield ResultMessage(
+            subtype="success",
+            duration_ms=0,
+            duration_api_ms=0,
+            is_error=False,
+            num_turns=1,
+            session_id="test-session",
+        )
+
+    monkeypatch.setattr(claude_agent, "query", fake_query)
+    monkeypatch.setattr(claude_agent, "build_step1_agent_env", lambda: {})
+
+    async def run_agent():
+        await claude_agent._run_step1_agent_async(
+            input_file=str(tmp_path / "book.pdf"),
+            output_json=str(output_json),
+            extract_path=str(tmp_path / "text" / claude_agent.STEP1_EXTRACT_NAME),
+            coverage_ledger_path=str(tmp_path / "text" / claude_agent.STEP1_COVERAGE_LEDGER_NAME),
+            session_log_path=str(tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME),
+            text_dir=str(tmp_path / "text"),
+            num_segments=70,
+            skill_path=str(tmp_path / "core" / "skills" / "video-book-direct-read"),
+            repo_root=str(tmp_path),
+        )
+
+    anyio.run(run_agent)
+
+    assert captured["max_turns"] == 200
+
+
 def test_step1_agent_prompt_includes_absolute_skill_path_and_target_segments(tmp_path: Path):
     from core.prompts import build_step1_agent_prompt
 
@@ -117,6 +158,8 @@ def test_step1_agent_prompt_includes_absolute_skill_path_and_target_segments(tmp
     assert "`target_segments` 必须写为 70" in prompt
     assert "_coverage_ledger.json" in prompt
     assert "覆盖自检" in prompt
+    assert ".md/.txt" in prompt
+    assert "复制或规范化" in prompt
 
 
 def test_agent_session_log_appends_jsonl_records(tmp_path: Path):

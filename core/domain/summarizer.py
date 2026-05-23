@@ -373,94 +373,62 @@ def _split_text_into_segments(full_text: str, num_segments: int, mode: str = "au
     if mode == "manual":
         return _split_text_by_newlines(full_text)
 
-    # 自动切分逻辑
     text = (full_text or "").strip()
     if num_segments <= 1 or len(text) == 0:
         return [text] if text else [""]
 
-    # 1) 句子级切分：将标点附着到前句
-    raw_parts = re.split(r'([。！？；.!?\n])', text)
-    sentences: List[str] = []
-    i = 0
-    while i < len(raw_parts):
-        token = raw_parts[i]
-        if token and token.strip():
-            cur = token.strip()
-            if i + 1 < len(raw_parts) and raw_parts[i + 1] and raw_parts[i + 1].strip() in '。！？；.!?\n':
-                cur += raw_parts[i + 1].strip()
-                i += 2
-            else:
-                i += 1
-            sentences.append(cur)
+    total_len = len(text)
+    target_len = max(1, total_len / float(num_segments))
+    min_len = max(8, int(target_len * 0.6))
+    max_len = max(40, int(target_len * 1.8))
+
+    sentences = _split_text_by_strong_punctuation(text)
+    segments: List[str] = []
+    current = ""
+
+    for sentence in sentences:
+        candidate = current + sentence
+        next_is_short = len(sentence) < min_len
+        if current and len(current) >= min_len and not next_is_short and len(candidate) > target_len:
+            segments.extend(_split_long_segment(current, max_len))
+            current = sentence
+        elif current and len(candidate) > max_len:
+            segments.extend(_split_long_segment(current, max_len))
+            current = sentence
         else:
-            i += 1
+            current = candidate
 
-    if not sentences:
-        sentences = [text]
+    if current:
+        segments.extend(_split_long_segment(current, max_len))
 
-    # 2) 若句子数量 >= 段数：在句子边界上均衡聚合
-    total_len = sum(len(s) for s in sentences)
-    if len(sentences) >= num_segments:
-        ideal = total_len / float(num_segments)
-        segments: List[str] = []
-        current: List[str] = []
-        current_len = 0
+    return [segment for segment in segments if segment.strip()]
 
-        for idx, s in enumerate(sentences):
-            current.append(s)
-            current_len += len(s)
-            
-            # 决策：是否应该断句
-            remaining = len(sentences) - idx - 1
-            needed = num_segments - len(segments) - 1
-            
-            # 如果当前段接近理想长度，且后续还有足够句子分配
-            if current_len >= ideal * 0.7 and remaining >= needed and needed > 0:
-                segments.append(''.join(current))
-                current = []
-                current_len = 0
-        
-        # 添加最后一段
-        if current:
-            segments.append(''.join(current))
 
-        # 3) 修正段数：拆分最长或合并最短
-        while len(segments) < num_segments and segments:
-            # 找最长段落，在标点处拆分
-            longest_idx = max(range(len(segments)), key=lambda i: len(segments[i]))
-            seg = segments[longest_idx]
-            if len(seg) < 2:
-                break
-            mid = len(seg) // 2
-            # 寻找附近的标点位置
-            for p in ['。', '！', '？', '\n']:
-                pos = seg.rfind(p, max(0, mid - 30), mid + 30)
-                if pos > 0:
-                    mid = pos + 1
-                    break
-            part1, part2 = seg[:mid].strip(), seg[mid:].strip()
-            if part1 and part2:  # 只有两部分都非空才拆分
-                segments[longest_idx:longest_idx+1] = [part1, part2]
-            else:
-                break
+def _split_text_by_strong_punctuation(text: str) -> List[str]:
+    normalized = re.sub(r'\s*[\r\n]+\s*', '。', text.strip())
+    normalized = re.sub(r'[ \t]+', ' ', normalized)
+    pattern = r'.+?(?:[。！？!?；;]+[”’）》」』]*)|.+$'
+    return [match.group(0).strip() for match in re.finditer(pattern, normalized) if match.group(0).strip()]
 
-        while len(segments) > num_segments:
-            # 合并相邻最短的两段
-            min_idx = min(range(len(segments) - 1), 
-                         key=lambda i: len(segments[i]) + len(segments[i+1]))
-            segments[min_idx:min_idx+2] = [segments[min_idx] + segments[min_idx+1]]
 
-        return segments[:num_segments]
+def _split_long_segment(text: str, max_len: int) -> List[str]:
+    if len(text) <= max_len:
+        return [text]
 
-    # 3) 若句子数量 < 段数：字符级均分
-    base = total_len // num_segments
-    rem = total_len % num_segments
+    pieces = [part for part in re.split(r'(?<=[，,：:、])', text) if part]
+    if len(pieces) <= 1:
+        return [text[i:i + max_len] for i in range(0, len(text), max_len)]
+
     result: List[str] = []
-    pos = 0
-    for i in range(num_segments):
-        length = base + (1 if i < rem else 0)
-        result.append(text[pos:pos+length])
-        pos += length
+    current = ""
+    for piece in pieces:
+        if current and len(current) + len(piece) > max_len:
+            result.append(current)
+            current = piece
+        else:
+            current += piece
+    if current:
+        result.append(current)
     return result
 
 

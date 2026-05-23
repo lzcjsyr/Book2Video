@@ -1,0 +1,116 @@
+import json
+from importlib import import_module
+
+from core.generation_config import VideoGenerationConfig
+from core.infra.project_paths import ProjectPaths
+
+run_auto_module = import_module("core.pipeline.run_auto")
+
+
+def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tmp_path):
+    project_dir = tmp_path / "project"
+    paths = ProjectPaths(str(project_dir))
+    paths.ensure_dirs_exist()
+
+    raw_data = {
+        "source_name": "source",
+        "video_titles": ["title"],
+        "cover_titles": ["cover"],
+        "cover_subtitles": ["subtitle"],
+        "golden_quotes": ["quote"],
+        "comment_hook_options": [],
+        "share_hook_options": [],
+        "content": "x" * 1000,
+        "total_length": 1000,
+        "target_segments": 5,
+    }
+    paths.raw_json()
+    with open(paths.raw_json(), "w", encoding="utf-8") as handle:
+        json.dump(raw_data, handle)
+
+    script_data = {
+        "total_length": 250,
+        "actual_segments": 5,
+        "segments": [{"index": idx, "content": f"segment {idx}"} for idx in range(1, 6)],
+    }
+
+    captured = {}
+
+    monkeypatch.setattr(
+        run_auto_module,
+        "_run_step_1",
+        lambda *_args, **_kwargs: {
+            "success": True,
+            "project_output_dir": str(project_dir),
+            "raw": {"total_length": 1000},
+        },
+    )
+    monkeypatch.setattr(
+        run_auto_module,
+        "_run_step_1_5",
+        lambda *_args, **_kwargs: {
+            "success": True,
+            "script_data": script_data,
+            "script_path": paths.script_json(),
+        },
+    )
+
+    def fake_step_2(*_args, **_kwargs):
+        summary_path = paths.mini_summary_json()
+        with open(summary_path, "w", encoding="utf-8") as handle:
+            json.dump({"summary": "summary", "total_length": 7}, handle)
+        return {"success": True, "mini_summary_path": summary_path}
+
+    monkeypatch.setattr(run_auto_module, "_run_step_2", fake_step_2)
+    monkeypatch.setattr(
+        run_auto_module,
+        "_run_step_3",
+        lambda *_args, **_kwargs: {
+            "success": True,
+            "image_paths": [f"image_{idx}.png" for idx in range(1, 6)],
+        },
+    )
+    monkeypatch.setattr(
+        run_auto_module,
+        "_run_step_4",
+        lambda *_args, **_kwargs: {
+            "success": True,
+            "audio_paths": [f"voice_{idx}.wav" for idx in range(1, 6)],
+        },
+    )
+    monkeypatch.setattr(
+        run_auto_module,
+        "_run_step_5",
+        lambda *_args, **_kwargs: {"success": True, "final_video": paths.final_video()},
+    )
+
+    def fake_cover_generation(*args):
+        captured["raw_data"] = args[-1]
+        return {"success": True, "cover_paths": ["cover.png"]}
+
+    monkeypatch.setattr(run_auto_module, "_run_cover_generation", fake_cover_generation)
+
+    config = VideoGenerationConfig(
+        input_file="input.pdf",
+        output_dir=str(tmp_path),
+        num_segments=5,
+        llm_server_step2="siliconflow",
+        llm_base_url_step2="https://example.test/v1",
+        llm_server_step3="siliconflow",
+        llm_base_url_step3="https://example.test/v1",
+        image_server="google",
+        image_model="gemini-3.1-flash-image-preview",
+        image_size="1280x720",
+        images_method="description",
+        cover_image_server="google",
+        cover_image_model="gemini-3.1-flash-image-preview",
+        cover_image_size="1280x720",
+    )
+
+    result = run_auto_module.run_auto(config)
+
+    assert result["success"] is True
+    assert result["statistics"]["original_length"] == 1000
+    assert result["statistics"]["compression_ratio"] == "75.0%"
+    assert result["cover_images"] == ["cover.png"]
+    assert captured["raw_data"]["content"] == "x" * 1000

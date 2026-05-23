@@ -1059,7 +1059,7 @@ class VideoComposer:
             if not json_match:
                 logger.warning("无法解析loudnorm分析结果，使用单步标准化")
                 # 单步标准化（不使用测量数据）
-                normalized_path = os.path.join(temp_dir, "bgm_normalized.wav")
+                normalized_path = os.path.join(project_root, "bgm_normalized.wav")
                 normalize_command = [
                     ffmpeg_path,
                     "-y",

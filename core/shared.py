@@ -29,6 +29,17 @@ from typing import Dict, Any, List
 # 只定义logger对象，由具体的CLI或Web模块来配置
 logger = logging.getLogger('AIGC_Video')
 
+SUPPORTED_INPUT_EXTENSIONS = (
+    ".pdf",
+    ".epub",
+    ".mobi",
+    ".azw3",
+    ".md",
+    ".txt",
+    ".docx",
+    ".doc",
+)
+
 class VideoProcessingError(Exception):
     """视频处理专用异常类"""
     pass

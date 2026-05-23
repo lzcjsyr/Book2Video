@@ -133,7 +133,7 @@ async def _run_step1_agent_async(
         allowed_tools=STEP1_AGENT_TOOLS,
         skills=[STEP1_AGENT_SKILL],
         permission_mode="acceptEdits",
-        max_turns=80,
+        max_turns=200,
         env=build_step1_agent_env(),
     )
     session_log = AgentSessionLog(session_log_path)

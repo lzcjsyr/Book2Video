@@ -82,7 +82,13 @@ class ProjectPaths:
     
     def opening_audio(self) -> str:
         """开场音频路径"""
-        return os.path.join(self.voice, "opening.mp3")
+        wav_path = os.path.join(self.voice, "opening.wav")
+        if os.path.exists(wav_path):
+            return wav_path
+        legacy_mp3_path = os.path.join(self.voice, "opening.mp3")
+        if os.path.exists(legacy_mp3_path):
+            return legacy_mp3_path
+        return wav_path
     
     def segment_audio(self, index: int, extension: str = "mp3") -> str:
         """
@@ -138,4 +144,3 @@ class ProjectPaths:
 
 
 __all__ = ['ProjectPaths']
-

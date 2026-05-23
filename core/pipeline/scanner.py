@@ -16,7 +16,13 @@ import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-from core.shared import logger, get_file_info, FileProcessingError, project_name_sort_key
+from core.shared import (
+    SUPPORTED_INPUT_EXTENSIONS,
+    logger,
+    get_file_info,
+    FileProcessingError,
+    project_name_sort_key,
+)
 from core.infra.project_paths import ProjectPaths
 from core.config import OPENING_QUOTE
 
@@ -27,7 +33,7 @@ def _project_root() -> str:
 
 def scan_input_files(input_dir: str = "input") -> List[Dict[str, Any]]:
     """
-    扫描input文件夹中的PDF、EPUB和MOBI文件
+    扫描input文件夹中的可处理文档
     
     Args:
         input_dir: 输入文件夹路径
@@ -43,7 +49,6 @@ def scan_input_files(input_dir: str = "input") -> List[Dict[str, Any]]:
         logger.warning(f"输入目录不存在: {input_dir}")
         return []
     
-    supported_extensions = ['.pdf', '.epub', '.mobi', '.azw3']
     files = []
     
     logger.info(f"正在扫描 {input_dir} 文件夹...")
@@ -58,7 +63,7 @@ def scan_input_files(input_dir: str = "input") -> List[Dict[str, Any]]:
             
             # 检查文件扩展名
             file_extension = Path(file_path).suffix.lower()
-            if file_extension in supported_extensions:
+            if file_extension in SUPPORTED_INPUT_EXTENSIONS:
                 file_info = get_file_info(file_path)
                 files.append(file_info)
                 logger.debug(f"找到文件: {file_name} ({file_info['size_formatted']})")
@@ -70,14 +75,7 @@ def scan_input_files(input_dir: str = "input") -> List[Dict[str, Any]]:
     # 按修改时间排序，最新的在前
     files.sort(key=lambda x: x['modified_time'], reverse=True)
     
-    pdf_count = sum(1 for f in files if f['extension'] == '.pdf')
-    epub_count = sum(1 for f in files if f['extension'] == '.epub')
-    mobi_count = sum(1 for f in files if f['extension'] == '.mobi')
-    azw3_count = sum(1 for f in files if f['extension'] == '.azw3')
-    logger.info(
-        "共找到 %d 个文件 (PDF: %d, EPUB: %d, MOBI: %d, AZW3: %d)",
-        len(files), pdf_count, epub_count, mobi_count, azw3_count
-    )
+    logger.info("共找到 %d 个可处理文件", len(files))
     
     return files
 
@@ -206,8 +204,8 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
                 if m:
                     audio_indices.append(int(m.group(1)))
 
-            # 检测开场音频（opening.mp3）
-            has_opening_audio = os.path.exists(os.path.join(paths.voice, 'opening.mp3'))
+            # 检测开场音频（opening.wav，新项目；opening.mp3，旧项目兼容）
+            has_opening_audio = os.path.exists(paths.opening_audio())
 
             # 步骤4：音频完成条件 - 根据 OPENING_QUOTE 配置调整
             segment_audio_complete = (len(audio_indices) == num_segments) and (set(audio_indices) == set(range(1, num_segments+1)))

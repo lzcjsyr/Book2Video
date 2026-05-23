@@ -163,24 +163,34 @@ def _ensure_opening_narration(
 
     try:
         os.makedirs(voice_dir, exist_ok=True)
-        opening_path = os.path.join(voice_dir, "opening.mp3")
+        opening_path = os.path.join(voice_dir, "opening.wav")
+        legacy_opening_path = os.path.join(voice_dir, "opening.mp3")
         if force_regenerate and os.path.exists(opening_path):
             try:
                 os.remove(opening_path)
             except Exception:
                 if announce:
                     print("⚠️ 开场音频删除失败，尝试直接覆盖")
+        if force_regenerate and os.path.exists(legacy_opening_path):
+            try:
+                os.remove(legacy_opening_path)
+            except Exception:
+                pass
 
         if os.path.exists(opening_path):
             if announce:
                 print(f"✅ 开场音频已存在: {opening_path}")
             return opening_path
+        if os.path.exists(legacy_opening_path):
+            if announce:
+                print(f"✅ 开场音频已存在: {legacy_opening_path}")
+            return legacy_opening_path
 
         ok = text_to_audio_bytedance(
             opening_golden_quote,
             opening_path,
             voice=voice,
-            encoding="mp3",
+            encoding="wav",
             model=tts_model,
             speech_rate=speech_rate,
             loudness_rate=loudness_rate,

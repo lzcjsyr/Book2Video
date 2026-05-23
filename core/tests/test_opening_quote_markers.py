@@ -8,6 +8,7 @@ def test_ensure_opening_narration_strips_keyword_markers_for_tts(monkeypatch, tm
 
     def fake_tts(text, output_path, **kwargs):
         captured["text"] = text
+        captured["output_path"] = output_path
         Path(output_path).write_bytes(b"audio")
         return True
 
@@ -24,5 +25,6 @@ def test_ensure_opening_narration_strips_keyword_markers_for_tts(monkeypatch, tm
         force_regenerate=True,
     )
 
-    assert output == str(tmp_path / "opening.mp3")
+    assert output == str(tmp_path / "opening.wav")
+    assert captured["output_path"] == str(tmp_path / "opening.wav")
     assert captured["text"] == "真正拉开差距的，不是努力，而是你能不能看懂系统。"

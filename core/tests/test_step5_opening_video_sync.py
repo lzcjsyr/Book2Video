@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from core.config import config
 from core.pipeline import steps
@@ -122,3 +123,29 @@ def test_apply_audio_effects_respects_ducking_enabled_switch(monkeypatch):
     assert result_disabled is bgm_clip
     assert result_enabled == "ducked-bgm"
     assert captured["called"] == 1
+
+
+def test_bgm_loudness_fallback_uses_project_root_when_analysis_json_missing(monkeypatch, tmp_path: Path):
+    from core.domain.composer import VideoComposer
+
+    bgm_path = tmp_path / "bgm.mp3"
+    bgm_path.write_bytes(b"fake audio")
+    composer = VideoComposer()
+    calls = []
+
+    monkeypatch.setattr(config, "BGM_NORMALIZE_LOUDNESS", True)
+    monkeypatch.setattr("core.domain.composer.shutil.which", lambda _name: "/usr/bin/ffmpeg")
+
+    def fake_run(command, **_kwargs):
+        calls.append(command)
+        if len(calls) == 1:
+            return SimpleNamespace(stderr="no loudnorm json here")
+        return SimpleNamespace(stderr="")
+
+    monkeypatch.setattr("core.domain.composer.subprocess.run", fake_run)
+
+    result = composer._normalize_bgm_loudness(str(bgm_path), str(tmp_path))
+
+    expected_path = str(tmp_path / "bgm_normalized.wav")
+    assert result == expected_path
+    assert calls[1][-1] == expected_path
