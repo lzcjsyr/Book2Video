@@ -217,3 +217,88 @@ def test_agent_session_log_appends_jsonl_records(tmp_path: Path):
     assert second["event"] == "message"
     assert second["seq"] == 2
     assert "ts" in first
+
+
+def test_agent_session_log_omits_bash_extract_window_output(tmp_path: Path):
+    log_path = tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME
+    session_log = claude_agent.AgentSessionLog(log_path)
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "AssistantMessage",
+                "content": [
+                    {
+                        "id": "call_read_window",
+                        "name": "Bash",
+                        "input": {
+                            "command": 'EXTRACT="/tmp/output/text/_extract.txt"\nsed -n \'1,120p\' "$EXTRACT"',
+                            "description": "Read window 1 (lines 1-120)",
+                        },
+                    }
+                ],
+            }
+        },
+    )
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "UserMessage",
+                "content": [
+                    {
+                        "tool_use_id": "call_read_window",
+                        "content": "正文" * 10000,
+                        "is_error": False,
+                    }
+                ],
+            }
+        },
+    )
+
+    first, second = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    assistant_item = first["message"]["content"][0]
+    user_item = second["message"]["content"][0]
+    assert assistant_item["input"]["command"].startswith("[omitted:")
+    assert assistant_item["log_omitted"] == "bash_extract_window_read"
+    assert user_item["content"].startswith("[omitted:")
+    assert user_item["content_length"] == len("正文" * 10000)
+    assert user_item["log_omitted"] == "bash_extract_window_output"
+
+
+def test_agent_session_log_keeps_bash_extract_window_errors(tmp_path: Path):
+    log_path = tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME
+    session_log = claude_agent.AgentSessionLog(log_path)
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "AssistantMessage",
+                "content": [
+                    {
+                        "id": "call_read_window",
+                        "name": "Bash",
+                        "input": {"command": "sed -n '1,120p' /tmp/output/text/_extract.txt"},
+                    }
+                ],
+            }
+        },
+    )
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "UserMessage",
+                "content": [
+                    {
+                        "tool_use_id": "call_read_window",
+                        "content": "sed: file not found",
+                        "is_error": True,
+                    }
+                ],
+            }
+        },
+    )
+
+    second = json.loads(log_path.read_text(encoding="utf-8").splitlines()[1])
+    assert second["message"]["content"][0]["content"] == "sed: file not found"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from functools import partial
@@ -29,6 +30,9 @@ STEP1_COVERAGE_LEDGER_NAME = "_coverage_ledger.json"
 STEP1_SESSION_LOG_NAME = "_agent_session.jsonl"
 
 _MAX_LOG_FIELD_CHARS = 12_000
+_OMITTED_BASH_READ_CONTENT = "[omitted: Bash text-window output from _extract.txt]"
+_OMITTED_BASH_READ_COMMAND = "[omitted: Bash text-window read command from _extract.txt]"
+_BASH_READ_WINDOW_RE = re.compile(r"\bsed\s+-n\s+['\"]?\d+,\d+p['\"]?")
 
 
 def _step1_agent_add_dirs(input_file: str) -> list[str]:
@@ -98,9 +102,69 @@ class AgentSessionLog:
         self._path = Path(path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._seq = 0
+        self._omitted_bash_read_tool_ids: set[str] = set()
+
+    @staticmethod
+    def _is_extract_window_read_command(command: str) -> bool:
+        return "_extract.txt" in command and bool(_BASH_READ_WINDOW_RE.search(command))
+
+    def _compact_bash_extract_reads(self, payload: dict[str, Any]) -> dict[str, Any]:
+        message = payload.get("message")
+        if not isinstance(message, dict):
+            return payload
+
+        content = message.get("content")
+        if not isinstance(content, list):
+            return payload
+
+        changed = False
+        compacted_content: list[Any] = []
+        for item in content:
+            if not isinstance(item, dict):
+                compacted_content.append(item)
+                continue
+
+            if item.get("name") == "Bash":
+                input_payload = item.get("input")
+                command = input_payload.get("command") if isinstance(input_payload, dict) else None
+                if isinstance(command, str) and self._is_extract_window_read_command(command):
+                    tool_id = item.get("id")
+                    if isinstance(tool_id, str):
+                        self._omitted_bash_read_tool_ids.add(tool_id)
+                    compacted_item = dict(item)
+                    compacted_input = dict(input_payload or {})
+                    compacted_input["command"] = _OMITTED_BASH_READ_COMMAND
+                    compacted_item["input"] = compacted_input
+                    compacted_item["log_omitted"] = "bash_extract_window_read"
+                    compacted_content.append(compacted_item)
+                    changed = True
+                    continue
+
+            tool_use_id = item.get("tool_use_id")
+            is_error = item.get("is_error") is True
+            if isinstance(tool_use_id, str) and tool_use_id in self._omitted_bash_read_tool_ids and not is_error:
+                content_value = item.get("content")
+                compacted_item = dict(item)
+                compacted_item["content"] = _OMITTED_BASH_READ_CONTENT
+                compacted_item["content_length"] = len(content_value) if isinstance(content_value, str) else None
+                compacted_item["log_omitted"] = "bash_extract_window_output"
+                compacted_content.append(compacted_item)
+                changed = True
+                continue
+
+            compacted_content.append(item)
+
+        if not changed:
+            return payload
+
+        compacted_message = dict(message)
+        compacted_message["content"] = compacted_content
+        return {**payload, "message": compacted_message}
 
     def append(self, event: str, payload: dict[str, Any]) -> None:
         self._seq += 1
+        if event == "message":
+            payload = self._compact_bash_extract_reads(payload)
         record = {
             "seq": self._seq,
             "ts": datetime.now(timezone.utc).isoformat(),
