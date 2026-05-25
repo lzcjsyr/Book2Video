@@ -51,6 +51,7 @@ def test_config_exposes_current_runtime_params():
     assert "siliconflow" in config.SUPPORTED_LLM_SERVERS
     assert config.IMAGE_STYLE_PRESET == params["image_style_preset"]
     assert config.RECOMMENDED_MODELS["llm"]["siliconflow"][0] == params["llm_model_step2"]
+    assert params["cover_image_server"] == "google_adc"
 
     config.validate_parameters(
         params["num_segments"],
@@ -62,6 +63,22 @@ def test_config_exposes_current_runtime_params():
         images_method=params["images_method"],
         llm_model=params["llm_model_step2"],
     )
+
+
+def test_google_adc_image_server_is_inherited_by_gemini_cover_defaults():
+    from core.generation_config import VideoGenerationConfig
+
+    config = VideoGenerationConfig(
+        input_file="input.pdf",
+        output_dir="output",
+        image_server="google_adc",
+        image_model="gemini-3.1-flash-image-preview",
+        cover_image_server="",
+        cover_image_model=None,
+    )
+
+    assert config.cover_image_model == "gemini-3.1-flash-image-preview"
+    assert config.cover_image_server == "google_adc"
 
 
 def test_config_rejects_unsupported_llm_server():

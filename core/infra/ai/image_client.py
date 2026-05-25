@@ -97,6 +97,14 @@ def _request_image_result(image_server: str, prompt: str, size: str, model: str)
             model=model,
         )
 
+    if image_server == "google_adc":
+        return text_to_image_google(
+            prompt=prompt,
+            size=size,
+            model=model,
+            use_adc=True,
+        )
+
     raise ValueError(f"不支持的图像服务商: {image_server}")
 
 

@@ -19,6 +19,13 @@ def _infer_image_server_from_model(model: str) -> str:
     return ""
 
 
+def _resolve_cover_image_server(image_server: str, cover_model: str) -> str:
+    inferred = _infer_image_server_from_model(cover_model)
+    if inferred == "google" and image_server == "google_adc":
+        return "google_adc"
+    return inferred or image_server
+
+
 # get_generation_params() 键名 -> VideoGenerationConfig 字段名
 _CLI_PARAM_ALIASES = (
     ("tts_emotion", "emotion"),
@@ -88,8 +95,7 @@ class VideoGenerationConfig:
         if self.cover_image_model is None:
             self.cover_image_model = self.image_model
         if not self.cover_image_server:
-            inferred_cover_server = _infer_image_server_from_model(self.cover_image_model)
-            self.cover_image_server = inferred_cover_server or self.image_server
+            self.cover_image_server = _resolve_cover_image_server(self.image_server, self.cover_image_model)
     
     @classmethod
     def from_cli_params(
@@ -148,8 +154,10 @@ class VideoGenerationConfig:
 
     def get_effective_cover_server(self) -> str:
         """获取实际使用的封面供应商"""
-        inferred_cover_server = _infer_image_server_from_model(self.cover_image_model or "")
-        return self.cover_image_server or inferred_cover_server or self.image_server
+        return self.cover_image_server or _resolve_cover_image_server(
+            self.image_server,
+            self.cover_image_model or "",
+        )
 
 
 __all__ = ["VideoGenerationConfig"]

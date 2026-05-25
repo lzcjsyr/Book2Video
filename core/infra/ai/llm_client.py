@@ -238,8 +238,20 @@ def _map_custom_size_to_google(size: str, model: str) -> Tuple[str, str, Tuple[i
     return best_ratio, best_size, best_dims
 
 
+def _resolve_google_adc_project() -> Optional[str]:
+    project = getattr(config, "GOOGLE_CLOUD_PROJECT", "") or os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GOOGLE_PROJECT_ID")
+    if project:
+        return project
+    try:
+        import google.auth
+        _, detected_project = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+        return detected_project
+    except Exception:
+        return None
+
+
 @retry_on_failure(max_retries=5, delay=2.0)
-def text_to_image_google(prompt, size="1024x1024", model="gemini-3.1-flash-image-preview"):
+def text_to_image_google(prompt, size="1024x1024", model="gemini-3.1-flash-image-preview", use_adc=False):
     aspect_ratio, image_size, mapped_dims = _map_custom_size_to_google(size, model)
     if not _parse_wxh_size(size):
         logger.warning(f"Google图像尺寸格式无法解析: {size}，已回退到 {aspect_ratio}/{image_size}")
@@ -253,14 +265,24 @@ def text_to_image_google(prompt, size="1024x1024", model="gemini-3.1-flash-image
         logger.error("未安装google-genai，请运行: pip install google-genai")
         raise APIError("缺少依赖包google-genai") from exc
 
-    if not config.GOOGLE_CLOUD_API_KEY:
-        raise APIError("GOOGLE_CLOUD_API_KEY未配置")
-
     try:
-        client = genai.Client(
-            vertexai=True,
-            api_key=config.GOOGLE_CLOUD_API_KEY
-        )
+        if use_adc:
+            project = _resolve_google_adc_project()
+            if not project:
+                raise APIError("Google ADC项目未配置，请设置GOOGLE_CLOUD_PROJECT或运行gcloud config set project")
+            location = getattr(config, "GOOGLE_CLOUD_LOCATION", "") or os.getenv("GOOGLE_CLOUD_LOCATION") or "global"
+            client = genai.Client(
+                vertexai=True,
+                project=project,
+                location=location,
+            )
+        else:
+            if not config.GOOGLE_CLOUD_API_KEY:
+                raise APIError("GOOGLE_CLOUD_API_KEY未配置")
+            client = genai.Client(
+                vertexai=True,
+                api_key=config.GOOGLE_CLOUD_API_KEY
+            )
 
         contents = [
             types.Content(
