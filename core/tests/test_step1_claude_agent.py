@@ -137,6 +137,46 @@ def test_step1_agent_allows_200_turns(monkeypatch, tmp_path: Path):
     assert captured["max_turns"] == 200
 
 
+def test_step1_agent_adds_input_directory_to_options(monkeypatch, tmp_path: Path):
+    captured = {}
+    output_json = tmp_path / "text" / "raw.json"
+    input_dir = tmp_path / "input" / "book_folder"
+    input_dir.mkdir(parents=True)
+
+    async def fake_query(*, prompt, options):
+        captured["add_dirs"] = [str(path) for path in options.add_dirs]
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+        output_json.write_text(json.dumps(_valid_raw(), ensure_ascii=False), encoding="utf-8")
+        yield ResultMessage(
+            subtype="success",
+            duration_ms=0,
+            duration_api_ms=0,
+            is_error=False,
+            num_turns=1,
+            session_id="test-session",
+        )
+
+    monkeypatch.setattr(claude_agent, "query", fake_query)
+    monkeypatch.setattr(claude_agent, "build_step1_agent_env", lambda: {})
+
+    async def run_agent():
+        await claude_agent._run_step1_agent_async(
+            input_file=str(input_dir),
+            output_json=str(output_json),
+            extract_path=str(tmp_path / "text" / claude_agent.STEP1_EXTRACT_NAME),
+            coverage_ledger_path=str(tmp_path / "text" / claude_agent.STEP1_COVERAGE_LEDGER_NAME),
+            session_log_path=str(tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME),
+            text_dir=str(tmp_path / "text"),
+            num_segments=70,
+            skill_path=str(tmp_path / "core" / "skills" / "video-book-direct-read"),
+            repo_root=str(tmp_path),
+        )
+
+    anyio.run(run_agent)
+
+    assert str(input_dir) in captured["add_dirs"]
+
+
 def test_step1_agent_prompt_includes_absolute_skill_path_and_target_segments(tmp_path: Path):
     from core.prompts import build_step1_agent_prompt
 

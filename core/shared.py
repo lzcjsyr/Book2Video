@@ -149,13 +149,15 @@ def get_file_info(file_path: str) -> Dict[str, Any]:
     """获取文件信息"""
     def _get_info():
         stat = os.stat(file_path)
+        is_directory = os.path.isdir(file_path)
         return {
             "path": file_path,
             "name": os.path.basename(file_path),
             "size": stat.st_size,
-            "size_formatted": format_file_size(stat.st_size),
+            "size_formatted": "-" if is_directory else format_file_size(stat.st_size),
             "modified_time": datetime.datetime.fromtimestamp(stat.st_mtime),
-            "extension": Path(file_path).suffix.lower()
+            "extension": "" if is_directory else Path(file_path).suffix.lower(),
+            "is_directory": is_directory,
         }
     
     return safe_file_operation("获取文件信息", file_path, _get_info)

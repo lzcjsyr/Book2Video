@@ -35,6 +35,7 @@ def scan_input_files(input_dir: str = "input") -> List[Dict[str, Any]]:
         for file_name in os.listdir(input_dir):
             file_path = os.path.join(input_dir, file_name)
             if os.path.isdir(file_path):
+                files.append(get_file_info(file_path))
                 continue
             extension = Path(file_path).suffix.lower()
             if extension in SUPPORTED_INPUT_EXTENSIONS:

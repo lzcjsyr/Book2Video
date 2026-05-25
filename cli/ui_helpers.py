@@ -303,15 +303,17 @@ def display_file_menu(files: List[Dict[str, Any]]) -> None:
     Args:
         files: 文件信息列表
     """
-    print_section("发现以下可处理的文件", "📚", "=")
+    print_section("发现以下可处理的文件或文件夹", "📚", "=")
     
     if not files:
-        print("❌ 在input文件夹中未找到PDF、EPUB、MOBI、AZW3、MD、TXT、DOCX或DOC文件")
-        print("请将要处理的PDF、EPUB、MOBI、AZW3、MD、TXT、DOCX或DOC文件放入input文件夹中")
+        print("❌ 在input文件夹中未找到PDF、EPUB、MOBI、AZW3、MD、TXT、DOCX、DOC文件或文件夹")
+        print("请将要处理的PDF、EPUB、MOBI、AZW3、MD、TXT、DOCX、DOC文件或文件夹放入input文件夹中")
         return
     
     for i, file_info in enumerate(files, 1):
-        if file_info['extension'] == '.epub':
+        if file_info.get('is_directory'):
+            file_type = "📁 文件夹"
+        elif file_info['extension'] == '.epub':
             file_type = "📖 EPUB"
         elif file_info['extension'] == '.pdf':
             file_type = "📄 PDF"
@@ -352,7 +354,7 @@ def get_user_file_selection(files: List[Dict[str, Any]]) -> Optional[str]:
     while True:
         try:
             print("=" * 60)
-            choice = input(f"请选择要处理的文件 (1-{len(files)}) 或输入 'q' 返回上一级: ").strip()
+            choice = input(f"请选择要处理的文件或文件夹 (1-{len(files)}) 或输入 'q' 返回上一级: ").strip()
             
             if choice.lower() == 'q':
                 print("👋 返回上一级")
@@ -363,8 +365,11 @@ def get_user_file_selection(files: List[Dict[str, Any]]) -> Optional[str]:
             if 0 <= file_index < len(files):
                 selected_file = files[file_index]
                 print(f"\n✅ 您选择了: {selected_file['name']}")
-                print(f"   文件大小: {selected_file['size_formatted']}")
-                print(f"   文件类型: {selected_file['extension'].upper()}")
+                if selected_file.get("is_directory"):
+                    print("   类型: 文件夹")
+                else:
+                    print(f"   文件大小: {selected_file['size_formatted']}")
+                    print(f"   文件类型: {selected_file['extension'].upper()}")
                 # 直接返回所选文件路径，无需再次确认
                 return selected_file['path']
             else:
@@ -390,7 +395,7 @@ def interactive_file_selector(input_dir: str = "input") -> Optional[str]:
     from cli.project_io import scan_input_files
 
     print("\n🚀 智能视频制作系统")
-    print("正在扫描可处理的文件...")
+    print("正在扫描可处理的文件或文件夹...")
 
     # 扫描文件
     files = scan_input_files(input_dir)

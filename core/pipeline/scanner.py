@@ -57,8 +57,10 @@ def scan_input_files(input_dir: str = "input") -> List[Dict[str, Any]]:
         for file_name in os.listdir(input_dir):
             file_path = os.path.join(input_dir, file_name)
             
-            # 跳过目录
             if os.path.isdir(file_path):
+                file_info = get_file_info(file_path)
+                files.append(file_info)
+                logger.debug(f"找到文件夹: {file_name}")
                 continue
             
             # 检查文件扩展名

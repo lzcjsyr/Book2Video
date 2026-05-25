@@ -31,6 +31,13 @@ STEP1_SESSION_LOG_NAME = "_agent_session.jsonl"
 _MAX_LOG_FIELD_CHARS = 12_000
 
 
+def _step1_agent_add_dirs(input_file: str) -> list[str]:
+    input_path = Path(input_file)
+    if input_path.is_dir():
+        return [str(input_path)]
+    return [str(input_path.parent)]
+
+
 def build_step1_agent_env() -> dict[str, str]:
     api_key = (config.MIMO_API_KEY or "").strip()
     if not api_key:
@@ -134,6 +141,7 @@ async def _run_step1_agent_async(
         skills=[STEP1_AGENT_SKILL],
         permission_mode="acceptEdits",
         max_turns=200,
+        add_dirs=_step1_agent_add_dirs(input_file),
         env=build_step1_agent_env(),
     )
     session_log = AgentSessionLog(session_log_path)
@@ -149,6 +157,7 @@ async def _run_step1_agent_async(
             "num_segments": num_segments,
             "skill_path": skill_path,
             "repo_root": repo_root,
+            "add_dirs": _step1_agent_add_dirs(input_file),
             "model": config.LLM_MODEL_STEP1,
             "tools": STEP1_AGENT_TOOLS,
             "skill": STEP1_AGENT_SKILL,
