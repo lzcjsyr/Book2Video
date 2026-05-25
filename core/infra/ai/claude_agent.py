@@ -32,7 +32,11 @@ STEP1_SESSION_LOG_NAME = "_agent_session.jsonl"
 _MAX_LOG_FIELD_CHARS = 12_000
 _OMITTED_BASH_READ_CONTENT = "[omitted: Bash text-window output from _extract.txt]"
 _OMITTED_BASH_READ_COMMAND = "[omitted: Bash text-window read command from _extract.txt]"
-_BASH_READ_WINDOW_RE = re.compile(r"\bsed\s+-n\s+['\"]?\d+,\d+p['\"]?")
+_OMITTED_SKILL_REFERENCE_CONTENT = "[omitted: skill/reference file content]"
+_OMITTED_PERSISTED_FILE_CONTENT = "[omitted: file content already persisted]"
+_OMITTED_PERSISTED_READ_CONTENT = "[omitted: persisted draft/raw file read]"
+_OMITTED_LEDGER_WRITE_COMMAND = "[omitted: Bash write command for _coverage_ledger.json]"
+_BASH_READ_WINDOW_RE = re.compile(r"\b(sed\s+-n|head|tail)\b")
 
 
 def _step1_agent_add_dirs(input_file: str) -> list[str]:
@@ -103,12 +107,45 @@ class AgentSessionLog:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._seq = 0
         self._omitted_bash_read_tool_ids: set[str] = set()
+        self._omitted_persisted_read_tool_ids: set[str] = set()
 
     @staticmethod
     def _is_extract_window_read_command(command: str) -> bool:
         return "_extract.txt" in command and bool(_BASH_READ_WINDOW_RE.search(command))
 
-    def _compact_bash_extract_reads(self, payload: dict[str, Any]) -> dict[str, Any]:
+    @staticmethod
+    def _is_skill_reference_path(path: str) -> bool:
+        return "/core/skills/" in path and (
+            path.endswith("/SKILL.md") or "/references/" in path
+        )
+
+    @staticmethod
+    def _is_large_persisted_file_write(item: dict[str, Any]) -> bool:
+        if item.get("name") != "Write":
+            return False
+        input_payload = item.get("input")
+        if not isinstance(input_payload, dict):
+            return False
+        content = input_payload.get("content")
+        return isinstance(content, str) and len(content) > 1000
+
+    @staticmethod
+    def _is_coverage_ledger_write_command(command: str) -> bool:
+        return "_coverage_ledger.json" in command and "cat >" in command
+
+    @staticmethod
+    def _is_persisted_read_path(path: str) -> bool:
+        return Path(path).name in {
+            "_draft_v1.txt",
+            "_draft_v2_faithfulness.txt",
+            "_draft_v3_structure.txt",
+            "_draft_v4_oral_style.txt",
+            "_draft_final.txt",
+            "_revision_audit.json",
+            "raw.json",
+        }
+
+    def _compact_message_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         message = payload.get("message")
         if not isinstance(message, dict):
             return payload
@@ -118,11 +155,45 @@ class AgentSessionLog:
             return payload
 
         changed = False
+        omitted_tool_result_ids: set[str] = set()
+        omit_skill_reference_result = False
+        tool_use_result = message.get("tool_use_result")
+        if isinstance(tool_use_result, dict):
+            file_result = tool_use_result.get("file")
+            if isinstance(file_result, dict):
+                file_path = file_result.get("filePath")
+                omit_skill_reference_result = isinstance(file_path, str) and self._is_skill_reference_path(file_path)
+
         compacted_content: list[Any] = []
         for item in content:
             if not isinstance(item, dict):
                 compacted_content.append(item)
                 continue
+
+            if self._is_large_persisted_file_write(item):
+                compacted_item = dict(item)
+                compacted_input = dict(item.get("input") or {})
+                content_value = compacted_input.get("content")
+                compacted_input["content"] = _OMITTED_PERSISTED_FILE_CONTENT
+                compacted_input["content_length"] = len(content_value) if isinstance(content_value, str) else None
+                compacted_input["log_omitted"] = "persisted_file_content"
+                compacted_item["input"] = compacted_input
+                compacted_content.append(compacted_item)
+                changed = True
+                continue
+
+            if item.get("name") == "Read":
+                input_payload = item.get("input")
+                file_path = input_payload.get("file_path") if isinstance(input_payload, dict) else None
+                if isinstance(file_path, str) and self._is_persisted_read_path(file_path):
+                    tool_id = item.get("id")
+                    if isinstance(tool_id, str):
+                        self._omitted_persisted_read_tool_ids.add(tool_id)
+                    compacted_item = dict(item)
+                    compacted_item["log_omitted"] = "persisted_file_read"
+                    compacted_content.append(compacted_item)
+                    changed = True
+                    continue
 
             if item.get("name") == "Bash":
                 input_payload = item.get("input")
@@ -139,6 +210,16 @@ class AgentSessionLog:
                     compacted_content.append(compacted_item)
                     changed = True
                     continue
+                if isinstance(command, str) and self._is_coverage_ledger_write_command(command):
+                    compacted_item = dict(item)
+                    compacted_input = dict(input_payload or {})
+                    compacted_input["command"] = _OMITTED_LEDGER_WRITE_COMMAND
+                    compacted_input["command_length"] = len(command)
+                    compacted_item["input"] = compacted_input
+                    compacted_item["log_omitted"] = "coverage_ledger_write"
+                    compacted_content.append(compacted_item)
+                    changed = True
+                    continue
 
             tool_use_id = item.get("tool_use_id")
             is_error = item.get("is_error") is True
@@ -148,6 +229,27 @@ class AgentSessionLog:
                 compacted_item["content"] = _OMITTED_BASH_READ_CONTENT
                 compacted_item["content_length"] = len(content_value) if isinstance(content_value, str) else None
                 compacted_item["log_omitted"] = "bash_extract_window_output"
+                omitted_tool_result_ids.add(tool_use_id)
+                compacted_content.append(compacted_item)
+                changed = True
+                continue
+
+            if isinstance(tool_use_id, str) and tool_use_id in self._omitted_persisted_read_tool_ids and not is_error:
+                content_value = item.get("content")
+                compacted_item = dict(item)
+                compacted_item["content"] = _OMITTED_PERSISTED_READ_CONTENT
+                compacted_item["content_length"] = len(content_value) if isinstance(content_value, str) else None
+                compacted_item["log_omitted"] = "persisted_file_read"
+                compacted_content.append(compacted_item)
+                changed = True
+                continue
+
+            if omit_skill_reference_result and not is_error:
+                content_value = item.get("content")
+                compacted_item = dict(item)
+                compacted_item["content"] = _OMITTED_SKILL_REFERENCE_CONTENT
+                compacted_item["content_length"] = len(content_value) if isinstance(content_value, str) else None
+                compacted_item["log_omitted"] = "skill_reference_read"
                 compacted_content.append(compacted_item)
                 changed = True
                 continue
@@ -161,9 +263,37 @@ class AgentSessionLog:
         compacted_message["content"] = compacted_content
         tool_use_result = compacted_message.get("tool_use_result")
         if isinstance(tool_use_result, dict):
+            file_result = tool_use_result.get("file")
+            if omit_skill_reference_result and isinstance(file_result, dict):
+                compacted_file = dict(file_result)
+                file_content = compacted_file.get("content")
+                if isinstance(file_content, str):
+                    compacted_file["content"] = _OMITTED_SKILL_REFERENCE_CONTENT
+                    compacted_file["content_length"] = len(file_content)
+                    compacted_file["log_omitted"] = "skill_reference_read"
+                    compacted_result = dict(tool_use_result)
+                    compacted_result["file"] = compacted_file
+                    compacted_message["tool_use_result"] = compacted_result
+                    tool_use_result = compacted_result
+            if isinstance(file_result, dict):
+                file_path = file_result.get("filePath")
+                if isinstance(file_path, str) and self._is_persisted_read_path(file_path):
+                    compacted_file = dict(file_result)
+                    file_content = compacted_file.get("content")
+                    if isinstance(file_content, str):
+                        compacted_file["content"] = _OMITTED_PERSISTED_READ_CONTENT
+                        compacted_file["content_length"] = len(file_content)
+                        compacted_file["log_omitted"] = "persisted_file_read"
+                        compacted_result = dict(tool_use_result)
+                        compacted_result["file"] = compacted_file
+                        compacted_message["tool_use_result"] = compacted_result
+                        tool_use_result = compacted_result
             tool_use_id = tool_use_result.get("tool_use_id")
             is_error = tool_use_result.get("is_error") is True
-            if isinstance(tool_use_id, str) and tool_use_id in self._omitted_bash_read_tool_ids and not is_error:
+            should_omit_result = (
+                isinstance(tool_use_id, str) and tool_use_id in self._omitted_bash_read_tool_ids
+            ) or (not isinstance(tool_use_id, str) and bool(omitted_tool_result_ids))
+            if should_omit_result and not is_error:
                 compacted_result = dict(tool_use_result)
                 stdout = compacted_result.get("stdout")
                 if isinstance(stdout, str):
@@ -176,7 +306,7 @@ class AgentSessionLog:
     def append(self, event: str, payload: dict[str, Any]) -> None:
         self._seq += 1
         if event == "message":
-            payload = self._compact_bash_extract_reads(payload)
+            payload = self._compact_message_payload(payload)
         record = {
             "seq": self._seq,
             "ts": datetime.now(timezone.utc).isoformat(),
@@ -215,7 +345,7 @@ async def _run_step1_agent_async(
         allowed_tools=STEP1_AGENT_TOOLS,
         skills=[STEP1_AGENT_SKILL],
         permission_mode="acceptEdits",
-        max_turns=200,
+        max_turns=300,
         add_dirs=_step1_agent_add_dirs(input_file),
         env=build_step1_agent_env(),
     )

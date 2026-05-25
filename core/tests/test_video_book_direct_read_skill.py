@@ -45,12 +45,15 @@ def test_skill_entry_requires_coverage_ledger_before_scripting():
     assert "行覆盖率" in reading
 
 
-def test_reading_strategy_uses_bash_with_23000_line_windows():
+def test_reading_strategy_uses_bash_with_23000_char_windows():
     reading = (SKILL_DIR / "references" / "reading-strategy.md").read_text(encoding="utf-8")
 
     assert "23000" in reading
-    assert "lines_per_window" in reading
-    assert "bash_line_window" in reading
+    assert "chars_per_window" in reading
+    assert "bash_char_budget_window" in reading
+    assert "lines_per_window" not in reading
+    assert "wc -m" in reading
+    assert "禁止用 `wc -c` 字节数" in reading
     assert "sed" in reading
     assert "优先 `Bash`" in reading or "以 Bash 为主" in reading or "正文阅读以 Bash 为主" in reading
 

@@ -21,13 +21,13 @@ output/<project>/text/_extract.txt
 ```bash
 EXTRACT="output/<project>/text/_extract.txt"
 wc -l "$EXTRACT"
-wc -c "$EXTRACT"
+wc -m "$EXTRACT"
 ```
 
 确认：
 
 - 总行数（写入台账 `source_total_lines`）
-- 总字符数（写入台账 `source_total_chars`）
+- 总字符数（写入台账 `source_total_chars`，使用 `wc -m`，不是 `wc -c` 字节数）
 - 是否有目录、章节标题、页码线索
 
 ## 2.5. 覆盖率分档
@@ -56,6 +56,7 @@ wc -c "$EXTRACT"
 - **目标块大小**：每个窗口 **不超过 23000 字符**（`chars_per_window: 23000`）。
 - **推进方式**：窗口首尾相接、连续覆盖全书，尽量避免跳读抽样。
 - **定位方式**：用行号范围定位窗口，但窗口大小由字符数决定。每个窗口的 Bash 标准输出必须低于字符预算。
+- **单位一致**：`source_total_chars`、`planned_chars`、`char_coverage_ratio` 必须全部按字符数计算；使用 `wc -m` 或等价字符计数，禁止用 `wc -c` 字节数计算窗口和覆盖率。
 
 示例：46 万字符全书 -> 约 21 窗，每窗按连续行范围读取，但先用 `awk` 估算每窗字符数，确保单窗输出不超过 23000 字符。最后一窗不足 23000 字符则读到文件末尾。
 
@@ -132,7 +133,7 @@ sed -n "${START},${END}p" "$EXTRACT" | awk '{print NR+('"$START"'-1) "\t" $0}'
 
 读取正文前，先创建 `_coverage_ledger.json` 初始台账，写入 source 信息、覆盖策略、`planned_windows`、空的 `coverage_windows`，并设置 `coverage_check.passed=false`。
 
-每读完一个 Bash 窗口，立即落盘更新 `_coverage_ledger.json`，追加一条 `coverage_windows` 记录并刷新当前覆盖率。不要等全部窗口读完后一次性写台账。
+每读完一个 Bash 窗口，立即落盘更新 `_coverage_ledger.json`，追加一条 `coverage_windows` 记录并刷新当前覆盖率。不要等全部窗口读完后一次性写台账；最终台账不得漏掉已读窗口，也不得把未记录窗口计入覆盖率。
 
 台账不是摘要，而是证明哪些行和字符预算窗口已读过。
 

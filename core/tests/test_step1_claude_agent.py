@@ -133,10 +133,10 @@ def test_build_step1_agent_env_uses_mimo_gateway(monkeypatch):
     env = claude_agent.build_step1_agent_env()
     assert env["ANTHROPIC_BASE_URL"] == "https://token-plan-sgp.xiaomimimo.com/anthropic"
     assert env["ANTHROPIC_API_KEY"] == "test-mimo-key"
-    assert env["ANTHROPIC_MODEL"] == "mimo-v2.5"
+    assert env["ANTHROPIC_MODEL"] == "mimo-v2.5-pro"
 
 
-def test_step1_agent_allows_200_turns(monkeypatch, tmp_path: Path):
+def test_step1_agent_allows_300_turns(monkeypatch, tmp_path: Path):
     captured = {}
     output_json = tmp_path / "text" / "raw.json"
 
@@ -171,7 +171,7 @@ def test_step1_agent_allows_200_turns(monkeypatch, tmp_path: Path):
 
     anyio.run(run_agent)
 
-    assert captured["max_turns"] == 200
+    assert captured["max_turns"] == 300
 
 
 def test_step1_agent_adds_input_directory_to_options(monkeypatch, tmp_path: Path):
@@ -326,6 +326,209 @@ def test_agent_session_log_omits_bash_extract_window_output(tmp_path: Path):
     assert tool_result["stdout"].startswith("[omitted:")
     assert tool_result["stdout_length"] == len(large_stdout)
     assert tool_result["log_omitted"] == "bash_extract_window_output"
+
+
+def test_agent_session_log_omits_sdk_tool_result_without_tool_use_id(tmp_path: Path):
+    log_path = tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME
+    session_log = claude_agent.AgentSessionLog(log_path)
+    large_stdout = "正文" * 10000
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "AssistantMessage",
+                "content": [
+                    {
+                        "id": "call_head_read",
+                        "name": "Bash",
+                        "input": {
+                            "command": 'EXTRACT="/tmp/output/text/_extract.txt" && head -80 "$EXTRACT"',
+                        },
+                    }
+                ],
+            }
+        },
+    )
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "UserMessage",
+                "content": [
+                    {
+                        "tool_use_id": "call_head_read",
+                        "content": large_stdout,
+                        "is_error": False,
+                    }
+                ],
+                "tool_use_result": {
+                    "stdout": large_stdout,
+                    "stderr": "",
+                    "interrupted": False,
+                    "isImage": False,
+                },
+            }
+        },
+    )
+
+    first, second = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    assert first["message"]["content"][0]["input"]["command"].startswith("[omitted:")
+    assert second["message"]["content"][0]["content"].startswith("[omitted:")
+    tool_result = second["message"]["tool_use_result"]
+    assert tool_result["stdout"].startswith("[omitted:")
+    assert tool_result["stdout_length"] == len(large_stdout)
+    assert "正文正文" not in json.dumps(second, ensure_ascii=False)
+
+
+def test_agent_session_log_omits_skill_reference_read_content(tmp_path: Path):
+    log_path = tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME
+    session_log = claude_agent.AgentSessionLog(log_path)
+    skill_content = "# Direct Large-Block Reading Strategy\n" + ("规则\n" * 2000)
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "UserMessage",
+                "content": [
+                    {
+                        "tool_use_id": "call_read_skill",
+                        "content": skill_content,
+                        "is_error": False,
+                    }
+                ],
+                "tool_use_result": {
+                    "type": "text",
+                    "file": {
+                        "filePath": "/repo/core/skills/video-book-direct-read/references/reading-strategy.md",
+                        "content": skill_content,
+                        "numLines": 2001,
+                    },
+                },
+            }
+        },
+    )
+
+    record = json.loads(log_path.read_text(encoding="utf-8"))
+    item = record["message"]["content"][0]
+    assert item["content"].startswith("[omitted:")
+    assert item["content_length"] == len(skill_content)
+    assert item["log_omitted"] == "skill_reference_read"
+    file_result = record["message"]["tool_use_result"]["file"]
+    assert file_result["content"].startswith("[omitted:")
+    assert file_result["content_length"] == len(skill_content)
+    assert "Direct Large-Block" not in json.dumps(record, ensure_ascii=False)
+
+
+def test_agent_session_log_omits_large_write_content(tmp_path: Path):
+    log_path = tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME
+    session_log = claude_agent.AgentSessionLog(log_path)
+    draft = "稿件" * 2000
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "AssistantMessage",
+                "content": [
+                    {
+                        "id": "call_write_draft",
+                        "name": "Write",
+                        "input": {
+                            "file_path": "/tmp/output/text/_draft_v1.txt",
+                            "content": draft,
+                        },
+                    }
+                ],
+            }
+        },
+    )
+
+    record = json.loads(log_path.read_text(encoding="utf-8"))
+    input_payload = record["message"]["content"][0]["input"]
+    assert input_payload["content"].startswith("[omitted:")
+    assert input_payload["content_length"] == len(draft)
+    assert input_payload["log_omitted"] == "persisted_file_content"
+    assert "稿件稿件" not in json.dumps(record, ensure_ascii=False)
+
+
+def test_agent_session_log_omits_coverage_ledger_write_command(tmp_path: Path):
+    log_path = tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME
+    session_log = claude_agent.AgentSessionLog(log_path)
+    command = 'cat > "/tmp/output/text/_coverage_ledger.json" << "JSONEOF"\n' + ("窗口\n" * 2000)
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "AssistantMessage",
+                "content": [
+                    {
+                        "id": "call_write_ledger",
+                        "name": "Bash",
+                        "input": {"command": command},
+                    }
+                ],
+            }
+        },
+    )
+
+    record = json.loads(log_path.read_text(encoding="utf-8"))
+    item = record["message"]["content"][0]
+    assert item["input"]["command"].startswith("[omitted:")
+    assert item["input"]["command_length"] == len(command)
+    assert item["log_omitted"] == "coverage_ledger_write"
+    assert "窗口窗口" not in json.dumps(record, ensure_ascii=False)
+
+
+def test_agent_session_log_omits_persisted_read_content(tmp_path: Path):
+    log_path = tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME
+    session_log = claude_agent.AgentSessionLog(log_path)
+    draft_content = "子贵母死" * 1200
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "AssistantMessage",
+                "content": [
+                    {
+                        "id": "call_read_draft",
+                        "name": "Read",
+                        "input": {"file_path": "/tmp/output/text/_draft_final.txt"},
+                    }
+                ],
+            }
+        },
+    )
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "UserMessage",
+                "content": [
+                    {
+                        "tool_use_id": "call_read_draft",
+                        "content": draft_content,
+                        "is_error": False,
+                    }
+                ],
+                "tool_use_result": {
+                    "type": "text",
+                    "file": {
+                        "filePath": "/tmp/output/text/_draft_final.txt",
+                        "content": draft_content,
+                        "numLines": 20,
+                    },
+                },
+            }
+        },
+    )
+
+    first, second = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    assert first["message"]["content"][0]["log_omitted"] == "persisted_file_read"
+    assert second["message"]["content"][0]["content"].startswith("[omitted:")
+    assert second["message"]["content"][0]["content_length"] == len(draft_content)
+    file_result = second["message"]["tool_use_result"]["file"]
+    assert file_result["content"].startswith("[omitted:")
+    assert file_result["content_length"] == len(draft_content)
+    assert "子贵母死子贵母死" not in json.dumps(second, ensure_ascii=False)
 
 
 def test_agent_session_log_keeps_bash_extract_window_errors(tmp_path: Path):

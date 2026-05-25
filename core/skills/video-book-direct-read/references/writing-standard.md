@@ -92,7 +92,7 @@
 
 写完初稿后，不要直接进入最终 JSON。按 `revision-workflow.md` 把修订过程逐轮落盘，至少保存 `_draft_v1.txt`、`_draft_v2_faithfulness.txt`、`_draft_v3_structure.txt`、`_draft_v4_oral_style.txt`、`_draft_final.txt`、`_revision_audit.json`：
 
-`_draft_v1.txt` 保存前必须已达到 3000 字以上；后续修订是在足量初稿上修改，不得先写短稿再到 final 阶段补长度。
+`_draft_v1.txt` 保存前必须已达到 3000 字以上；后续所有正文稿原则上不得低于 3000 字，不得先写短稿再到 final 阶段补长度。
 
 1. 忠实性修订：删掉无法从资料中支撑的判断，纠正偷换概念、过度推断和强行拔高。
 2. 结构节奏修订：检查开头 100 字、主线、信息顺序、认知推进和背景比例。
@@ -114,7 +114,7 @@
   "golden_quotes": ["3条开场金句，观点鲜明，像一句能让人停下来的真话"],
   "comment_hook_options": ["3条评论引导，优先判断句、对照句、追问句，不像运营话术"],
   "share_hook_options": ["3条转发引导，像观众看完后会自然转发的话"],
-  "content": "完整口播终稿，约3500字，不分段，不写Markdown或小标题",
+  "content": "完整口播终稿，约3300字，不分段，不写Markdown或小标题",
   "total_length": 0,
   "target_segments": 0
 }
