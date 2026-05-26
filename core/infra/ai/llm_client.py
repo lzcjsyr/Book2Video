@@ -74,11 +74,11 @@ def text_to_image_doubao(prompt, size="1024x1024", model="doubao-seedream-3-0-t2
             api_key=config.SEEDREAM_API_KEY,
         )
 
-        # 根据模型名称判断API版本
-        is_v4_model = "seedream-4" in model
+        # Seedream 4/5 使用新版图片生成参数；旧版 V3 仍保留 guidance_scale。
+        lower_model = model.lower()
+        is_new_seedream_model = "seedream-4" in lower_model or "seedream-5" in lower_model
 
-        if is_v4_model:
-            # V4模型：移除guidance_scale，添加新参数支持
+        if is_new_seedream_model:
             response = client.images.generate(
                 model=model,
                 prompt=prompt,

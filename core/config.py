@@ -255,7 +255,11 @@ class Config:
             "siliconflow": [LLM_MODEL_STEP2],
         },
         "image": {
-            "doubao": ["doubao-seedream-4-0-250828", "doubao-seedream-3-0-t2i-250415"],
+            "doubao": [
+                "doubao-seedream-5-0-260128",
+                "doubao-seedream-4-0-250828",
+                "doubao-seedream-3-0-t2i-250415",
+            ],
             "siliconflow": ["stabilityai/stable-diffusion-3-5-large", "black-forest-labs/FLUX.1-schnell"],
             "google": ["gemini-3.1-flash-image-preview"],
             "google_adc": ["gemini-3.1-flash-image-preview"],
@@ -279,6 +283,8 @@ class Config:
     ]
     SEEDREAM_V4_MIN_SIZE = (1280, 720)
     SEEDREAM_V4_MAX_SIZE = (4096, 4096)
+    SEEDREAM_V5_MIN_PIXELS = 3686400
+    SEEDREAM_V5_MAX_SIZE = (4096, 4096)
     SEEDREAM_V3_MIN_SIZE = (512, 512)
     SEEDREAM_V3_MAX_SIZE = (2048, 2048)
     SERVER_TYPE_MAP = {"image_server": "image", "tts_server": "voice", "text": "text"}
@@ -348,6 +354,8 @@ class Config:
         if "qwen" in model.lower():
             return size in cls.SUPPORTED_QWEN_IMAGE_SIZES
         if "doubao" in model.lower():
+            if "seedream-5" in model.lower():
+                return width * height >= cls.SEEDREAM_V5_MIN_PIXELS and width <= 4096 and height <= 4096
             if "seedream-4" in model.lower():
                 return 1280 <= width <= 4096 and 720 <= height <= 4096
             if "seedream-3" in model.lower():
@@ -419,6 +427,7 @@ class Config:
             raise ValueError(
                 f"图像尺寸 {image_size} 不符合模型 {image_model} 的要求。\n"
                 f"Qwen模型支持的固定尺寸: {cls.SUPPORTED_QWEN_IMAGE_SIZES}\n"
+                f"Doubao-5模型支持: 总像素不少于 {cls.SEEDREAM_V5_MIN_PIXELS}，宽高不超过 4096\n"
                 f"Doubao-4模型支持: 1280x720 到 4096x4096 之间的任意尺寸\n"
                 f"Doubao-3模型支持: 512x512 到 2048x2048 之间的任意尺寸\n"
                 f"腾讯混元图像支持: 宽高范围 512-2048，面积不超过 1024x1024"
