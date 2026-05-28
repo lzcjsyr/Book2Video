@@ -5,9 +5,6 @@
 
 import os
 import re
-import shutil
-import subprocess
-import tempfile
 import math
 from contextlib import suppress
 import numpy as np
@@ -18,7 +15,6 @@ from PIL import Image, ImageDraw, ImageFont
 from moviepy import (
     ImageClip,
     VideoFileClip,
-    TextClip,
     ColorClip,
     CompositeVideoClip,
     CompositeAudioClip,
@@ -28,7 +24,18 @@ from moviepy import (
 )
 
 from core.config import config
-from core.shared import logger, VideoProcessingError, handle_video_operation
+from core.domain.subtitles import (
+    calculate_mixed_length,
+    calculate_subtitle_durations,
+    split_text_for_subtitle,
+)
+from core.media_gateway import (
+    adjust_audio_speed,
+    build_atempo_filter_chain,
+    export_video,
+    normalize_bgm_loudness,
+)
+from core.shared import logger, handle_video_operation
 
 # ==================== 系统常量 ====================
 # 支持的视频格式（系统技术限制，非用户配置项）
@@ -225,74 +232,11 @@ class VideoComposer:
     def _ensure_speed_adjusted_audio(self, audio_path: str, speed_factor: float,
                                      temp_audio_paths: List[str]) -> str:
         """使用FFmpeg执行变速并保持音高，返回处理后的音频路径"""
-        if not audio_path or not os.path.exists(audio_path):
-            raise VideoProcessingError(f"口播音频不存在: {audio_path}")
-
-        if speed_factor <= 0:
-            raise VideoProcessingError("口播变速系数必须大于0")
-
-        if abs(speed_factor - 1.0) <= 1e-3:
-            return audio_path
-
-        ffmpeg_path = shutil.which("ffmpeg")
-        if not ffmpeg_path:
-            raise VideoProcessingError("未找到FFmpeg，无法执行口播变速。请将变速系数设为1.0后重试。")
-
-        filter_chain = self._build_atempo_filter_chain(speed_factor)
-        if not filter_chain:
-            return audio_path
-
-        fd, temp_output = tempfile.mkstemp(suffix=".wav", prefix="narration_speed_")
-        os.close(fd)
-
-        command = [
-            ffmpeg_path,
-            "-y",
-            "-hide_banner",
-            "-loglevel", "error",
-            "-i", audio_path,
-            "-vn",
-            "-filter:a", filter_chain,
-            temp_output,
-        ]
-
-        try:
-            subprocess.run(command, check=True, stdin=subprocess.DEVNULL)
-            temp_audio_paths.append(temp_output)
-            return temp_output
-        except subprocess.CalledProcessError as exc:
-            with suppress(Exception):
-                os.remove(temp_output)
-            raise VideoProcessingError("口播变速处理失败，请将变速系数设为1.0后重试。") from exc
+        return adjust_audio_speed(audio_path, speed_factor, temp_audio_paths)
 
     def _build_atempo_filter_chain(self, speed_factor: float) -> str:
         """根据目标变速系数生成FFmpeg atempo滤镜链"""
-        if abs(speed_factor - 1.0) <= 1e-3:
-            return ""
-
-        factors: List[float] = []
-        remaining = speed_factor
-
-        while remaining > 2.0:
-            factors.append(2.0)
-            remaining /= 2.0
-
-        while remaining < 0.5:
-            factors.append(0.5)
-            remaining /= 0.5
-
-        factors.append(remaining)
-
-        normalized = [f for f in factors if abs(f - 1.0) > 1e-6]
-        if not normalized:
-            return ""
-
-        filter_parts = []
-        for factor in normalized:
-            factor = min(max(factor, 0.5), 2.0)
-            filter_parts.append(f"atempo={factor:.6f}".rstrip('0').rstrip('.'))
-
-        return ",".join(filter_parts)
+        return build_atempo_filter_chain(speed_factor)
 
     def _create_text_image_pil(self, text: str, font_size: int, font_path: str,
                                text_color: str, stroke_color: str, stroke_width: int,
@@ -1006,115 +950,13 @@ class VideoComposer:
         Returns:
             str: 标准化后的音频文件路径（失败时返回原路径）
         """
-        # 检查是否启用响度标准化
-        if not getattr(config, "BGM_NORMALIZE_LOUDNESS", False):
-            return bgm_audio_path
-
-        # 检查FFmpeg是否可用
-        ffmpeg_path = shutil.which("ffmpeg")
-        if not ffmpeg_path:
-            logger.warning("未找到FFmpeg，跳过BGM响度标准化")
-            return bgm_audio_path
-
-        try:
-            # 读取配置参数（用户填写正数，自动转换为负数）
-            target_loudness = float(getattr(config, "BGM_TARGET_LOUDNESS", 20.0))
-            # 确保为负数（LUFS标准）
-            if target_loudness > 0:
-                target_loudness = -target_loudness
-            loudness_range = float(getattr(config, "BGM_LOUDNESS_RANGE", 7.0))
-
-            print(f"🎵 开始BGM响度标准化（目标: {target_loudness} LUFS，范围: {loudness_range} LU）")
-
-            # 确保项目根目录存在
-            os.makedirs(project_root, exist_ok=True)
-
-            # 第一步：分析BGM的响度参数
-            print("🎵 步骤1/2: 分析BGM响度参数...")
-            analysis_command = [
-                ffmpeg_path,
-                "-hide_banner",
-                "-i", bgm_audio_path,
-                "-af", f"loudnorm=I={target_loudness}:TP=-2.0:LRA={loudness_range}:print_format=json",
-                "-f", "null",
-                "-"
-            ]
-
-            result = subprocess.run(
-                analysis_command,
-                capture_output=True,
-                text=True,
-                timeout=60,
-                stdin=subprocess.DEVNULL
-            )
-
-            # 解析loudnorm输出的JSON数据
-            import json
-            import re
-
-            # 从stderr中提取JSON数据（loudnorm输出在stderr中）
-            stderr_output = result.stderr
-            json_match = re.search(r'\{[^{}]*"input_i"[^{}]*\}', stderr_output, re.DOTALL)
-
-            if not json_match:
-                logger.warning("无法解析loudnorm分析结果，使用单步标准化")
-                # 单步标准化（不使用测量数据）
-                normalized_path = os.path.join(project_root, "bgm_normalized.wav")
-                normalize_command = [
-                    ffmpeg_path,
-                    "-y",
-                    "-hide_banner",
-                    "-loglevel", "error",
-                    "-i", bgm_audio_path,
-                    "-af", f"loudnorm=I={target_loudness}:TP=-2.0:LRA={loudness_range}",
-                    normalized_path
-                ]
-                subprocess.run(normalize_command, check=True, timeout=120, stdin=subprocess.DEVNULL)
-                print(f"🎵 BGM响度标准化完成（单步模式）")
-                return normalized_path
-
-            # 解析测量数据
-            loudness_data = json.loads(json_match.group(0))
-            input_i = loudness_data.get("input_i")
-            input_tp = loudness_data.get("input_tp")
-            input_lra = loudness_data.get("input_lra")
-            input_thresh = loudness_data.get("input_thresh")
-
-            print(f"🎵 原始响度: {input_i} LUFS, 峰值: {input_tp} dB, 范围: {input_lra} LU")
-
-            # 第二步：使用测量数据进行线性标准化
-            print("🎵 步骤2/2: 应用响度标准化...")
-            normalized_path = os.path.join(project_root, "bgm_normalized.wav")
-
-            normalize_command = [
-                ffmpeg_path,
-                "-y",
-                "-hide_banner",
-                "-loglevel", "error",
-                "-i", bgm_audio_path,
-                "-af", (
-                    f"loudnorm=I={target_loudness}:TP=-2.0:LRA={loudness_range}:"
-                    f"measured_I={input_i}:measured_TP={input_tp}:"
-                    f"measured_LRA={input_lra}:measured_thresh={input_thresh}:"
-                    f"linear=true:print_format=summary"
-                ),
-                normalized_path
-            ]
-
-            subprocess.run(normalize_command, check=True, timeout=120, stdin=subprocess.DEVNULL)
-
-            print(f"🎵 BGM响度标准化完成！标准化文件: {os.path.basename(normalized_path)}")
-            return normalized_path
-
-        except subprocess.TimeoutExpired:
-            logger.warning("BGM响度标准化超时，使用原始音频")
-            return bgm_audio_path
-        except subprocess.CalledProcessError as e:
-            logger.warning(f"BGM响度标准化失败: {e}，使用原始音频")
-            return bgm_audio_path
-        except Exception as e:
-            logger.warning(f"BGM响度标准化异常: {e}，使用原始音频")
-            return bgm_audio_path
+        return normalize_bgm_loudness(
+            bgm_audio_path,
+            project_root,
+            target_loudness=float(getattr(config, "BGM_TARGET_LOUDNESS", 20.0)),
+            loudness_range=float(getattr(config, "BGM_LOUDNESS_RANGE", 7.0)),
+            enabled=bool(getattr(config, "BGM_NORMALIZE_LOUDNESS", False)),
+        )
 
     def _adjust_bgm_duration(self, bgm_clip, target_duration: float):
         """调整BGM时长：优先手动平铺循环，始终铺满并裁剪到目标时长"""
@@ -1243,112 +1085,16 @@ class VideoComposer:
     
     def _export_video(self, final_video, output_path: str, fps: int = 15):
         """导出视频"""
-        moviepy_logger = 'bar'
-        
-        try:
-            # 使用ffmpeg视频滤镜实现淡入/淡出（仅视频，不处理音频，避免与stream copy冲突）
-            fade_in_seconds = float(getattr(config, "OPENING_FADEIN_SECONDS", 0.0))
-            tail_seconds = float(getattr(config, "ENDING_FADE_SECONDS", 0.0))
-            total_duration = float(getattr(final_video, "duration", 0.0) or 0.0)
-            vf_parts = []
-            if fade_in_seconds > 1e-3:
-                vf_parts.append(f"fade=t=in:st=0:d={fade_in_seconds}")
-            if tail_seconds > 1e-3 and total_duration > 0.0:
-                fade_out_start = max(0.0, total_duration - tail_seconds)
-                vf_parts.append(f"fade=t=out:st={fade_out_start}:d={tail_seconds}")
-            vf_filter = ",".join(vf_parts) if vf_parts else None
-
-            # 获取配置参数
-            video_codec = getattr(config, "VIDEO_CODEC", "h264").lower()
-            bitrate_mode = getattr(config, "VIDEO_BITRATE_MODE", "auto").lower()
-            quality_level = int(getattr(config, "VIDEO_QUALITY_LEVEL", 65))
-
-            # 优先尝试macOS硬件编码
-            codec_name = 'h264_videotoolbox'
-            bitrate_param = None
-            ffmpeg_extra_params = []
-            
-            # 选择编码器
-            if video_codec == 'hevc':
-                codec_name = 'hevc_videotoolbox'
-                ffmpeg_extra_params.extend(['-tag:v', 'hvc1']) # Apple兼容性标签
-            else:
-                codec_name = 'h264_videotoolbox'
-
-            audio_bitrate = '256k'  # 提升到256k以匹配48kHz WAV无损源音频
-            
-            # 基础参数
-            ffmpeg_extra_params.extend(['-nostdin', '-pix_fmt', 'yuv420p', '-movflags', '+faststart'])
-            if vf_filter:
-                ffmpeg_extra_params.extend(['-vf', vf_filter])
-
-            # 分辨率相关的 profile/level 设置
-            width = int(getattr(final_video, "w", 0) or 0)
-            height = int(getattr(final_video, "h", 0) or 0)
-            
-            # 仅针对 H.264 设置 profile/level (HEVC通常自动协商较好，或需不同设置)
-            if video_codec != 'hevc':
-                if width and height:
-                    if width > 3840 or height > 2160:
-                        ffmpeg_extra_params.extend(['-profile:v', 'high', '-level', '5.2'])
-                    elif width > 2560 or height > 1440:
-                        ffmpeg_extra_params.extend(['-profile:v', 'high', '-level', '5.2'])
-                    elif width > 1920 or height > 1080:
-                        ffmpeg_extra_params.extend(['-profile:v', 'high', '-level', '5.1'])
-                    elif width > 1280 or height > 720:
-                        ffmpeg_extra_params.extend(['-profile:v', 'main', '-level', '4.1'])
-                    else:
-                        ffmpeg_extra_params.extend(['-profile:v', 'main', '-level', '3.1'])
-                else:
-                    ffmpeg_extra_params.extend(['-profile:v', 'main'])
-
-            # 码率控制
-            if bitrate_mode == 'quality':
-                # 质量优先模式 (VBR)
-                # videotoolbox 使用 -q:v (0-100)
-                ffmpeg_extra_params.extend(['-q:v', str(quality_level)])
-                bitrate_param = None
-                print(f"🎞️ 使用硬件编码 ({codec_name}) 导出视频 [质量优先: {quality_level}]...")
-            else:
-                # 固定码率模式
-                bitrate_val = '8M' if fps == 30 else '3M'
-                bufsize = '12M' if fps == 30 else '6M'
-                bitrate_param = bitrate_val
-                ffmpeg_extra_params.extend(['-maxrate', bitrate_val, '-bufsize', bufsize])
-                print(f"🎞️ 使用硬件编码 ({codec_name}) 导出视频 [固定码率: {bitrate_val}]...")
-
-            final_video.write_videofile(
-                output_path,
-                fps=fps,
-                codec=codec_name,
-                audio_codec='aac',
-                audio_bitrate=audio_bitrate,
-                bitrate=bitrate_param,
-                ffmpeg_params=ffmpeg_extra_params,
-                threads=os.cpu_count() or 4, # 启用多线程处理滤镜和帧生成
-                logger=moviepy_logger
-            )
-        except Exception as e:
-            print(f"⚠️ 硬件编码不可用或失败，回退到软件编码: {e}")
-            # 回退到软件编码
-            audio_bitrate = '256k'  # 提升到256k以匹配48kHz WAV无损源音频
-            crf = '20' if fps == 30 else '25'
-            preset = 'medium'
-            print("🎞️ 改用软件编码 (libx264) 导出视频…")
-            final_video.write_videofile(
-                output_path,
-                fps=fps,
-                codec='libx264',
-                audio_codec='aac',
-                audio_bitrate=audio_bitrate,
-                preset=preset,
-                threads=os.cpu_count() or 4,
-                ffmpeg_params=(
-                    ['-nostdin', '-crf', crf, '-pix_fmt', 'yuv420p', '-movflags', '+faststart']
-                    + (['-vf', vf_filter] if vf_filter else [])
-                ),
-                logger=moviepy_logger
-            )
+        export_video(
+            final_video,
+            output_path,
+            fps=fps,
+            video_codec=getattr(config, "VIDEO_CODEC", "h264"),
+            bitrate_mode=getattr(config, "VIDEO_BITRATE_MODE", "auto"),
+            quality_level=int(getattr(config, "VIDEO_QUALITY_LEVEL", 65)),
+            fade_in_seconds=float(getattr(config, "OPENING_FADEIN_SECONDS", 0.0)),
+            ending_fade_seconds=float(getattr(config, "ENDING_FADE_SECONDS", 0.0)),
+        )
     
     def _cleanup_resources(self, video_clips: List, audio_clips: List,
                            final_video, temp_audio_paths: Optional[List[str]] = None):
@@ -1466,47 +1212,11 @@ class VideoComposer:
     
     def _calculate_mixed_length(self, text: str) -> float:
         """计算混合中英文本的等效长度"""
-        import re
-        import unicodedata
-        # 中文按字计数（CJK统一表意文字）
-        chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
-        # 英文按词计数（允许 don't / co-op 等带撇号或连字符）
-        english_words = len(re.findall(r"[A-Za-z]+(?:['-][A-Za-z]+)*", text))
-        # 数字按位计数
-        numbers = len(re.findall(r'\d', text))
-        # 其他外文字符（非ASCII字母、非CJK）作为字母按1计数
-        ascii_alpha = re.compile(r"[A-Za-z]")
-        cjk_pattern = re.compile(r"[\u4e00-\u9fff]")
-        other_letters = 0
-        for ch in text:
-            if cjk_pattern.match(ch):
-                continue
-            if ascii_alpha.match(ch):
-                continue
-            if unicodedata.category(ch).startswith('L'):
-                other_letters += 1
-        # 标点不计入
-        return chinese_chars * 1.0 + english_words * 1.5 + numbers * 1.0 + other_letters * 1.0
+        return calculate_mixed_length(text)
     
     def _calculate_subtitle_durations(self, subtitle_texts: List[str], total_duration: float) -> List[float]:
         """计算每行字幕的显示时长"""
-        if len(subtitle_texts) == 0:
-            return [total_duration]
-        
-        lengths = [max(1.0, self._calculate_mixed_length(t)) for t in subtitle_texts]
-        total_len = sum(lengths)
-        line_durations = []
-        acc = 0.0
-        
-        for idx, L in enumerate(lengths):
-            if idx < len(lengths) - 1:
-                d = total_duration * (L / total_len)
-                line_durations.append(d)
-                acc += d
-            else:
-                line_durations.append(max(0.0, total_duration - acc))
-        
-        return line_durations
+        return calculate_subtitle_durations(subtitle_texts, total_duration)
     
     def _create_subtitle_clips_internal(self, display_text: str, start_time: float, duration: float,
                                        subtitle_config: Dict, resolved_font: Optional[str], 
@@ -1603,233 +1313,7 @@ class VideoComposer:
     
     def split_text_for_subtitle(self, text: str, max_chars_per_line: int = 20, max_lines: int = 2) -> List[str]:
         """将长文本分割为适合字幕显示的短句，同时保护成对符号（书名号、引号）"""
-        if len(text) <= max_chars_per_line:
-            return [text]
-        
-        # 成对符号定义
-        pair_markers = {
-            '《': '》',  # 书名号
-            '"': '"',    # 中文双引号
-        }
-        
-        # 预扫描：找出所有需要保护的成对符号范围
-        protected_ranges = self._find_protected_pair_ranges(text, pair_markers, max_chars_per_line)
-        
-        def is_protected(pos: int) -> bool:
-            """检查某个位置是否在保护范围内（不应被切分）"""
-            for start, end in protected_ranges:
-                # start 是开启符号位置，end 是闭合符号位置
-                # 在 (start, end] 范围内的位置不应被切分
-                if start < pos <= end:
-                    return True
-            return False
-        
-        # 第一层：按主要标点切分，但保护成对符号
-        heavy_punctuation = ['。', '！', '？', '!', '?', '，', ',', '；', ';', ":", "：", "——", " "]
-        segments = []
-        current_segment = ""
-        
-        for i, char in enumerate(text):
-            current_segment += char
-            if char in heavy_punctuation and not is_protected(i):
-                if current_segment.strip():
-                    segments.append(current_segment.strip())
-                current_segment = ""
-        
-        if current_segment.strip():
-            segments.append(current_segment.strip())
-        
-        # 第二层：处理超长片段，保护成对符号
-        final_parts = []
-        for segment in segments:
-            if len(segment) <= max_chars_per_line:
-                final_parts.append(segment)
-            else:
-                # 对这个片段重新计算保护范围
-                seg_protected = self._find_protected_pair_ranges(segment, pair_markers, max_chars_per_line)
-                
-                # 使用保护感知的切分方法
-                split_parts = self._split_with_protection(segment, seg_protected, max_chars_per_line)
-                final_parts.extend(split_parts)
-        
-        # 返回完整的行序列（显示层面仍按 max_lines 控制"同时显示"的行数）
-        return final_parts
-    
-    def _split_with_protection(self, text: str, protected_ranges: List[tuple], max_chars: int) -> List[str]:
-        """
-        在保护成对符号的前提下切分文本。
-        策略：将文本按保护范围分割为多个部分，保护范围内的内容保持完整，
-        保护范围外的内容可以正常切分。
-        """
-        if len(text) <= max_chars:
-            return [text]
-        
-        if not protected_ranges:
-            # 没有保护范围，直接按轻量标点或均匀切分
-            return self._split_without_protection(text, max_chars)
-        
-        # 按位置排序保护范围
-        sorted_ranges = sorted(protected_ranges, key=lambda x: x[0])
-        
-        # 将文本分割为：保护区域和非保护区域交替的片段
-        parts = []
-        last_end = 0
-        
-        for start, end in sorted_ranges:
-            # 添加保护范围之前的文本（非保护区域）
-            if start > last_end:
-                before_text = text[last_end:start]
-                if before_text.strip():
-                    parts.append(('unprotected', before_text))
-            
-            # 添加保护范围内的文本（保护区域）
-            protected_text = text[start:end+1]
-            parts.append(('protected', protected_text))
-            last_end = end + 1
-        
-        # 添加最后一个保护范围之后的文本
-        if last_end < len(text):
-            after_text = text[last_end:]
-            if after_text.strip():
-                parts.append(('unprotected', after_text))
-        
-        # 处理各个部分
-        result = []
-        current_line = ""
-        
-        for part_type, part_text in parts:
-            if part_type == 'protected':
-                # 保护区域：尝试与当前行合并，否则单独成行
-                if len(current_line) + len(part_text) <= max_chars:
-                    current_line += part_text
-                else:
-                    # 先保存当前行
-                    if current_line.strip():
-                        result.extend(self._split_without_protection(current_line, max_chars))
-                    current_line = part_text
-            else:
-                # 非保护区域：可以自由切分
-                combined = current_line + part_text
-                if len(combined) <= max_chars:
-                    current_line = combined
-                else:
-                    # 需要切分，先处理当前累积的内容
-                    if current_line.strip():
-                        # 尝试在非保护文本中找到好的切分点
-                        split_result = self._split_at_punctuation(current_line + part_text, max_chars)
-                        result.extend(split_result[:-1])
-                        current_line = split_result[-1] if split_result else ""
-                    else:
-                        split_result = self._split_at_punctuation(part_text, max_chars)
-                        result.extend(split_result[:-1])
-                        current_line = split_result[-1] if split_result else ""
-        
-        # 添加最后的内容
-        if current_line.strip():
-            if len(current_line) <= max_chars:
-                result.append(current_line)
-            else:
-                result.extend(self._split_without_protection(current_line, max_chars))
-        
-        return [r for r in result if r.strip()]
-    
-    def _split_at_punctuation(self, text: str, max_chars: int) -> List[str]:
-        """在标点处切分文本，返回切分后的片段列表"""
-        if len(text) <= max_chars:
-            return [text]
-        
-        light_punctuation = ['、', ';', '；', '，', ',', '。', '！', '？', '!', '?', '：', ':']
-        result = []
-        current = ""
-        
-        for char in text:
-            current += char
-            if char in light_punctuation and len(current) >= max_chars * 0.5:
-                result.append(current)
-                current = ""
-        
-        if current:
-            result.append(current)
-        
-        # 如果切分后仍有超长片段，进行均匀切分
-        final_result = []
-        for part in result:
-            if len(part) <= max_chars:
-                final_result.append(part)
-            else:
-                final_result.extend(self._split_text_evenly(part, max_chars))
-        
-        return final_result
-    
-    def _split_without_protection(self, text: str, max_chars: int) -> List[str]:
-        """不考虑保护的切分（用于非保护区域）"""
-        if len(text) <= max_chars:
-            return [text]
-        
-        # 先尝试在标点处切分
-        result = self._split_at_punctuation(text, max_chars)
-        
-        # 如果结果合理，直接返回
-        if all(len(r) <= max_chars for r in result):
-            return result
-        
-        # 否则进行均匀切分
-        return self._split_text_evenly(text, max_chars)
-    
-    def _find_protected_pair_ranges(self, text: str, pair_markers: dict, max_chars: int) -> List[tuple]:
-        """
-        找出文本中所有需要保护的成对符号范围。
-        只有当成对符号内的内容长度 <= max_chars 时才进行保护。
-        
-        Args:
-            text: 要扫描的文本
-            pair_markers: 成对符号映射，如 {'《': '》', '"': '"'}
-            max_chars: 最大字符数限制
-            
-        Returns:
-            保护范围列表 [(start, end), ...]，start是开启符号位置，end是闭合符号位置
-        """
-        protected_ranges = []
-        stack = []  # [(opening_char, position), ...]
-        
-        for i, char in enumerate(text):
-            if char in pair_markers:
-                # 遇到开启符号，入栈
-                stack.append((char, i))
-            elif stack:
-                # 检查是否是栈顶开启符号对应的闭合符号
-                open_char, open_pos = stack[-1]
-                if char == pair_markers[open_char]:
-                    stack.pop()
-                    # 计算成对符号内容的长度（包括符号本身）
-                    pair_len = i - open_pos + 1
-                    # 如果长度不超过限制，标记为保护范围
-                    if pair_len <= max_chars:
-                        protected_ranges.append((open_pos, i))
-        
-        return protected_ranges
-    
-    def _split_text_evenly(self, text: str, max_chars_per_line: int) -> List[str]:
-        """将文本均匀切分"""
-        if len(text) <= max_chars_per_line:
-            return [text]
-        
-        total_chars = len(text)
-        num_segments = (total_chars + max_chars_per_line - 1) // max_chars_per_line
-        
-        base_length = total_chars // num_segments
-        remainder = total_chars % num_segments
-        
-        result = []
-        start = 0
-        
-        for i in range(num_segments):
-            length = base_length + (1 if i < remainder else 0)
-            end = start + length
-            result.append(text[start:end])
-            start = end
-        
-        return result
+        return split_text_for_subtitle(text, max_chars_per_line, max_lines)
     
     def resolve_subtitle_font(self, preferred: Optional[str], preferred_ttc_index: int = 0) -> Tuple[Optional[str], int]:
         """解析字幕字体路径和 TTC index。"""

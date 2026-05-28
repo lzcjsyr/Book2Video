@@ -13,6 +13,7 @@ core/
 ├── config.py
 ├── startup.py             # CLI startup validation (provider resolution)
 ├── llm_gateway.py         # Domain-safe gateway to LLM text generation
+├── media_gateway.py       # Domain-safe gateway to media infrastructure
 ├── prompts.py
 ├── shared.py
 │
@@ -27,6 +28,7 @@ core/
 │   ├── composer.py
 │   ├── docx_transform.py
 │   ├── reader.py
+│   ├── subtitles.py
 │   └── summarizer.py
 │
 └── infra/                 # Infrastructure and external integrations
@@ -36,6 +38,10 @@ core/
     │   ├── image_client.py
     │   ├── llm_client.py
     │   └── tts_client.py  # Includes silence trimming helper
+    ├── media/             # Low-level media operation adapters
+    │   ├── __init__.py
+    │   ├── exporter.py
+    │   └── ffmpeg.py
     └── project_paths.py
 ```
 

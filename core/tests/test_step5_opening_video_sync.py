@@ -134,7 +134,7 @@ def test_bgm_loudness_fallback_uses_project_root_when_analysis_json_missing(monk
     calls = []
 
     monkeypatch.setattr(config, "BGM_NORMALIZE_LOUDNESS", True)
-    monkeypatch.setattr("core.domain.composer.shutil.which", lambda _name: "/usr/bin/ffmpeg")
+    monkeypatch.setattr("core.infra.media.ffmpeg.shutil.which", lambda _name: "/usr/bin/ffmpeg")
 
     def fake_run(command, **_kwargs):
         calls.append(command)
@@ -142,7 +142,7 @@ def test_bgm_loudness_fallback_uses_project_root_when_analysis_json_missing(monk
             return SimpleNamespace(stderr="no loudnorm json here")
         return SimpleNamespace(stderr="")
 
-    monkeypatch.setattr("core.domain.composer.subprocess.run", fake_run)
+    monkeypatch.setattr("core.infra.media.ffmpeg.subprocess.run", fake_run)
 
     result = composer._normalize_bgm_loudness(str(bgm_path), str(tmp_path))
 
