@@ -231,7 +231,8 @@ class Config:
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     MIMO_API_KEY = os.getenv("MIMO_API_KEY")
     DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-    SEEDREAM_API_KEY = os.getenv("SEEDREAM_API_KEY")
+    VOLCENGINE_API_KEY = os.getenv("VOLCENGINE_API_KEY") or os.getenv("SEEDREAM_API_KEY")
+    SEEDREAM_API_KEY = VOLCENGINE_API_KEY
     SILICONFLOW_KEY = os.getenv("SILICONFLOW_KEY")
     GOOGLE_CLOUD_API_KEY = os.getenv("GOOGLE_CLOUD_API_KEY")
     GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GOOGLE_PROJECT_ID")
@@ -320,9 +321,9 @@ class Config:
         if "deepseek" in llm_servers and not key_status["deepseek"]:
             missing.append("DEEPSEEK_API_KEY")
         if "volcengine" in llm_servers and not key_status["seedream"]:
-            missing.append("SEEDREAM_API_KEY")
+            missing.append("VOLCENGINE_API_KEY")
         if not (key_status["seedream"] or key_status["siliconflow"] or key_status["google"]):
-            missing.append("SEEDREAM_API_KEY 或 SILICONFLOW_KEY 或 GOOGLE_CLOUD_API_KEY")
+            missing.append("VOLCENGINE_API_KEY 或 SILICONFLOW_KEY 或 GOOGLE_CLOUD_API_KEY")
         if not key_status["bytedance_tts"]:
             missing.append("BYTEDANCE_TTS_API_KEY")
         return missing
@@ -332,7 +333,7 @@ class Config:
         """根据服务配置返回所需的API密钥列表"""
         required_keys = [k for k in llm_key_names if k]
         
-        image_keys = {"doubao": "SEEDREAM_API_KEY", "siliconflow": "SILICONFLOW_KEY", "google": "GOOGLE_CLOUD_API_KEY"}
+        image_keys = {"doubao": "VOLCENGINE_API_KEY", "siliconflow": "SILICONFLOW_KEY", "google": "GOOGLE_CLOUD_API_KEY"}
         img_key = image_keys.get(image_server)
         if img_key and img_key not in required_keys:
             required_keys.append(img_key)

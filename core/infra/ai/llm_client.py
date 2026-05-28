@@ -45,9 +45,9 @@ def text_to_text(
                 raise APIError("DEEPSEEK_API_KEY未配置")
             api_key = config.DEEPSEEK_API_KEY
         elif server == "volcengine":
-            if not config.SEEDREAM_API_KEY:
-                raise APIError("SEEDREAM_API_KEY未配置")
-            api_key = config.SEEDREAM_API_KEY
+            if not config.VOLCENGINE_API_KEY:
+                raise APIError("VOLCENGINE_API_KEY未配置")
+            api_key = config.VOLCENGINE_API_KEY
         else:
             raise ValueError(f"不支持的服务商: {server}，支持的服务商: {config.SUPPORTED_LLM_SERVERS}")
         if not base_url:
@@ -76,14 +76,14 @@ def text_to_text(
 
 @retry_on_failure(max_retries=2, delay=2.0)
 def text_to_image_doubao(prompt, size="1024x1024", model="doubao-seedream-3-0-t2i-250415"):
-    if not config.SEEDREAM_API_KEY:
-        raise APIError("SEEDREAM_API_KEY未配置，无法使用豆包图像生成服务")
+    if not config.VOLCENGINE_API_KEY:
+        raise APIError("VOLCENGINE_API_KEY未配置，无法使用豆包图像生成服务")
     logger.info(f"使用豆包Seedream生成图像，模型: {model}，尺寸: {size}，提示词长度: {len(prompt)}字符")
     try:
         from volcenginesdkarkruntime import Ark
         client = Ark(
             base_url=config.ARK_BASE_URL,
-            api_key=config.SEEDREAM_API_KEY,
+            api_key=config.VOLCENGINE_API_KEY,
         )
 
         # Seedream 4/5 使用新版图片生成参数；旧版 V3 仍保留 guidance_scale。

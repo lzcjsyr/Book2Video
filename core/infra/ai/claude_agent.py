@@ -69,8 +69,8 @@ def build_step1_agent_env() -> dict[str, str]:
         key_name = "OPENROUTER_API_KEY"
     elif server == "volcengine":
         base_url = "https://ark.cn-beijing.volces.com/api/v3"
-        api_key = (config.SEEDREAM_API_KEY or "").strip()
-        key_name = "SEEDREAM_API_KEY"
+        api_key = (config.VOLCENGINE_API_KEY or "").strip()
+        key_name = "VOLCENGINE_API_KEY"
     else:
         raise ValueError(f"不支持的步骤1 LLM服务商: {server}，支持的服务商: mimo, deepseek, siliconflow, openrouter, volcengine")
 

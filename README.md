@@ -243,7 +243,7 @@ OPENROUTER_API_KEY=your_key      # 推荐，模型选择多
 SILICONFLOW_KEY=your_key         # 备选方案
 
 # 图像生成（至少配置一个）
-SEEDREAM_API_KEY=your_key        # 豆包图像生成
+VOLCENGINE_API_KEY=your_key      # 火山引擎方舟（用于 豆包-Seedream 生图与火山大语言模型）
 SILICONFLOW_KEY=your_key         # 硅基流动图像生成
 GOOGLE_CLOUD_API_KEY=your_key    # Google Vertex AI 生图（单一配置）
 # Google图像并发上限（可选，默认2，仅 image_server=google 生效）

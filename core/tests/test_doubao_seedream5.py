@@ -22,7 +22,7 @@ def test_seedream5_uses_new_image_generation_parameters(monkeypatch):
 
     fake_module = types.SimpleNamespace(Ark=FakeArk)
     monkeypatch.setitem(sys.modules, "volcenginesdkarkruntime", fake_module)
-    monkeypatch.setattr(config, "SEEDREAM_API_KEY", "test-key")
+    monkeypatch.setattr(config, "VOLCENGINE_API_KEY", "test-key")
 
     url = text_to_image_doubao(
         "test prompt",
