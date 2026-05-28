@@ -246,14 +246,13 @@ class Config:
     BYTEDANCE_TTS_API_KEY = os.getenv("BYTEDANCE_TTS_API_KEY")
     BYTEDANCE_TTS_VERIFY_SSL = os.getenv("BYTEDANCE_TTS_VERIFY_SSL", "true").lower() == "true"
 
-    SILICONFLOW_IMAGE_BASE_URL = "https://api.siliconflow.cn/v1/images/generations"
     ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
     DEFAULT_IMAGE_SIZE = "1664x928"
     DEFAULT_VOICE = VOICE
     DEFAULT_OUTPUT_DIR = "output"
 
     SUPPORTED_LLM_SERVERS = ["openrouter", "siliconflow", "mimo", "deepseek", "volcengine"]
-    SUPPORTED_IMAGE_SERVERS = ["doubao", "siliconflow", "google", "google_adc"]
+    SUPPORTED_IMAGE_SERVERS = ["doubao", "google", "google_adc"]
     SUPPORTED_TTS_SERVERS = ["bytedance"]
     SUPPORTED_IMAGE_METHODS = ["keywords", "description"]
     RECOMMENDED_MODELS = {
@@ -267,7 +266,6 @@ class Config:
                 "doubao-seedream-4-0-250828",
                 "doubao-seedream-3-0-t2i-250415",
             ],
-            "siliconflow": ["stabilityai/stable-diffusion-3-5-large", "black-forest-labs/FLUX.1-schnell"],
             "google": ["gemini-3.1-flash-image-preview"],
             "google_adc": ["gemini-3.1-flash-image-preview"],
         },
@@ -284,10 +282,6 @@ class Config:
         "方形1:1": ["1024x1024", "1664x1664"],
         "竖屏3:4": ["864x1152", "1536x2048", "2250x3000"],
     }
-    SUPPORTED_QWEN_IMAGE_SIZES = [
-        "1328x1328", "1664x928", "928x1664", "1472x1140",
-        "1140x1472", "1584x1056", "1056x1584",
-    ]
     SEEDREAM_V4_MIN_SIZE = (1280, 720)
     SEEDREAM_V4_MAX_SIZE = (4096, 4096)
     SEEDREAM_V5_MIN_PIXELS = 3686400
@@ -328,8 +322,8 @@ class Config:
             missing.append("DEEPSEEK_API_KEY")
         if "volcengine" in llm_servers and not key_status["seedream"]:
             missing.append("VOLCENGINE_API_KEY")
-        if not (key_status["seedream"] or key_status["siliconflow"] or key_status["google"]):
-            missing.append("VOLCENGINE_API_KEY 或 SILICONFLOW_KEY 或 GOOGLE_CLOUD_API_KEY")
+        if not (key_status["seedream"] or key_status["google"]):
+            missing.append("VOLCENGINE_API_KEY 或 GOOGLE_CLOUD_API_KEY / GOOGLE_CLOUD_PROJECT")
         if not key_status["bytedance_tts"]:
             missing.append("BYTEDANCE_TTS_API_KEY")
         return missing
@@ -339,7 +333,7 @@ class Config:
         """根据服务配置返回所需的API密钥列表"""
         required_keys = [k for k in llm_key_names if k]
         
-        image_keys = {"doubao": "VOLCENGINE_API_KEY", "siliconflow": "SILICONFLOW_KEY", "google": "GOOGLE_CLOUD_API_KEY"}
+        image_keys = {"doubao": "VOLCENGINE_API_KEY", "google": "GOOGLE_CLOUD_API_KEY"}
         img_key = image_keys.get(image_server)
         if img_key and img_key not in required_keys:
             required_keys.append(img_key)
@@ -360,8 +354,6 @@ class Config:
             width, height = map(int, size.split("x"))
         except ValueError:
             return False
-        if "qwen" in model.lower():
-            return size in cls.SUPPORTED_QWEN_IMAGE_SIZES
         if "doubao" in model.lower():
             if "seedream-5" in model.lower():
                 return width * height >= cls.SEEDREAM_V5_MIN_PIXELS and width <= 4096 and height <= 4096
@@ -386,10 +378,6 @@ class Config:
         if model_type == "image":
             if server == "doubao":
                 if "doubao" not in lower_model and "seedream" not in lower_model:
-                    raise ValueError(f"图像模型 {model} 与供应商 {server} 不匹配")
-                return
-            if server == "siliconflow":
-                if "doubao" in lower_model or "seedream" in lower_model:
                     raise ValueError(f"图像模型 {model} 与供应商 {server} 不匹配")
                 return
             if server in {"google", "google_adc"}:
@@ -435,11 +423,9 @@ class Config:
         if not cls.validate_image_size(image_size, image_model):
             raise ValueError(
                 f"图像尺寸 {image_size} 不符合模型 {image_model} 的要求。\n"
-                f"Qwen模型支持的固定尺寸: {cls.SUPPORTED_QWEN_IMAGE_SIZES}\n"
                 f"Doubao-5模型支持: 总像素不少于 {cls.SEEDREAM_V5_MIN_PIXELS}，宽高不超过 4096\n"
                 f"Doubao-4模型支持: 1280x720 到 4096x4096 之间的任意尺寸\n"
-                f"Doubao-3模型支持: 512x512 到 2048x2048 之间的任意尺寸\n"
-                f"腾讯混元图像支持: 宽高范围 512-2048，面积不超过 1024x1024"
+                f"Doubao-3模型支持: 512x512 到 2048x2048 之间的任意尺寸"
             )
 
     # 统一管理 OpenAI SDK 格式的 Base URL 映射
@@ -497,8 +483,6 @@ def _infer_image_server_from_model(model: str) -> str:
         return "doubao"
     if "gemini" in lower_model or "imagen" in lower_model:
         return "google"
-    if lower_model:
-        return "siliconflow"
     return ""
 
 

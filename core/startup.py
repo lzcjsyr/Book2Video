@@ -22,7 +22,7 @@ def auto_detect_server_from_model(model: str, model_type: str) -> str:
             return "doubao"
         if "gemini" in lower_model or "imagen" in lower_model:
             return "google"
-        return "siliconflow"
+        raise ValueError(f"无法根据图像模型推断供应商: {model}")
 
     if kind == "voice":
         return "bytedance"

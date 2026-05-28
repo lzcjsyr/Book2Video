@@ -19,8 +19,8 @@ def test_config_accepts_google_adc_without_google_api_key(monkeypatch):
     )
 
 
-def test_image_client_dispatches_google_adc_to_google_generator(monkeypatch):
-    from core.infra.ai import image_client
+def test_google_adc_provider_uses_google_generator_with_adc(monkeypatch):
+    from core.infra.ai import image_providers
 
     captured = {}
 
@@ -28,13 +28,12 @@ def test_image_client_dispatches_google_adc_to_google_generator(monkeypatch):
         captured.update(prompt=prompt, size=size, model=model, use_adc=use_adc)
         return {"type": "bytes", "data": b"png"}
 
-    monkeypatch.setattr(image_client, "text_to_image_google", fake_google)
+    monkeypatch.setattr(image_providers, "text_to_image_google", fake_google)
 
-    result = image_client._request_image_result(
-        "google_adc",
-        "prompt",
-        "1024x1024",
-        "gemini-3.1-flash-image-preview",
+    result = image_providers.GoogleImageProvider(use_adc=True).generate(
+        prompt="prompt",
+        size="1024x1024",
+        model="gemini-3.1-flash-image-preview",
     )
 
     assert result == {"type": "bytes", "data": b"png"}

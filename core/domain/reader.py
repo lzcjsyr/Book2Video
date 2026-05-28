@@ -7,6 +7,8 @@ import os
 import re
 import subprocess
 import tempfile
+import warnings
+from importlib import import_module
 from pathlib import Path
 from typing import Tuple
 
@@ -16,14 +18,36 @@ from ebooklib import epub
 import pdfplumber
 from docx import Document
 
-# 可选依赖
-try:
-    import fitz  # pymupdf
-    HAS_FITZ = True
-except ImportError:
-    HAS_FITZ = False
-
 from core.shared import logger, FileProcessingError
+
+
+_FITZ_MODULE = None
+_FITZ_IMPORT_ATTEMPTED = False
+
+
+def _load_fitz():
+    """Lazy-load PyMuPDF so non-PDF workflows do not import its binary module."""
+    global _FITZ_MODULE, _FITZ_IMPORT_ATTEMPTED
+    if _FITZ_IMPORT_ATTEMPTED:
+        return _FITZ_MODULE
+
+    _FITZ_IMPORT_ATTEMPTED = True
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r"builtin type SwigPy.* has no __module__ attribute",
+                category=DeprecationWarning,
+            )
+            warnings.filterwarnings(
+                "ignore",
+                message=r"builtin type swigvarlink has no __module__ attribute",
+                category=DeprecationWarning,
+            )
+            _FITZ_MODULE = import_module("fitz")
+    except ImportError:
+        _FITZ_MODULE = None
+    return _FITZ_MODULE
 
 
 def clean_text(text: str) -> str:
@@ -177,7 +201,8 @@ class DocumentReader:
         content_parts = []
         
         # 优先使用PyMuPDF
-        if HAS_FITZ:
+        fitz = _load_fitz()
+        if fitz:
             try:
                 doc = fitz.open(file_path)
                 for i in range(len(doc)):
@@ -526,5 +551,4 @@ def read_document(file_path: str) -> Tuple[str, int]:
     """
     reader = DocumentReader()
     return reader.read(file_path)
-
 

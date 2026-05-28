@@ -4,7 +4,6 @@ from core.infra.ai.llm_client import (
     text_to_text,
     text_to_image_doubao,
     text_to_image_google,
-    text_to_image_siliconflow,
 )
 from core.infra.ai.tts_client import text_to_audio_bytedance
 from core.infra.ai.image_client import (
@@ -19,7 +18,6 @@ __all__ = [
     # Image Generation
     "text_to_image_doubao",
     "text_to_image_google",
-    "text_to_image_siliconflow",
     "generate_images_for_segments",
     "generate_cover_images",
     # Audio/TTS

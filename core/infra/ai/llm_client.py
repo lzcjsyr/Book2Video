@@ -5,7 +5,6 @@ Core services: unified entry points for model calls (migrated from genai_api).
 from typing import Dict, Optional, Tuple
 import os
 import random
-import requests
 from openai import OpenAI
 
 from core.config import config
@@ -119,50 +118,6 @@ def text_to_image_doubao(prompt, size="1024x1024", model="doubao-seedream-3-0-t2
     except Exception as e:
         logger.error(f"豆包图像生成失败: {str(e)}")
         raise APIError(f"豆包图像生成失败: {str(e)}")
-
-
-@retry_on_failure(max_retries=2, delay=2.0)
-def text_to_image_siliconflow(prompt, size="1024x1024", model="Qwen/Qwen-Image"):
-    if not config.SILICONFLOW_KEY:
-        raise APIError("SILICONFLOW_KEY未配置，无法使用硅基流动图像生成服务")
-
-    base_url = getattr(config, "SILICONFLOW_IMAGE_BASE_URL", "https://api.siliconflow.cn/v1/images/generations")
-    headers = {
-        "Authorization": f"Bearer {config.SILICONFLOW_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "model": model,
-        "prompt": prompt
-    }
-    if size:
-        payload["size"] = size
-
-    logger.info(f"使用硅基流动生成图像，模型: {model}，尺寸: {size}，提示词长度: {len(prompt)}字符")
-
-    try:
-        response = requests.post(base_url, json=payload, headers=headers, timeout=60)
-        response.raise_for_status()
-        data = response.json()
-    except Exception as e:
-        logger.error(f"硅基流动图像生成请求失败: {str(e)}")
-        raise APIError(f"硅基流动图像生成失败: {str(e)}")
-
-    items = data.get("data") if isinstance(data, dict) else None
-    if not items:
-        raise APIError("硅基流动图像生成API返回空响应")
-
-    item = items[0] if isinstance(items, list) else None
-    if not isinstance(item, dict):
-        raise APIError("硅基流动图像生成API返回格式不正确")
-
-    if item.get("url"):
-        return {"type": "url", "data": item["url"]}
-    if item.get("b64_json"):
-        return {"type": "b64", "data": item["b64_json"]}
-
-    raise APIError("硅基流动图像生成API返回缺少可用的图像数据")
 
 
 _GOOGLE_IMAGE_SIZE_TABLE_PRO: Dict[str, Dict[str, Tuple[int, int]]] = {
@@ -348,6 +303,5 @@ def text_to_image_google(prompt, size="1024x1024", model="gemini-3.1-flash-image
 __all__ = [
     'text_to_text',
     'text_to_image_doubao',
-    'text_to_image_siliconflow',
     'text_to_image_google',
 ]

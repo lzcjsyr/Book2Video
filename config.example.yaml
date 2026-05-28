@@ -54,7 +54,6 @@ step3:
   # - google：使用 GOOGLE_CLOUD_API_KEY
   # - google_adc：使用本机 Google ADC / Vertex AI
   # - doubao：火山引擎 Seedream
-  # - siliconflow：硅基流动图像接口
   image_server: google
   # 常用模型示例：
   # - gemini-3.1-flash-image-preview
@@ -205,7 +204,7 @@ step6:
   # 封面尺寸预设 key。可选：16:9 / 9:16 / 4:3 / 3:4 / 1:1
   default_cover_image_size_key: "1:1"
   cover_image_model: gemini-3.1-flash-image-preview
-  # 可选：google / google_adc / doubao / siliconflow
+  # 可选：google / google_adc / doubao
   cover_image_server: google_adc
   # 封面风格预设，见 core/prompts.py 的 COVER_IMAGE_STYLE_PRESETS。
   cover_image_style: cover06

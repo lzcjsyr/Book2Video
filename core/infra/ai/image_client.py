@@ -18,12 +18,8 @@ from core.prompts import (
     IMAGE_PROMPT_SAFETY_TEMPLATE,
 )
 from core.shared import logger, ensure_directory_exists, APIError
-from core.infra.ai.llm_client import (
-    text_to_image_doubao,
-    text_to_image_google,
-    text_to_image_siliconflow,
-    text_to_text,
-)
+from core.infra.ai.image_providers import IMAGE_PROVIDERS
+from core.infra.ai.llm_client import text_to_text
 from core.infra.ai.tts_client import text_to_audio_bytedance
 
 import requests
@@ -73,39 +69,11 @@ def _persist_image_result(image_result: Dict[str, Any], output_path: str, error_
 
 def _request_image_result(image_server: str, prompt: str, size: str, model: str) -> Dict[str, Any]:
     """统一调度图像供应商调用，返回标准化的图像结果。"""
-    if image_server == "siliconflow":
-        return text_to_image_siliconflow(
-            prompt=prompt,
-            size=size,
-            model=model,
-        )
-
-    if image_server == "doubao":
-        image_url = text_to_image_doubao(
-            prompt=prompt,
-            size=size,
-            model=model,
-        )
-        if not image_url:
-            raise ValueError("图像生成返回空URL")
-        return {"type": "url", "data": image_url}
-
-    if image_server == "google":
-        return text_to_image_google(
-            prompt=prompt,
-            size=size,
-            model=model,
-        )
-
-    if image_server == "google_adc":
-        return text_to_image_google(
-            prompt=prompt,
-            size=size,
-            model=model,
-            use_adc=True,
-        )
-
-    raise ValueError(f"不支持的图像服务商: {image_server}")
+    provider_key = (image_server or "").strip().lower()
+    provider = IMAGE_PROVIDERS.get(provider_key)
+    if not provider:
+        raise ValueError(f"不支持的图像服务商: {image_server}")
+    return provider.generate(prompt=prompt, size=size, model=model)
 
 
 def _strip_code_fences(text: str) -> str:
