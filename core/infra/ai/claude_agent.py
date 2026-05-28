@@ -47,11 +47,38 @@ def _step1_agent_add_dirs(input_file: str) -> list[str]:
 
 
 def build_step1_agent_env() -> dict[str, str]:
-    api_key = (config.MIMO_API_KEY or "").strip()
+    server = (config.LLM_SERVER_STEP1 or "").strip().lower()
+    if not server:
+        raise RuntimeError("步骤1需要配置 LLM_SERVER_STEP1（mimo/siliconflow/openrouter/volcengine/deepseek）")
+
+    if server == "mimo":
+        base_url = "https://token-plan-sgp.xiaomimimo.com/anthropic"
+        api_key = (config.MIMO_API_KEY or "").strip()
+        key_name = "MIMO_API_KEY"
+    elif server == "deepseek":
+        base_url = "https://api.deepseek.com/anthropic"
+        api_key = (config.DEEPSEEK_API_KEY or "").strip()
+        key_name = "DEEPSEEK_API_KEY"
+    elif server == "siliconflow":
+        base_url = "https://api.siliconflow.cn/"
+        api_key = (config.SILICONFLOW_KEY or "").strip()
+        key_name = "SILICONFLOW_KEY"
+    elif server == "openrouter":
+        base_url = "https://openrouter.ai/api"
+        api_key = (config.OPENROUTER_API_KEY or "").strip()
+        key_name = "OPENROUTER_API_KEY"
+    elif server == "volcengine":
+        base_url = "https://ark.cn-beijing.volces.com/api/v3"
+        api_key = (config.SEEDREAM_API_KEY or "").strip()
+        key_name = "SEEDREAM_API_KEY"
+    else:
+        raise ValueError(f"不支持的步骤1 LLM服务商: {server}，支持的服务商: mimo, deepseek, siliconflow, openrouter, volcengine")
+
     if not api_key:
-        raise RuntimeError("步骤1需要 MIMO_API_KEY（.env），用于驱动 Claude Agent SDK")
+        raise RuntimeError(f"步骤1需要 {key_name}（.env），用于驱动 Claude Agent SDK")
+
     return {
-        "ANTHROPIC_BASE_URL": config.LLM_BASE_URL_STEP1,
+        "ANTHROPIC_BASE_URL": base_url,
         "ANTHROPIC_API_KEY": api_key,
         "ANTHROPIC_MODEL": config.LLM_MODEL_STEP1,
     }

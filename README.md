@@ -161,9 +161,9 @@ python -m cli
 OPENING_QUOTE = True                                   # 开场金句开关（影响步骤3+5）
 
 # ==================== 📝 步骤1：Claude Agent SDK写作 ====================
-# 步骤1通过小米 MiMo Anthropic 端点驱动 Claude Agent SDK（.env: MIMO_API_KEY）
-LLM_BASE_URL_STEP1 = "https://token-plan-sgp.xiaomimimo.com/anthropic"
-LLM_MODEL_STEP1 = "mimo-v2.5"   # 可选: mimo-v2.5-pro, mimo-v2-pro
+# 步骤1支持多种服务商（mimo, siliconflow, openrouter, volcengine），按 LLM_SERVER_STEP1 自动匹配 URL 和密钥
+LLM_SERVER_STEP1 = "mimo"                                # 步骤1 LLM供应商
+LLM_MODEL_STEP1 = "mimo-v2.5-pro"                        # 填写完整模型名称
 # 步骤1固定调用 core/skills/video-book-direct-read 生成 raw.json
 
 # ==================== ✂️ 步骤1.5：脚本分段 ====================
