@@ -1401,7 +1401,11 @@ class VideoComposer:
         logger.info("开始创建字幕剪辑...")
         
         # 解析字体
-        resolved_font = self.resolve_font_path(subtitle_config.get("font_family"))
+        resolved_font, resolved_ttc_index = self.resolve_subtitle_font(
+            subtitle_config.get("font_family"),
+            int(subtitle_config.get("ttc_index", 0)),
+        )
+        subtitle_config["ttc_index"] = resolved_ttc_index
         if not resolved_font:
             logger.warning("未能解析到可用中文字体")
         
@@ -1827,24 +1831,40 @@ class VideoComposer:
         
         return result
     
-    def resolve_font_path(self, preferred: Optional[str]) -> Optional[str]:
-        """解析字体路径"""
-        if preferred and os.path.exists(preferred):
-            return preferred
-        
-        # 常见中文字体路径
+    def resolve_subtitle_font(self, preferred: Optional[str], preferred_ttc_index: int = 0) -> Tuple[Optional[str], int]:
+        """解析字幕字体路径和 TTC index。"""
+        preferred_text = (preferred or "").strip()
+        if preferred_text and preferred_text.lower() != "auto":
+            if os.path.exists(preferred_text):
+                return preferred_text, int(preferred_ttc_index or 0)
+            logger.warning("配置的字幕字体不存在，自动回退到系统字体: %s", preferred_text)
+
         common_fonts = [
-            "/System/Library/Fonts/STHeiti Light.ttc",  # macOS
-            "/System/Library/Fonts/PingFang.ttc",       # macOS
-            "/Windows/Fonts/simhei.ttf",                # Windows
-            "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",  # Linux
+            # macOS
+            ("/System/Library/Fonts/PingFang.ttc", 0),
+            ("/System/Library/Fonts/STHeiti Light.ttc", 0),
+            ("/System/Library/Fonts/Supplemental/Songti.ttc", 0),
+            # Windows
+            ("C:/Windows/Fonts/msyh.ttc", 0),
+            ("C:/Windows/Fonts/simhei.ttf", 0),
+            ("C:/Windows/Fonts/simsun.ttc", 0),
+            # Linux
+            ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 0),
+            ("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc", 0),
+            ("/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc", 0),
+            ("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc", 0),
         ]
-        
-        for font_path in common_fonts:
+
+        for font_path, ttc_index in common_fonts:
             if os.path.exists(font_path):
-                return font_path
-        
-        return None
+                return font_path, ttc_index
+
+        return None, 0
+
+    def resolve_font_path(self, preferred: Optional[str]) -> Optional[str]:
+        """解析字体路径，保留旧接口兼容测试和外部调用。"""
+        font_path, _ = self.resolve_subtitle_font(preferred, 0)
+        return font_path
     
     def _is_video_file(self, file_path: str) -> bool:
         """检测是否为视频文件"""

@@ -121,7 +121,8 @@ TRANSITION_STYLE = "slide_right"
 # slide_left(左滑动), slide_right(右滑动), zoom_in(放大), zoom_out(缩小)
 
 # --- 字幕样式配置 ---
-# 字体路径建议：
+# 字体路径建议：可填字体文件绝对路径；也可填 "auto" 让程序按系统自动选择常见中文字体。
+# 如果填写的路径不存在，程序会自动回退到 "auto"。
 # macOS 苹方字体: /System/Library/Fonts/PingFang.ttc
 # macOS 宋体: /System/Library/Fonts/Supplemental/Songti.ttc
 # Windows 微软雅黑: C:/Windows/Fonts/msyh.ttc

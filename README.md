@@ -14,6 +14,34 @@
 
 ### 第一步：安装配置
 
+#### 推荐：一键安装脚本
+
+```bash
+# Windows PowerShell
+powershell -ExecutionPolicy Bypass -File scripts/install_windows.ps1
+
+# macOS
+./scripts/install_macos.sh
+```
+
+安装脚本会检查 Python、FFmpeg、Node.js、npm，安装 Python 依赖和 Remotion 开场视频依赖，并自动从 `.env.example` 生成 `.env`。
+
+安装后可运行测试脚本做完整检查：
+
+```bash
+# Windows PowerShell
+powershell -ExecutionPolicy Bypass -File scripts/test_windows.ps1
+
+# macOS
+./scripts/test_macos.sh
+
+# 如需连 API 密钥也一起检查：
+powershell -ExecutionPolicy Bypass -File scripts/test_windows.ps1 -RequireApiKeys
+./scripts/test_macos.sh --require-api-keys
+```
+
+#### 手动安装
+
 ```bash
 # 1. 安装 FFmpeg（视频合成必需的系统工具）
 # macOS
@@ -32,7 +60,12 @@ ffmpeg -version
 # 2. 安装 Python 依赖
 pip install -r requirements.txt
 
-# 3. 配置API密钥（复制并编辑 .env 文件）
+# 3. 安装 Remotion 开场视频依赖
+cd core/infra/remotion/app
+npm install --no-fund --no-audit
+cd ../../../..
+
+# 4. 配置API密钥（复制并编辑 .env 文件）
 cp .env.example .env
 # 编辑 .env 文件，填入你的API密钥
 
