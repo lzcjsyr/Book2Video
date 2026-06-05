@@ -244,7 +244,6 @@ class Config:
     GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GOOGLE_PROJECT_ID")
     GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
     BYTEDANCE_TTS_API_KEY = os.getenv("BYTEDANCE_TTS_API_KEY")
-    BYTEDANCE_TTS_VERIFY_SSL = os.getenv("BYTEDANCE_TTS_VERIFY_SSL", "true").lower() == "true"
 
     ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
     DEFAULT_IMAGE_SIZE = "1664x928"

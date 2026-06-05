@@ -37,8 +37,8 @@ step1_5:
 # =============================================================================
 step2:
   # 可选：mimo / deepseek / siliconflow / openrouter / volcengine
-  llm_server: siliconflow
-  llm_model: Pro/moonshotai/Kimi-K2.6
+  llm_server: volcengine
+  llm_model: doubao-seed-2-0-lite-260428
   # 配图方式：
   # - description：先生成整体描述，再结合每段文案出图，画面连贯性更好
   # - keywords：为每段提关键词和氛围词，画面变化更明显
@@ -54,12 +54,12 @@ step3:
   # - google：使用 GOOGLE_CLOUD_API_KEY
   # - google_adc：使用本机 Google ADC / Vertex AI
   # - doubao：火山引擎 Seedream
-  image_server: google
+  image_server: doubao
   # 常用模型示例：
   # - gemini-3.1-flash-image-preview
   # - doubao-seedream-5-0-260128
   # - doubao-seedream-4-0-250828
-  image_model: gemini-3.1-flash-image-preview
+  image_model: doubao-seedream-4-0-250828
   # 图像生成尺寸。建议与目标视频比例一致，例如 2560x1440 / 1920x1080 / 1080x1920。
   image_size: 2560x1440
   # 段落图像风格预设，见 core/prompts.py 的 IMAGE_STYLE_PRESETS。
@@ -68,15 +68,15 @@ step3:
   max_concurrent_image_generation: 1
 
   # 图像提示词脱敏使用的 LLM。一般和步骤2保持一致。
-  llm_server: siliconflow
-  llm_model: Pro/moonshotai/Kimi-K2.6
+  llm_server: volcengine
+  llm_model: doubao-seed-2-0-lite-260428
 
 # =============================================================================
 # Remotion 开场视频
 # =============================================================================
 remotion_opening:
   # 开场左上角刊头。
-  ip_name: 我是个牛逼
+  ip_name: 你是个牛逼
   duration_seconds: 5.0
   fps: 30
   # 金句逐行出现的时间范围。
@@ -92,7 +92,7 @@ remotion_opening:
 step4:
   # 音色 ID。留空时优先读取 .env 的 BYTEDANCE_TTS_VOICE_ID。
   voice: ""
-  # 资源 ID 示例：seed-tts-1.0 / seed-tts-2.0 / seed-icl-1.0 / seed-icl-2.0
+  # 资源 ID：seed-tts-2.0 (语音合成2.0) / seed-icl-2.0 (声音复刻2.0，默认)
   resource_id: seed-icl-2.0
   # TTS 模型示例：seed-tts-2.0-standard / seed-tts-2.0-expressive
   tts_model: seed-tts-2.0-standard
