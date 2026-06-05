@@ -58,6 +58,7 @@ def test_run_step_1_uses_claude_agent_skill_and_loads_raw_json(monkeypatch, tmp_
 
     monkeypatch.setattr(steps, "run_step1_agent", fake_run_step1_agent)
     monkeypatch.setattr(steps, "export_raw_to_docx", lambda *args, **kwargs: None)
+    monkeypatch.setattr(steps.config, "STEP1_AGENT_SKILL", "book-video-script")
 
     result = steps.run_step_1(str(input_file), str(tmp_path / "output"), num_segments=70)
 
@@ -71,7 +72,7 @@ def test_run_step_1_uses_claude_agent_skill_and_loads_raw_json(monkeypatch, tmp_
     assert Path(captured["coverage_ledger_path"]).name == claude_agent.STEP1_COVERAGE_LEDGER_NAME
     assert Path(captured["session_log_path"]).name == claude_agent.STEP1_SESSION_LOG_NAME
     assert captured["num_segments"] == 70
-    assert captured["skill_path"].endswith("skills/video-book-direct-read")
+    assert captured["skill_path"].endswith("skills/book-video-script")
     assert captured["repo_root"] == steps._get_project_root()
     assert captured["extra_requirements"] == ""
     assert result["raw"]["total_length"] == 17

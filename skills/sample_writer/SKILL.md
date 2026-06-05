@@ -9,6 +9,8 @@ description: 简化版的文稿生成技能。能够直接读取图书/文档，
 
 ## 目标字数配置
 
+本配置是本 skill 中正文成稿字数的唯一真相来源。
+
 ```yaml
 draft_min_chars: 1500     # 初稿最小字数
 final_target_chars: 2000  # 终稿目标字数
@@ -16,18 +18,21 @@ final_target_chars: 2000  # 终稿目标字数
 
 ## 主流程
 
-你只需要遵循以下三个核心步骤，不需要记录复杂的覆盖台账：
+你只需要遵循以下三个核心步骤，不需要记录复杂的覆盖台账。运行过程中的中间产物请在工作目录（项目输出的 `text` 文件夹）中落盘：
 
 1. **快速阅读与梳理**：
    - 快速浏览输入文件的核心内容（重点阅读开头、目录、核心章节和结尾）。
    - 提取出全书真正试图回答的**一个核心问题**、作者的**核心解答框架**以及**3个关键案例或论点**。
+   - 将上述提取的核心提纲作为中间产物保存至 `_extract.txt`。
 
 2. **初稿写作（口语化）**：
    - 依据 `references/writing_guide.md` 的规范，撰写一份结构清晰、大白话、适合直接口播的初稿，字数达到 `draft_min_chars`。
+   - 将初稿作为中间产物保存至 `_draft_v1.txt`。
 
 3. **自检与包装输出**：
-   - 进行自我修正，去除多余废话、书面语和“AI味”词汇。
-   - 按照指定的 JSON 契约包装，只输出可解析的标准 JSON 数据。
+   - 进行自我修正，去除多余废话、书面语和“AI味”词汇，并将修正后的终稿保存至 `_draft_final.txt`。
+   - 从 `_draft_final.txt` 生成标题、封面文案、金句、互动和转发引导，并包装为最终 JSON 写入 `{output_json}`。
+   - 确保输出的 `{output_json}` 能够被 Python `json.loads` 解析，且完全符合下面的 JSON 输出契约。
 
 ## 最终 JSON 输出契约
 
@@ -35,14 +40,19 @@ final_target_chars: 2000  # 终稿目标字数
 
 ```json
 {
-  "source_name": "作品名称（如：自私的基因）",
-  "video_titles": ["候选视频标题1", "候选视频标题2", "候选视频标题3"],
-  "cover_titles": ["封面主标题1", "封面主标题2", "封面主标题3"],
-  "golden_quotes": ["金句1", "金句2", "金句3"],
-  "content": "完整口播终稿，字符数达到 final_target_chars 左右，不分段，不带 Markdown 格式",
-  "total_length": 0
+  "source_name": "作品名称（如：自私的基因），不要带文件名后缀",
+  "video_titles": ["3条候选视频标题，互不重复，信息完整"],
+  "cover_titles": ["3条封面主标题，4到10字，短、强、易扫读"],
+  "cover_subtitles": ["3条封面副标题，15字以内"],
+  "golden_quotes": ["3条开场金句，观点鲜明，能让人停下来听"],
+  "comment_hook_options": ["3条评论引导，优先判断句、对照句、追问句，不像运营话术"],
+  "share_hook_options": ["3条转发引导，像观众看完后会自然转发的话"],
+  "content": "完整口播终稿，字数在 final_target_chars 左右，不分段，不写 Markdown 标记或小标题",
+  "total_length": 0,
+  "target_segments": 0
 }
 ```
 
 - `total_length` 为 `content` 的实际字符数。
-- `content` 必须完全口语化，适合直接播音。
+- `target_segments` 必须使用系统传入的目标段数，直接写入，无需虚构。
+- `content` 必须完全口语化，且绝对不能有分段、小标题、换行或列表格式。
