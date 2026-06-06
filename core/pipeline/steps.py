@@ -338,7 +338,7 @@ def run_step_1(
     extra_requirements: str = "",
 ) -> Dict[str, Any]:
     project_output_dir, paths = _create_step1_project(input_file, output_dir)
-    skill_name = getattr(config, "STEP1_AGENT_SKILL", "video-book-direct-read")
+    skill_name = getattr(config, "STEP1_AGENT_SKILL", "book-video-script")
     skill_path = os.path.join(_get_project_root(), "skills", skill_name)
     if not os.path.isdir(skill_path):
         logger.warning(f"技能路径不存在: {skill_path}，切换到默认的 sample_writer 作为兜底。")

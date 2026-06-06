@@ -166,7 +166,7 @@ def test_step1_agent_allows_300_turns(monkeypatch, tmp_path: Path):
             session_log_path=str(tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME),
             text_dir=str(tmp_path / "text"),
             num_segments=70,
-            skill_path=str(tmp_path / "skills" / "video-book-direct-read"),
+            skill_path=str(tmp_path / "skills" / "book-video-script"),
             repo_root=str(tmp_path),
         )
 
@@ -206,7 +206,7 @@ def test_step1_agent_adds_input_directory_to_options(monkeypatch, tmp_path: Path
             session_log_path=str(tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME),
             text_dir=str(tmp_path / "text"),
             num_segments=70,
-            skill_path=str(tmp_path / "skills" / "video-book-direct-read"),
+            skill_path=str(tmp_path / "skills" / "book-video-script"),
             repo_root=str(tmp_path),
         )
 
@@ -218,7 +218,7 @@ def test_step1_agent_adds_input_directory_to_options(monkeypatch, tmp_path: Path
 def test_step1_agent_prompt_includes_absolute_skill_path(tmp_path: Path):
     from core.prompts import build_step1_agent_prompt
 
-    skill_path = tmp_path / "skills" / "video-book-direct-read"
+    skill_path = tmp_path / "skills" / "book-video-script"
     skill_path.mkdir(parents=True)
 
     prompt = build_step1_agent_prompt(
@@ -233,7 +233,7 @@ def test_step1_agent_prompt_includes_absolute_skill_path(tmp_path: Path):
     assert "target_segments" not in prompt
     assert str(tmp_path / "output" / "text") in prompt
     assert "_coverage_ledger.json" not in prompt
-    assert "_extract.txt" not in prompt
+    assert "_extract.md" not in prompt
     assert "不要绕过" in prompt
     assert "使用已启用的原生 skill" not in prompt
     assert "json.loads" in prompt
@@ -246,7 +246,7 @@ def test_step1_agent_prompt_includes_extra_requirements(tmp_path: Path):
         input_file=str(tmp_path / "book.pdf"),
         output_json=str(tmp_path / "output" / "text" / "raw.json"),
         text_dir=str(tmp_path / "output" / "text"),
-        skill_path=str(tmp_path / "skills" / "video-book-direct-read"),
+        skill_path=str(tmp_path / "skills" / "book-video-script"),
         extra_requirements="重点突出女性命运，不要写成王朝史摘要",
     )
 
@@ -285,7 +285,7 @@ def test_agent_session_log_omits_bash_extract_window_output(tmp_path: Path):
                         "id": "call_read_window",
                         "name": "Bash",
                         "input": {
-                            "command": 'EXTRACT="/tmp/output/text/_extract.txt"\nsed -n \'1,120p\' "$EXTRACT"',
+                            "command": 'EXTRACT="/tmp/output/text/_extract.md"\nsed -n \'1,120p\' "$EXTRACT"',
                             "description": "Read window 1 (lines 1-120)",
                         },
                     }
@@ -348,7 +348,7 @@ def test_agent_session_log_omits_skill_reference_read_content(tmp_path: Path):
                 "tool_use_result": {
                     "type": "text",
                     "file": {
-                        "filePath": "/repo/skills/video-book-direct-read/references/reading-strategy.md",
+                        "filePath": "/repo/skills/book-video-script/references/reading-strategy.md",
                         "content": skill_content,
                         "numLines": 2001,
                     },
@@ -492,7 +492,7 @@ def test_agent_session_log_keeps_bash_extract_window_errors(tmp_path: Path):
                     {
                         "id": "call_read_window",
                         "name": "Bash",
-                        "input": {"command": "sed -n '1,120p' /tmp/output/text/_extract.txt"},
+                        "input": {"command": "sed -n '1,120p' /tmp/output/text/_extract.md"},
                     }
                 ],
             }

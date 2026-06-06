@@ -25,13 +25,13 @@ from core.prompts import build_step1_agent_prompt
 STEP1_AGENT_TOOLS = ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Skill"]
 STEP1_AGENT_SKILL = config.STEP1_AGENT_SKILL
 
-STEP1_EXTRACT_NAME = "_extract.txt"
+STEP1_EXTRACT_NAME = "_extract.md"
 STEP1_COVERAGE_LEDGER_NAME = "_coverage_ledger.json"
 STEP1_SESSION_LOG_NAME = "_agent_session.jsonl"
 
 _MAX_LOG_FIELD_CHARS = 12_000
-_OMITTED_BASH_READ_CONTENT = "[omitted: Bash text-window output from _extract.txt]"
-_OMITTED_BASH_READ_COMMAND = "[omitted: Bash text-window read command from _extract.txt]"
+_OMITTED_BASH_READ_CONTENT = "[omitted: Bash text-window output from _extract.md]"
+_OMITTED_BASH_READ_COMMAND = "[omitted: Bash text-window read command from _extract.md]"
 _OMITTED_SKILL_REFERENCE_CONTENT = "[omitted: skill/reference file content]"
 _OMITTED_PERSISTED_FILE_CONTENT = "[omitted: file content already persisted]"
 _OMITTED_PERSISTED_READ_CONTENT = "[omitted: persisted draft/raw file read]"
@@ -138,7 +138,7 @@ class AgentSessionLog:
 
     @staticmethod
     def _is_extract_window_read_command(command: str) -> bool:
-        return "_extract.txt" in command and bool(_BASH_READ_WINDOW_RE.search(command))
+        return "_extract.md" in command and bool(_BASH_READ_WINDOW_RE.search(command))
 
     @staticmethod
     def _is_skill_reference_path(path: str) -> bool:
@@ -166,6 +166,7 @@ class AgentSessionLog:
             "_draft_v1.txt",
             "_draft_v2_structure.txt",
             "_draft_final.txt",
+            "_data_check_ledger.json",
             "_revision_audit.json",
             "raw.json",
         }

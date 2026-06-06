@@ -19,18 +19,18 @@ global:
 # =============================================================================
 step1:
   # 可选：mimo / deepseek / siliconflow / openrouter
-  llm_server: mimo
+  llm_server: deepseek
   # 按供应商要求填写完整模型名。
-  llm_model: mimo-v2.5-pro
+  llm_model: deepseek-v4-pro
   # 使用根目录 skills/ 下的写作 skill；一般不需要改。
-  agent_skill: video-book-direct-read
+  agent_skill: sample_writer
 
 # =============================================================================
 # 步骤1.5：脚本分段
 # =============================================================================
 step1_5:
   # 视频分段数量。建议 5-100，越多视频节奏越碎、生成成本越高。
-  num_segments: 75
+  num_segments: 50
 
 # =============================================================================
 # 步骤2：要点提取 / 描述小结
@@ -93,7 +93,7 @@ step4:
   # 音色 ID。留空时优先读取 .env 的 BYTEDANCE_TTS_VOICE_ID。
   voice: ""
   # 资源 ID：seed-tts-2.0 (语音合成2.0) / seed-icl-2.0 (声音复刻2.0，默认)
-  resource_id: seed-icl-2.0
+  resource_id: seed-tts-2.0
   # TTS 模型示例：seed-tts-2.0-standard / seed-tts-2.0-expressive
   tts_model: seed-tts-2.0-standard
   # 情感示例：neutral / happy / sad 等，具体取决于供应商支持。

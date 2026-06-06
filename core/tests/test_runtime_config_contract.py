@@ -13,11 +13,11 @@ def test_config_exposes_current_runtime_params():
 
     params = get_generation_params()
 
-    assert params["llm_server_step2"] == "siliconflow"
+    assert params["llm_server_step2"] == "volcengine"
     assert params["llm_base_url_step2"] == config.LLM_BASE_URL_STEP2
-    assert params["llm_server_step3"] == "siliconflow"
+    assert params["llm_server_step3"] == "volcengine"
     assert params["llm_base_url_step3"] == config.LLM_BASE_URL_STEP3
-    assert "siliconflow" in config.SUPPORTED_LLM_SERVERS
+    assert "volcengine" in config.SUPPORTED_LLM_SERVERS
     assert config.IMAGE_STYLE_PRESET == params["image_style_preset"]
     assert params["cover_image_server"] == "google_adc"
 
