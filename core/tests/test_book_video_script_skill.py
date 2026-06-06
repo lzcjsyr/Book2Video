@@ -32,3 +32,23 @@ def test_skill_entry_requires_coverage_ledger_before_scripting():
     assert "_coverage_ledger.json" in reading
     assert "coverage_check.passed=true" in skill
     assert "行覆盖率" in reading
+
+
+def test_reading_strategy_keeps_core_execution_rules():
+    reading = (SKILL_DIR / "references" / "reading-strategy.md").read_text(encoding="utf-8")
+
+    for marker in [
+        "Bash",
+        "23000",
+        "150000",
+        "200000",
+        "required_coverage_ratio: 1.0",
+        "required_coverage_ratio: 0.8",
+        "required_coverage_ratio: 0.5",
+        "_coverage_ledger.json",
+        "coverage_check.passed=true",
+        "减半",
+        "partial",
+        "禁止",
+    ]:
+        assert marker in reading

@@ -23,7 +23,25 @@ step1:
   # 按供应商要求填写完整模型名。
   llm_model: deepseek-v4-pro
   # 使用根目录 skills/ 下的写作 skill；一般不需要改。
-  agent_skill: sample_writer
+  agent_skill: book-video-script
+  # 可选 subagent。关闭时仍按 book-video-script 独立完成第一步。
+  subagents:
+    enabled: false
+    agents:
+      title-quote-writer:
+        enabled: true
+        description: 第一稿固定后生成标题、封面文案和金句候选
+        prompt_file: prompts/step1_subagents/title-quote-writer.md
+        model: inherit
+        max_turns: 20
+        tools: [Read, Write]
+      fact-style-reviewer:
+        enabled: true
+        description: 分阶段审查第二稿结构和终稿事实、风格、JSON 契约风险
+        prompt_file: prompts/step1_subagents/fact-style-reviewer.md
+        model: inherit
+        max_turns: 30
+        tools: [Read, Grep]
 
 # =============================================================================
 # 步骤1.5：脚本分段

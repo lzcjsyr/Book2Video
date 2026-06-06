@@ -127,6 +127,16 @@ def test_step_1_normalizes_target_segments_in_raw_json(tmp_path: Path):
 
 def test_build_step1_agent_env_uses_mimo_gateway(monkeypatch):
     monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_SERVER_STEP1",
+        "mimo",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_MODEL_STEP1",
+        "mimo-v2.5-pro",
+        raising=False,
+    )
+    monkeypatch.setattr(
         "core.infra.ai.claude_agent.config.MIMO_API_KEY",
         "test-mimo-key",
         raising=False,
@@ -173,6 +183,134 @@ def test_step1_agent_allows_300_turns(monkeypatch, tmp_path: Path):
     anyio.run(run_agent)
 
     assert captured["max_turns"] == 300
+
+
+def test_step1_agent_keeps_agent_tool_disabled_without_subagents(monkeypatch, tmp_path: Path):
+    captured = {}
+    output_json = tmp_path / "text" / "raw.json"
+
+    async def fake_query(*, prompt, options):
+        captured["allowed_tools"] = list(options.allowed_tools)
+        captured["agents"] = options.agents
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+        output_json.write_text(json.dumps(_valid_raw(), ensure_ascii=False), encoding="utf-8")
+        yield ResultMessage(
+            subtype="success",
+            duration_ms=0,
+            duration_api_ms=0,
+            is_error=False,
+            num_turns=1,
+            session_id="test-session",
+        )
+
+    monkeypatch.setattr(claude_agent, "query", fake_query)
+    monkeypatch.setattr(claude_agent, "build_step1_agent_env", lambda: {})
+    monkeypatch.setattr(claude_agent.config, "STEP1_SUBAGENTS", {"enabled": False, "agents": {}}, raising=False)
+
+    async def run_agent():
+        await claude_agent._run_step1_agent_async(
+            input_file=str(tmp_path / "book.pdf"),
+            output_json=str(output_json),
+            extract_path=str(tmp_path / "text" / claude_agent.STEP1_EXTRACT_NAME),
+            coverage_ledger_path=str(tmp_path / "text" / claude_agent.STEP1_COVERAGE_LEDGER_NAME),
+            session_log_path=str(tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME),
+            text_dir=str(tmp_path / "text"),
+            num_segments=70,
+            skill_path=str(tmp_path / "skills" / "book-video-script"),
+            repo_root=str(tmp_path),
+        )
+
+    anyio.run(run_agent)
+
+    assert "Agent" not in captured["allowed_tools"]
+    assert captured["agents"] is None
+
+
+def test_step1_agent_configures_enabled_subagents(monkeypatch, tmp_path: Path):
+    captured = {}
+    output_json = tmp_path / "text" / "raw.json"
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("写入 _title_quote_candidates.json。", encoding="utf-8")
+
+    async def fake_query(*, prompt, options):
+        captured["allowed_tools"] = list(options.allowed_tools)
+        captured["agents"] = options.agents
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+        output_json.write_text(json.dumps(_valid_raw(), ensure_ascii=False), encoding="utf-8")
+        yield ResultMessage(
+            subtype="success",
+            duration_ms=0,
+            duration_api_ms=0,
+            is_error=False,
+            num_turns=1,
+            session_id="test-session",
+        )
+
+    monkeypatch.setattr(claude_agent, "query", fake_query)
+    monkeypatch.setattr(claude_agent, "build_step1_agent_env", lambda: {})
+    monkeypatch.setattr(
+        claude_agent.config,
+        "STEP1_SUBAGENTS",
+        {
+            "enabled": True,
+            "agents": {
+                "title-quote-writer": {
+                    "enabled": True,
+                    "description": "生成标题、封面文案和金句",
+                    "prompt_file": str(prompt_file),
+                    "model": "inherit",
+                    "max_turns": 12,
+                    "tools": ["Read", "Write"],
+                },
+                "disabled-agent": {"enabled": False, "description": "不应启用"},
+            },
+        },
+        raising=False,
+    )
+
+    async def run_agent():
+        await claude_agent._run_step1_agent_async(
+            input_file=str(tmp_path / "book.pdf"),
+            output_json=str(output_json),
+            extract_path=str(tmp_path / "text" / claude_agent.STEP1_EXTRACT_NAME),
+            coverage_ledger_path=str(tmp_path / "text" / claude_agent.STEP1_COVERAGE_LEDGER_NAME),
+            session_log_path=str(tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME),
+            text_dir=str(tmp_path / "text"),
+            num_segments=70,
+            skill_path=str(tmp_path / "skills" / "book-video-script"),
+            repo_root=str(tmp_path),
+        )
+
+    anyio.run(run_agent)
+
+    agent = captured["agents"]["title-quote-writer"]
+    assert "Agent" in captured["allowed_tools"]
+    assert set(captured["agents"]) == {"title-quote-writer"}
+    assert agent.description == "生成标题、封面文案和金句"
+    assert agent.prompt == "写入 _title_quote_candidates.json。"
+    assert agent.tools == ["Read", "Write"]
+    assert agent.maxTurns == 12
+
+
+def test_step1_subagent_instruction_starts_title_quote_after_first_draft(monkeypatch):
+    monkeypatch.setattr(
+        claude_agent.config,
+        "STEP1_SUBAGENTS",
+        {"enabled": True, "agents": {}},
+        raising=False,
+    )
+    agents = {
+        "title-quote-writer": object(),
+        "fact-style-reviewer": object(),
+    }
+
+    instruction = claude_agent._with_step1_subagent_instruction("", agents)
+
+    assert "第一稿" in instruction
+    assert "_title_quote_candidates.json" in instruction
+    assert "完成 _draft_final.txt 后" in instruction
+    assert "审稿类 subagent" in instruction
+    assert "包装 raw JSON 前，可调用标题金句类 subagent" not in instruction
 
 
 def test_step1_agent_adds_input_directory_to_options(monkeypatch, tmp_path: Path):
@@ -544,4 +682,3 @@ def test_run_step_1_skill_path_fallback(monkeypatch, tmp_path: Path):
 
     assert result["success"] is True
     assert captured["skill_path"].endswith("skills/sample_writer")
-

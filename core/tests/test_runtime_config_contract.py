@@ -1,3 +1,6 @@
+from pathlib import Path
+
+
 def test_generation_params_match_cli_entrypoint_signature():
     from core.cli.ui_helpers import run_cli_main
     from core.config import get_generation_params
@@ -6,6 +9,74 @@ def test_generation_params_match_cli_entrypoint_signature():
     accepted = set(run_cli_main.__code__.co_varnames[:run_cli_main.__code__.co_argcount])
 
     assert set(params) <= accepted
+
+
+def test_config_loads_step1_subagents(tmp_path):
+    from core.config import _load_yaml_overrides
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+step1:
+  llm_server: deepseek
+  llm_model: deepseek-v4-pro
+  agent_skill: book-video-script
+  subagents:
+    enabled: true
+    agents:
+      title-quote-writer:
+        enabled: true
+        description: 生成标题和金句
+        prompt_file: prompts/step1_subagents/title-quote-writer.md
+        model: inherit
+        max_turns: 12
+        tools: [Read]
+""",
+        encoding="utf-8",
+    )
+
+    subagents = _load_yaml_overrides(config_path)["STEP1_SUBAGENTS"]
+
+    assert subagents["enabled"] is True
+    assert "auto_instructions" not in subagents
+    assert subagents["agents"]["title-quote-writer"]["prompt_file"] == "prompts/step1_subagents/title-quote-writer.md"
+    assert subagents["agents"]["title-quote-writer"]["tools"] == ["Read"]
+    assert subagents["agents"]["title-quote-writer"]["max_turns"] == 12
+
+
+def test_title_quote_subagent_prompt_persists_candidates():
+    prompt = Path("prompts/step1_subagents/title-quote-writer.md").read_text(encoding="utf-8")
+
+    assert "_title_quote_candidates.json" in prompt
+    assert "raw.json" in prompt
+    assert "早期稳定稿" in prompt
+    assert "只读取主 agent 已生成的终稿" not in prompt
+
+
+def test_reviewer_prompt_treats_comment_and_share_hooks_as_revision_dimensions():
+    prompt = Path("prompts/step1_subagents/fact-style-reviewer.md").read_text(encoding="utf-8")
+
+    assert "comment_hook_options" in prompt
+    assert "share_hook_options" in prompt
+    assert "结构和措辞" in prompt
+    assert "不要替主 agent 直接生成最终字段" in prompt
+
+
+def test_step1_subagent_prompts_do_not_depend_on_book_video_script_internals():
+    prompt_dir = Path("prompts/step1_subagents")
+    prompts = "\n".join(path.read_text(encoding="utf-8") for path in prompt_dir.glob("*.md"))
+
+    forbidden = [
+        "_extract.md",
+        "_coverage_ledger.json",
+        "_draft_v1.txt",
+        "_draft_v2_structure.txt",
+        "_draft_final.txt",
+        "_revision_audit.json",
+        "skills/book-video-script",
+    ]
+    for marker in forbidden:
+        assert marker not in prompts
 
 
 def test_config_exposes_current_runtime_params():

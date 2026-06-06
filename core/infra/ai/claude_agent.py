@@ -10,6 +10,7 @@ from typing import Any
 
 import anyio
 from claude_agent_sdk import (
+    AgentDefinition,
     AssistantMessage,
     ClaudeAgentOptions,
     ResultMessage,
@@ -24,6 +25,11 @@ from core.prompts import build_step1_agent_prompt
 
 STEP1_AGENT_TOOLS = ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Skill"]
 STEP1_AGENT_SKILL = config.STEP1_AGENT_SKILL
+
+_STEP1_SUBAGENT_PROMPTS = {
+    "title-quote-writer": "第一稿固定后生成标题、封面文案和金句候选，写入 _title_quote_candidates.json。",
+    "fact-style-reviewer": "只返回事实、结构、风格和 JSON 契约问题清单；不要写文件。",
+}
 
 STEP1_EXTRACT_NAME = "_extract.md"
 STEP1_COVERAGE_LEDGER_NAME = "_coverage_ledger.json"
@@ -44,6 +50,53 @@ def _step1_agent_add_dirs(input_file: str) -> list[str]:
     if input_path.is_dir():
         return [str(input_path)]
     return [str(input_path.parent)]
+
+
+def _load_step1_subagent_prompt(agent_config: dict[str, Any], name: str) -> str:
+    prompt_file = agent_config.get("prompt_file")
+    if prompt_file:
+        path = Path(prompt_file)
+        if not path.is_absolute():
+            path = Path(__file__).resolve().parents[3] / path
+        return path.read_text(encoding="utf-8").strip()
+    return _STEP1_SUBAGENT_PROMPTS.get(name, _STEP1_SUBAGENT_PROMPTS["fact-style-reviewer"])
+
+
+def _build_step1_subagents() -> dict[str, AgentDefinition]:
+    subagent_config = getattr(config, "STEP1_SUBAGENTS", None) or {}
+    if not subagent_config.get("enabled"):
+        return {}
+
+    agents: dict[str, AgentDefinition] = {}
+    for name, agent_config in (subagent_config.get("agents") or {}).items():
+        if not agent_config.get("enabled", True):
+            continue
+        model = agent_config.get("model")
+        agents[name] = AgentDefinition(
+            description=agent_config.get("description") or name,
+            prompt=_load_step1_subagent_prompt(agent_config, name),
+            tools=agent_config.get("tools"),
+            model=None if model in {None, "", "inherit"} else str(model),
+            maxTurns=agent_config.get("max_turns"),
+        )
+    return agents
+
+
+def _with_step1_subagent_instruction(extra_requirements: str, agents: dict[str, AgentDefinition]) -> str:
+    if not agents:
+        return extra_requirements
+    names = ", ".join(agents)
+    note = (
+        f"已启用可选 subagent：{names}。它们是锦上添花，不替代 skill 主流程。"
+        "第一稿 _draft_v1.txt 固定后，立即调用标题金句类 subagent 读取第一稿和必要上下文，"
+        "生成候选并写入 _title_quote_candidates.json；这项任务可与后续改稿并行。"
+        "完成 _draft_v2_structure.txt 后，可调用审稿类 subagent 获取结构建议；"
+        "完成 _draft_final.txt 后，可再次调用审稿类 subagent 获取事实/风格/契约建议。"
+        "终稿确认后，由主 agent 读取标题金句候选，按终稿角度筛选或轻微改写，"
+        "最终修改、字段整合、json.dump 写入和契约校验仍由主 agent 负责；"
+        "如果 subagent 不可用或结果不合适，继续按 skill 独立完成任务。"
+    )
+    return f"{extra_requirements.strip()}\n\n{note}".strip()
 
 
 def build_step1_agent_env() -> dict[str, str]:
@@ -357,19 +410,23 @@ async def _run_step1_agent_async(
     repo_root: str,
     extra_requirements: str = "",
 ) -> None:
+    subagents = _build_step1_subagents()
+    effective_extra_requirements = _with_step1_subagent_instruction(extra_requirements, subagents)
     prompt = build_step1_agent_prompt(
         input_file=input_file,
         output_json=output_json,
         text_dir=text_dir,
         skill_path=skill_path,
-        extra_requirements=extra_requirements,
+        extra_requirements=effective_extra_requirements,
     )
     actual_skill = Path(skill_path).name if skill_path else STEP1_AGENT_SKILL
+    tools = STEP1_AGENT_TOOLS + (["Agent"] if subagents else [])
     options = ClaudeAgentOptions(
         cwd=repo_root,
         model=config.LLM_MODEL_STEP1,
-        tools=STEP1_AGENT_TOOLS,
-        allowed_tools=STEP1_AGENT_TOOLS,
+        tools=tools,
+        allowed_tools=tools,
+        agents=subagents or None,
         skills=[actual_skill],
         permission_mode="acceptEdits",
         max_turns=300,
@@ -390,10 +447,21 @@ async def _run_step1_agent_async(
             "skill_path": skill_path,
             "repo_root": repo_root,
             "extra_requirements": extra_requirements,
+            "effective_extra_requirements": effective_extra_requirements,
             "add_dirs": _step1_agent_add_dirs(input_file),
             "model": config.LLM_MODEL_STEP1,
-            "tools": STEP1_AGENT_TOOLS,
+            "tools": tools,
             "skill": actual_skill,
+            "subagents_enabled": bool(subagents),
+            "subagents": {
+                name: {
+                    "description": agent.description,
+                    "tools": agent.tools,
+                    "model": agent.model,
+                    "max_turns": agent.maxTurns,
+                }
+                for name, agent in subagents.items()
+            },
             "prompt": prompt,
         },
     )

@@ -120,6 +120,12 @@ _YAML_SCHEMA: Dict[str, Dict[str, str]] = {
     },
 }
 
+_STRUCTURED_YAML_SCHEMA = {
+    "step1": {"subagents": "STEP1_SUBAGENTS"},
+}
+
+STEP1_SUBAGENTS = {"enabled": False, "agents": {}}
+
 _PARAM_CONSTANTS = {
     "num_segments": "NUM_SEGMENTS",
     "image_size": "IMAGE_SIZE",
@@ -153,7 +159,46 @@ _PARAM_CONSTANTS = {
 
 _KNOWN_CONFIG_CONSTANTS = {
     constant for section in _YAML_SCHEMA.values() for constant in section.values()
-}
+} | {constant for section in _STRUCTURED_YAML_SCHEMA.values() for constant in section.values()}
+
+
+def _normalize_step1_subagents(value: object) -> dict:
+    if value is None:
+        return dict(STEP1_SUBAGENTS)
+    if not isinstance(value, Mapping):
+        raise ValueError("配置项 step1.subagents 必须是对象")
+
+    allowed_top = {"enabled", "agents"}
+    unknown = set(value) - allowed_top
+    if unknown:
+        raise ValueError(f"未知配置项: step1.subagents.{sorted(unknown)[0]}")
+
+    agents_value = value.get("agents", {})
+    if not isinstance(agents_value, Mapping):
+        raise ValueError("配置项 step1.subagents.agents 必须是对象")
+
+    allowed_agent = {"enabled", "description", "prompt_file", "model", "max_turns", "tools"}
+    agents: Dict[str, dict] = {}
+    for name, agent_config in agents_value.items():
+        if not isinstance(agent_config, Mapping):
+            raise ValueError(f"配置项 step1.subagents.agents.{name} 必须是对象")
+        unknown = set(agent_config) - allowed_agent
+        if unknown:
+            raise ValueError(f"未知配置项: step1.subagents.agents.{name}.{sorted(unknown)[0]}")
+        tools = agent_config.get("tools")
+        if tools is not None and not (
+            isinstance(tools, list) and all(isinstance(tool, str) for tool in tools)
+        ):
+            raise ValueError(f"配置项 step1.subagents.agents.{name}.tools 必须是字符串列表")
+        max_turns = agent_config.get("max_turns")
+        if max_turns is not None and not isinstance(max_turns, int):
+            raise ValueError(f"配置项 step1.subagents.agents.{name}.max_turns 必须是整数")
+        agents[str(name)] = dict(agent_config)
+
+    return {
+        "enabled": bool(value.get("enabled", False)),
+        "agents": agents,
+    }
 
 
 def _coerce_yaml_value(constant_name: str, value: object) -> object:
@@ -183,7 +228,11 @@ def _load_yaml_overrides(config_path: str | os.PathLike[str]) -> Dict[str, objec
         if not isinstance(values, Mapping):
             raise ValueError(f"配置分组 {section} 必须是对象")
         allowed = _YAML_SCHEMA[section]
+        structured = _STRUCTURED_YAML_SCHEMA.get(section, {})
         for key, value in values.items():
+            if key in structured:
+                overrides[structured[key]] = _normalize_step1_subagents(value)
+                continue
             if key not in allowed:
                 raise ValueError(f"未知配置项: {section}.{key}")
             constant_name = allowed[key]
