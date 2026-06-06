@@ -292,25 +292,13 @@ def test_step1_agent_configures_enabled_subagents(monkeypatch, tmp_path: Path):
     assert agent.maxTurns == 12
 
 
-def test_step1_subagent_instruction_starts_title_quote_after_first_draft(monkeypatch):
-    monkeypatch.setattr(
-        claude_agent.config,
-        "STEP1_SUBAGENTS",
-        {"enabled": True, "agents": {}},
-        raising=False,
-    )
-    agents = {
-        "title-quote-writer": object(),
-        "fact-style-reviewer": object(),
-    }
+def test_step1_subagent_instruction_is_managed_by_prompt_file():
+    instruction = claude_agent._with_step1_subagent_instruction("保留用户要求", {"subagent": object()})
+    prompt = Path("prompts/step1_agent.md").read_text(encoding="utf-8")
 
-    instruction = claude_agent._with_step1_subagent_instruction("", agents)
-
-    assert "第一稿" in instruction
-    assert "_title_quote_candidates.json" in instruction
-    assert "完成 _draft_final.txt 后" in instruction
-    assert "审稿类 subagent" in instruction
-    assert "包装 raw JSON 前，可调用标题金句类 subagent" not in instruction
+    assert instruction == "保留用户要求"
+    assert "如果当前会话存在可调用的 subagent" in prompt
+    assert "充分理解这些 subagent 的功能" in prompt
 
 
 def test_step1_agent_adds_input_directory_to_options(monkeypatch, tmp_path: Path):
@@ -409,6 +397,34 @@ def test_agent_session_log_appends_jsonl_records(tmp_path: Path):
     assert "ts" in first
 
 
+def test_agent_session_log_skips_thinking_token_progress_events(tmp_path: Path):
+    log_path = tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME
+    session_log = claude_agent.AgentSessionLog(log_path)
+
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "SystemMessage",
+                "subtype": "thinking_tokens",
+                "data": {
+                    "type": "system",
+                    "subtype": "thinking_tokens",
+                    "estimated_tokens": 30,
+                    "estimated_tokens_delta": 5,
+                },
+            }
+        },
+    )
+    session_log.append("message", {"message": {"kind": "UserMessage", "content": "hi"}})
+
+    records = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+
+    assert len(records) == 1
+    assert records[0]["seq"] == 1
+    assert records[0]["message"]["kind"] == "UserMessage"
+
+
 def test_agent_session_log_omits_bash_extract_window_output(tmp_path: Path):
     log_path = tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME
     session_log = claude_agent.AgentSessionLog(log_path)
@@ -456,7 +472,8 @@ def test_agent_session_log_omits_bash_extract_window_output(tmp_path: Path):
     first, second = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
     assistant_item = first["message"]["content"][0]
     user_item = second["message"]["content"][0]
-    assert assistant_item["input"]["command"].startswith("[omitted:")
+    assert "_extract.md" in assistant_item["input"]["command"]
+    assert assistant_item["input"]["command_length"] == len('EXTRACT="/tmp/output/text/_extract.md"\nsed -n \'1,120p\' "$EXTRACT"')
     assert assistant_item["log_omitted"] == "bash_extract_window_read"
     assert user_item["content"].startswith("[omitted:")
     assert user_item["content_length"] == len("正文" * 10000)
@@ -465,6 +482,68 @@ def test_agent_session_log_omits_bash_extract_window_output(tmp_path: Path):
     assert tool_result["stdout"].startswith("[omitted:")
     assert tool_result["stdout_length"] == len(large_stdout)
     assert tool_result["log_omitted"] == "bash_extract_window_output"
+
+
+def test_agent_session_log_omits_bash_extract_txt_window_output_after_truncation(tmp_path: Path):
+    log_path = tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME
+    session_log = claude_agent.AgentSessionLog(log_path)
+    truncated_stdout = {
+        "_truncated": True,
+        "length": 22885,
+        "preview": "JONATHAN SPENCE\nGOD'S CHINESE SON\n" + ("正文" * 1000),
+    }
+    command = 'EXTRACT="/tmp/output/text/_extract.txt"\nsed -n \'1,120p\' "$EXTRACT"'
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "AssistantMessage",
+                "content": [
+                    {
+                        "id": "call_read_window_txt",
+                        "name": "Bash",
+                        "input": {
+                            "command": command,
+                            "description": "Read window 1 (lines 1-120)",
+                        },
+                    }
+                ],
+            }
+        },
+    )
+    session_log.append(
+        "message",
+        {
+            "message": {
+                "kind": "UserMessage",
+                "content": [
+                    {
+                        "tool_use_id": "call_read_window_txt",
+                        "content": truncated_stdout,
+                        "is_error": False,
+                    }
+                ],
+                "tool_use_result": {
+                    "tool_use_id": "call_read_window_txt",
+                    "stdout": truncated_stdout,
+                    "stderr": "",
+                    "is_error": False,
+                },
+            }
+        },
+    )
+
+    first, second = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    assistant_item = first["message"]["content"][0]
+    user_item = second["message"]["content"][0]
+    assert assistant_item["input"]["command"] == command
+    assert assistant_item["log_omitted"] == "bash_extract_window_read"
+    assert user_item["content"].startswith("[omitted:")
+    assert user_item["content_length"] == 22885
+    assert "JONATHAN SPENCE" not in json.dumps(second, ensure_ascii=False)
+    tool_result = second["message"]["tool_use_result"]
+    assert tool_result["stdout"].startswith("[omitted:")
+    assert tool_result["stdout_length"] == 22885
 
 
 def test_agent_session_log_omits_skill_reference_read_content(tmp_path: Path):

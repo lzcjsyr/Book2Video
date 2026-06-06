@@ -36,8 +36,7 @@ STEP1_COVERAGE_LEDGER_NAME = "_coverage_ledger.json"
 STEP1_SESSION_LOG_NAME = "_agent_session.jsonl"
 
 _MAX_LOG_FIELD_CHARS = 12_000
-_OMITTED_BASH_READ_CONTENT = "[omitted: Bash text-window output from _extract.md]"
-_OMITTED_BASH_READ_COMMAND = "[omitted: Bash text-window read command from _extract.md]"
+_OMITTED_BASH_READ_CONTENT = "[omitted: Bash text-window output from extracted source text]"
 _OMITTED_SKILL_REFERENCE_CONTENT = "[omitted: skill/reference file content]"
 _OMITTED_PERSISTED_FILE_CONTENT = "[omitted: file content already persisted]"
 _OMITTED_PERSISTED_READ_CONTENT = "[omitted: persisted draft/raw file read]"
@@ -83,20 +82,7 @@ def _build_step1_subagents() -> dict[str, AgentDefinition]:
 
 
 def _with_step1_subagent_instruction(extra_requirements: str, agents: dict[str, AgentDefinition]) -> str:
-    if not agents:
-        return extra_requirements
-    names = ", ".join(agents)
-    note = (
-        f"已启用可选 subagent：{names}。它们是锦上添花，不替代 skill 主流程。"
-        "第一稿 _draft_v1.txt 固定后，立即调用标题金句类 subagent 读取第一稿和必要上下文，"
-        "生成候选并写入 _title_quote_candidates.json；这项任务可与后续改稿并行。"
-        "完成 _draft_v2_structure.txt 后，可调用审稿类 subagent 获取结构建议；"
-        "完成 _draft_final.txt 后，可再次调用审稿类 subagent 获取事实/风格/契约建议。"
-        "终稿确认后，由主 agent 读取标题金句候选，按终稿角度筛选或轻微改写，"
-        "最终修改、字段整合、json.dump 写入和契约校验仍由主 agent 负责；"
-        "如果 subagent 不可用或结果不合适，继续按 skill 独立完成任务。"
-    )
-    return f"{extra_requirements.strip()}\n\n{note}".strip()
+    return extra_requirements
 
 
 def build_step1_agent_env() -> dict[str, str]:
@@ -191,7 +177,17 @@ class AgentSessionLog:
 
     @staticmethod
     def _is_extract_window_read_command(command: str) -> bool:
-        return "_extract.md" in command and bool(_BASH_READ_WINDOW_RE.search(command))
+        return bool(re.search(r"(?:^|[/\\])_extract\.(?:txt|md)\b", command)) and bool(
+            _BASH_READ_WINDOW_RE.search(command)
+        )
+
+    @staticmethod
+    def _value_length(value: Any) -> int | None:
+        if isinstance(value, str):
+            return len(value)
+        if isinstance(value, dict) and value.get("_truncated") is True and isinstance(value.get("length"), int):
+            return value["length"]
+        return None
 
     @staticmethod
     def _is_skill_reference_path(path: str) -> bool:
@@ -283,7 +279,7 @@ class AgentSessionLog:
                         self._omitted_bash_read_tool_ids.add(tool_id)
                     compacted_item = dict(item)
                     compacted_input = dict(input_payload or {})
-                    compacted_input["command"] = _OMITTED_BASH_READ_COMMAND
+                    compacted_input["command_length"] = len(command)
                     compacted_item["input"] = compacted_input
                     compacted_item["log_omitted"] = "bash_extract_window_read"
                     compacted_content.append(compacted_item)
@@ -306,7 +302,7 @@ class AgentSessionLog:
                 content_value = item.get("content")
                 compacted_item = dict(item)
                 compacted_item["content"] = _OMITTED_BASH_READ_CONTENT
-                compacted_item["content_length"] = len(content_value) if isinstance(content_value, str) else None
+                compacted_item["content_length"] = self._value_length(content_value)
                 compacted_item["log_omitted"] = "bash_extract_window_output"
                 omitted_tool_result_ids.add(tool_use_id)
                 compacted_content.append(compacted_item)
@@ -375,14 +371,26 @@ class AgentSessionLog:
             if should_omit_result and not is_error:
                 compacted_result = dict(tool_use_result)
                 stdout = compacted_result.get("stdout")
-                if isinstance(stdout, str):
+                stdout_length = self._value_length(stdout)
+                if stdout is not None:
                     compacted_result["stdout"] = _OMITTED_BASH_READ_CONTENT
-                    compacted_result["stdout_length"] = len(stdout)
+                    compacted_result["stdout_length"] = stdout_length
                     compacted_result["log_omitted"] = "bash_extract_window_output"
                     compacted_message["tool_use_result"] = compacted_result
         return {**payload, "message": compacted_message}
 
+    @staticmethod
+    def _is_thinking_token_progress(payload: dict[str, Any]) -> bool:
+        message = payload.get("message")
+        if not isinstance(message, dict) or message.get("kind") != "SystemMessage":
+            return False
+        data = message.get("data")
+        data_subtype = data.get("subtype") if isinstance(data, dict) else None
+        return message.get("subtype") == "thinking_tokens" or data_subtype == "thinking_tokens"
+
     def append(self, event: str, payload: dict[str, Any]) -> None:
+        if event == "message" and self._is_thinking_token_progress(payload):
+            return
         self._seq += 1
         if event == "message":
             payload = self._compact_message_payload(payload)

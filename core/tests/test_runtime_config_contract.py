@@ -44,12 +44,29 @@ step1:
     assert subagents["agents"]["title-quote-writer"]["max_turns"] == 12
 
 
+def test_example_subagent_descriptions_are_triggerable():
+    from core.config import _load_yaml_overrides
+
+    subagents = _load_yaml_overrides("config.example.yaml")["STEP1_SUBAGENTS"]["agents"]
+    title_description = subagents["title-quote-writer"]["description"]
+    reviewer_description = subagents["fact-style-reviewer"]["description"]
+
+    for marker in ["早期稳定稿", "标题", "封面", "金句"]:
+        assert marker in title_description
+    for marker in ["结构稿", "终稿", "传播钩子", "JSON 契约"]:
+        assert marker in reviewer_description
+
+
 def test_title_quote_subagent_prompt_persists_candidates():
     prompt = Path("prompts/step1_subagents/title-quote-writer.md").read_text(encoding="utf-8")
 
     assert "_title_quote_candidates.json" in prompt
     assert "raw.json" in prompt
     assert "早期稳定稿" in prompt
+    assert "json.loads" in prompt
+    assert "中文引号" in prompt
+    assert "先生成 20 条金句" in prompt
+    assert "选出最强 3 条" in prompt
     assert "只读取主 agent 已生成的终稿" not in prompt
 
 
