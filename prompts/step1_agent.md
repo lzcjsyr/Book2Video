@@ -6,9 +6,15 @@
 
 - 先读取 `{skill_path}`，并按它指向的 references 执行。
 - 工作目录：`{text_dir}`。需要落盘的中间产物放在这里，具体文件名和流程以 `{skill_path}` 为准。
-- 如果当前会话存在可调用的 subagent，在每个阶段性产物完成后，必须先检查 subagent 的 description；若某个 subagent 的 description 与当前阶段匹配，就用 Agent 工具调用对应的 subagent_type。不要用通用 Agent 代替已有专门 subagent。
 
 用户额外要求：{extra_requirements}
+
+Subagent 调用要求：
+
+- 如果当前会话存在可调用的 subagent，每完成一个阶段性产物后，先检查所有 subagent 的 description。
+- 第一稿完成并达标后，调用标题、封面文案、金句候选相关 subagent。
+- 第一稿和第二稿完后，调用审稿和修改建议相关 subagent，获取建议。
+- subagent 只辅助判断和产出，最终整合与 `{output_json}` 写入仍由你负责。
 
 外层硬约束：
 
