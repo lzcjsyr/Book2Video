@@ -34,6 +34,7 @@ step1:
         prompt_file: prompts/step1_subagents/title-quote-writer.md
         model: inherit
         max_turns: 20
+        background: true
         tools: [Read, Write]
       fact-style-reviewer:
         enabled: true
@@ -41,6 +42,7 @@ step1:
         prompt_file: prompts/step1_subagents/fact-style-reviewer.md
         model: inherit
         max_turns: 30
+        background: false
         tools: [Read, Grep]
 
 # =============================================================================

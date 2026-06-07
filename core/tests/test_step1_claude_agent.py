@@ -260,6 +260,7 @@ def test_step1_agent_configures_enabled_subagents(monkeypatch, tmp_path: Path):
                     "prompt_file": str(prompt_file),
                     "model": "inherit",
                     "max_turns": 12,
+                    "background": True,
                     "tools": ["Read", "Write"],
                 },
                 "disabled-agent": {"enabled": False, "description": "不应启用"},
@@ -290,6 +291,7 @@ def test_step1_agent_configures_enabled_subagents(monkeypatch, tmp_path: Path):
     assert agent.prompt == "写入 _title_quote_candidates.json。"
     assert agent.tools == ["Read", "Write"]
     assert agent.maxTurns == 12
+    assert agent.background is True
 
 
 def test_step1_subagent_instruction_is_managed_by_prompt_file():
@@ -298,7 +300,7 @@ def test_step1_subagent_instruction_is_managed_by_prompt_file():
 
     assert instruction == "保留用户要求"
     assert "如果当前会话存在可调用的 subagent" in prompt
-    assert "充分理解这些 subagent 的功能" in prompt
+    assert "必须明确告知本次使用的 `{skill_path}`" in prompt
 
 
 def test_step1_agent_adds_input_directory_to_options(monkeypatch, tmp_path: Path):

@@ -177,7 +177,7 @@ def _normalize_step1_subagents(value: object) -> dict:
     if not isinstance(agents_value, Mapping):
         raise ValueError("配置项 step1.subagents.agents 必须是对象")
 
-    allowed_agent = {"enabled", "description", "prompt_file", "model", "max_turns", "tools"}
+    allowed_agent = {"enabled", "description", "prompt_file", "model", "max_turns", "tools", "background"}
     agents: Dict[str, dict] = {}
     for name, agent_config in agents_value.items():
         if not isinstance(agent_config, Mapping):
@@ -193,6 +193,9 @@ def _normalize_step1_subagents(value: object) -> dict:
         max_turns = agent_config.get("max_turns")
         if max_turns is not None and not isinstance(max_turns, int):
             raise ValueError(f"配置项 step1.subagents.agents.{name}.max_turns 必须是整数")
+        background = agent_config.get("background")
+        if background is not None and not isinstance(background, bool):
+            raise ValueError(f"配置项 step1.subagents.agents.{name}.background 必须是布尔值")
         agents[str(name)] = dict(agent_config)
 
     return {

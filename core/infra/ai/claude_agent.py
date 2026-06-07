@@ -77,6 +77,7 @@ def _build_step1_subagents() -> dict[str, AgentDefinition]:
             tools=agent_config.get("tools"),
             model=None if model in {None, "", "inherit"} else str(model),
             maxTurns=agent_config.get("max_turns"),
+            background=agent_config.get("background"),
         )
     return agents
 
@@ -467,6 +468,7 @@ async def _run_step1_agent_async(
                     "tools": agent.tools,
                     "model": agent.model,
                     "max_turns": agent.maxTurns,
+                    "background": agent.background,
                 }
                 for name, agent in subagents.items()
             },

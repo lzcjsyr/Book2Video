@@ -30,6 +30,7 @@ step1:
         prompt_file: prompts/step1_subagents/title-quote-writer.md
         model: inherit
         max_turns: 12
+        background: true
         tools: [Read]
 """,
         encoding="utf-8",
@@ -42,6 +43,7 @@ step1:
     assert subagents["agents"]["title-quote-writer"]["prompt_file"] == "prompts/step1_subagents/title-quote-writer.md"
     assert subagents["agents"]["title-quote-writer"]["tools"] == ["Read"]
     assert subagents["agents"]["title-quote-writer"]["max_turns"] == 12
+    assert subagents["agents"]["title-quote-writer"]["background"] is True
 
 
 def test_example_subagent_descriptions_are_triggerable():
@@ -55,6 +57,15 @@ def test_example_subagent_descriptions_are_triggerable():
         assert marker in title_description
     for marker in ["结构稿", "终稿", "传播钩子", "JSON 契约"]:
         assert marker in reviewer_description
+
+
+def test_example_subagents_declare_background_mode():
+    from core.config import _load_yaml_overrides
+
+    subagents = _load_yaml_overrides("config.example.yaml")["STEP1_SUBAGENTS"]["agents"]
+
+    assert subagents["title-quote-writer"]["background"] is True
+    assert subagents["fact-style-reviewer"]["background"] is False
 
 
 def test_title_quote_subagent_prompt_persists_candidates():
