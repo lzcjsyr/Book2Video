@@ -30,7 +30,7 @@ step1:
     agents:
       title-quote-writer:
         enabled: true
-        description: 早期稳定稿完成后调用，生成标题、封面文案和金句候选，供主 agent 最终筛选整合
+        description: 必须在第一稿完成并达标后立即调用；读取稳定第一稿，生成标题、封面文案和金句候选
         prompt_file: prompts/step1_subagents/title-quote-writer.md
         model: inherit
         max_turns: 20
@@ -38,7 +38,7 @@ step1:
         tools: [Read, Write]
       fact-style-reviewer:
         enabled: true
-        description: 结构稿或终稿完成后调用，审查事实、节奏、口语化、传播钩子和 JSON 契约风险，只提修改建议
+        description: 必须在第一稿完成并达标后、第二稿完成并达标后调用；审查事实、节奏、口语化、传播钩子和 JSON 契约风险，只提修改建议
         prompt_file: prompts/step1_subagents/fact-style-reviewer.md
         model: inherit
         max_turns: 30

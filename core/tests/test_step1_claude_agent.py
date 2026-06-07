@@ -300,7 +300,10 @@ def test_step1_subagent_instruction_is_managed_by_prompt_file():
 
     assert instruction == "保留用户要求"
     assert "如果当前会话存在可调用的 subagent" in prompt
-    assert "必须明确告知本次使用的 `{skill_path}`" in prompt
+    assert "只告知输入稿件路径和需要保存的输出文件路径" in prompt
+    assert "下一步必须先调用 subagent：title-quote-writer" in prompt
+    assert "稳定第一稿路径" in prompt
+    assert "必须调用 subagent：fact-style-reviewer" in prompt
 
 
 def test_step1_agent_adds_input_directory_to_options(monkeypatch, tmp_path: Path):

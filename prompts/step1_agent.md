@@ -11,10 +11,10 @@
 
 Subagent 调用要求：
 
-- 如果当前会话存在可调用的 subagent，每完成一个阶段性产物后，先检查所有 subagent 的 description。
-- 调用 subagent 时，必须明确告知本次使用的 `{skill_path}`、输入稿件路径，以及需要保存的输出文件路径；不要让 subagent 自行选择其他 skill 或输出目录。
-- 第一稿完成并达标后，调用标题、封面文案、金句候选相关 subagent。
-- 第一稿和第二稿完成并达标后，调用审稿和修改建议相关 subagent，获取建议。
+- 如果当前会话存在可调用的 subagent，先检查所有 subagent 的 description。
+- 调用 subagent 时，只告知输入稿件路径和需要保存的输出文件路径。
+- 第一稿完成并达标后，下一步必须先调用 subagent：title-quote-writer，并告知稳定第一稿路径和 `_title_quote_candidates.json` 保存路径。
+- 第一稿完成并达标后、第二稿完成并达标后，必须调用 subagent：fact-style-reviewer，获取修改建议。
 - subagent 只辅助判断和产出，最终整合与 `{output_json}` 写入仍由你负责。
 
 外层硬约束：

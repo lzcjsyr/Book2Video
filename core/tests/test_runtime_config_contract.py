@@ -53,9 +53,9 @@ def test_example_subagent_descriptions_are_triggerable():
     title_description = subagents["title-quote-writer"]["description"]
     reviewer_description = subagents["fact-style-reviewer"]["description"]
 
-    for marker in ["早期稳定稿", "标题", "封面", "金句"]:
+    for marker in ["必须", "第一稿完成并达标后", "立即调用", "标题", "封面", "金句"]:
         assert marker in title_description
-    for marker in ["结构稿", "终稿", "传播钩子", "JSON 契约"]:
+    for marker in ["必须", "第一稿完成并达标后", "第二稿完成并达标后", "传播钩子", "JSON 契约"]:
         assert marker in reviewer_description
 
 
