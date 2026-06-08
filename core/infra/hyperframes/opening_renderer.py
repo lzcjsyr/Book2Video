@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -18,21 +19,8 @@ def _parse_size(size: str) -> tuple[int, int]:
     return int(width), int(height)
 
 
-def _remotion_app_dir() -> Path:
+def _hyperframes_app_dir() -> Path:
     return Path(__file__).resolve().parent / "app"
-
-
-def _ensure_remotion_app_dependencies(app_dir: Path) -> None:
-    if (app_dir / "node_modules" / "@remotion" / "renderer").exists():
-        return
-
-    logger.info("Opening Remotion dependencies missing, running npm install")
-    subprocess.run(
-        ["npm", "install", "--no-fund", "--no-audit"],
-        cwd=app_dir,
-        check=True,
-        stdin=subprocess.DEVNULL,
-    )
 
 
 def _split_quote_fragments(quote: str) -> List[str]:
@@ -139,39 +127,44 @@ def render_opening_video(
 
     width, height = _parse_size(image_size)
     quote_lines = _split_quote_lines(clean_quote)
-    app_dir = _remotion_app_dir()
+    app_dir = _hyperframes_app_dir()
     output_path = Path(output_dir).resolve() / "opening.mp4"
-    duration_seconds, fps, duration_in_frames = _resolve_timeline_config()
+    duration_seconds, fps, _ = _resolve_timeline_config()
     first_line_seconds, last_line_seconds = _resolve_line_timing(duration_seconds, fps)
     raw_source_name = (script_data or {}).get("source_name")
     book_title = raw_source_name.strip() if isinstance(raw_source_name, str) else ""
     if not book_title:
         book_title = "未命名作品"
     book_title = f"——{book_title}——"
+
+    # 构建注入给 HyperFrames index.html 的 variables 字典
     props = {
         "bookTitle": book_title,
-        "durationInFrames": duration_in_frames,
+        "quoteLines": quote_lines,
         "focusWords": marked_focus_words or _pick_focus_words(quote_lines),
-        "fps": fps,
-        "height": height,
         "ipName": str(getattr(config, "OPENING_REMOTION_IP_NAME", "Cody叩底")).strip() or "Cody叩底",
         "lineAppearTimes": _build_line_appear_times(
             len(quote_lines),
             first_line_seconds=first_line_seconds,
             last_line_seconds=last_line_seconds,
         ),
-        "quoteLines": quote_lines,
         "width": width,
+        "height": height,
+        "durationSeconds": duration_seconds,
     }
 
-    _ensure_remotion_app_dependencies(app_dir)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # 运行 hyperframes 渲染命令
     command = [
-        "node",
-        "render-opening.mjs",
-        json.dumps(props, ensure_ascii=False),
+        "npx",
+        "--yes",
+        "hyperframes@0.6.81",
+        "render",
+        "--output",
         str(output_path),
+        "--variables",
+        json.dumps(props, ensure_ascii=False),
     ]
 
     try:
@@ -181,8 +174,8 @@ def render_opening_video(
             check=True,
             stdin=subprocess.DEVNULL,
         )
-        logger.info("Opening Remotion video rendered: %s", output_path)
+        logger.info("Opening HyperFrames video rendered: %s", output_path)
         return str(output_path)
     except subprocess.CalledProcessError as exc:
-        logger.warning("Opening Remotion render failed: %s", exc)
+        logger.warning("Opening HyperFrames render failed: %s", exc)
         return None

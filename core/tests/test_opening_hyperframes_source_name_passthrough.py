@@ -1,24 +1,27 @@
 import json
 from pathlib import Path
 
-from core.infra import remotion
-from core.infra.remotion import opening_renderer
+from core.infra import hyperframes
+from core.infra.hyperframes import opening_renderer
 from core.config import config
 
 
 def test_render_opening_video_preserves_source_name_text(monkeypatch, tmp_path: Path):
     captured = {}
 
-    monkeypatch.setattr(opening_renderer, "_ensure_remotion_app_dependencies", lambda _app_dir: None)
-
     def fake_run(command, cwd, check, stdin):
-        assert command[0] == "node"
-        captured["props"] = json.loads(command[2])
-        Path(command[3]).write_bytes(b"opening-video")
+        assert command[0] == "npx"
+        assert command[1] == "--yes"
+        assert command[2] == "hyperframes@0.6.81"
+        assert command[3] == "render"
+        assert command[4] == "--output"
+        assert command[6] == "--variables"
+        captured["props"] = json.loads(command[7])
+        Path(command[5]).write_bytes(b"opening-video")
 
     monkeypatch.setattr(opening_renderer.subprocess, "run", fake_run)
 
-    result = remotion.render_opening_video(
+    result = hyperframes.render_opening_video(
         image_size="1280x720",
         output_dir=str(tmp_path),
         script_data={
@@ -35,15 +38,14 @@ def test_render_opening_video_preserves_source_name_text(monkeypatch, tmp_path: 
 def test_render_opening_video_extracts_focus_words_from_markers(monkeypatch, tmp_path: Path):
     captured = {}
 
-    monkeypatch.setattr(opening_renderer, "_ensure_remotion_app_dependencies", lambda _app_dir: None)
-
     def fake_run(command, cwd, check, stdin):
-        captured["props"] = json.loads(command[2])
-        Path(command[3]).write_bytes(b"opening-video")
+        assert command[0] == "npx"
+        captured["props"] = json.loads(command[7])
+        Path(command[5]).write_bytes(b"opening-video")
 
     monkeypatch.setattr(opening_renderer.subprocess, "run", fake_run)
 
-    remotion.render_opening_video(
+    hyperframes.render_opening_video(
         image_size="1280x720",
         output_dir=str(tmp_path),
         script_data={
@@ -71,7 +73,6 @@ def test_split_quote_lines_keeps_each_sentence_fragment_on_its_own_line(monkeypa
 def test_render_opening_video_distributes_line_appearance_times(monkeypatch, tmp_path: Path):
     captured = {}
 
-    monkeypatch.setattr(opening_renderer, "_ensure_remotion_app_dependencies", lambda _app_dir: None)
     monkeypatch.setattr(config, "OPENING_REMOTION_FIRST_LINE_SECONDS", 0.5)
     monkeypatch.setattr(config, "OPENING_REMOTION_LAST_LINE_SECONDS", 2.0)
     monkeypatch.setattr(
@@ -81,12 +82,13 @@ def test_render_opening_video_distributes_line_appearance_times(monkeypatch, tmp
     )
 
     def fake_run(command, cwd, check, stdin):
-        captured["props"] = json.loads(command[2])
-        Path(command[3]).write_bytes(b"opening-video")
+        assert command[0] == "npx"
+        captured["props"] = json.loads(command[7])
+        Path(command[5]).write_bytes(b"opening-video")
 
     monkeypatch.setattr(opening_renderer.subprocess, "run", fake_run)
 
-    remotion.render_opening_video(
+    hyperframes.render_opening_video(
         image_size="1280x720",
         output_dir=str(tmp_path),
         script_data={
@@ -102,7 +104,6 @@ def test_render_opening_video_distributes_line_appearance_times(monkeypatch, tmp
 def test_render_opening_video_uses_configured_remotion_params(monkeypatch, tmp_path: Path):
     captured = {}
 
-    monkeypatch.setattr(opening_renderer, "_ensure_remotion_app_dependencies", lambda _app_dir: None)
     monkeypatch.setattr(config, "OPENING_REMOTION_IP_NAME", "测试刊头")
     monkeypatch.setattr(config, "OPENING_REMOTION_DURATION_SECONDS", 5.0)
     monkeypatch.setattr(config, "OPENING_REMOTION_FPS", 30)
@@ -112,12 +113,13 @@ def test_render_opening_video_uses_configured_remotion_params(monkeypatch, tmp_p
     monkeypatch.setattr(config, "OPENING_REMOTION_MAX_LINES", 3)
 
     def fake_run(command, cwd, check, stdin):
-        captured["props"] = json.loads(command[2])
-        Path(command[3]).write_bytes(b"opening-video")
+        assert command[0] == "npx"
+        captured["props"] = json.loads(command[7])
+        Path(command[5]).write_bytes(b"opening-video")
 
     monkeypatch.setattr(opening_renderer.subprocess, "run", fake_run)
 
-    remotion.render_opening_video(
+    hyperframes.render_opening_video(
         image_size="1280x720",
         output_dir=str(tmp_path),
         script_data={
@@ -128,8 +130,7 @@ def test_render_opening_video_uses_configured_remotion_params(monkeypatch, tmp_p
     )
 
     assert captured["props"]["ipName"] == "测试刊头"
-    assert captured["props"]["fps"] == 30
-    assert captured["props"]["durationInFrames"] == 150
+    assert captured["props"]["durationSeconds"] == 5.0
     assert len(captured["props"]["quoteLines"]) <= 3
     assert captured["props"]["lineAppearTimes"][0] == 0.8
     assert captured["props"]["lineAppearTimes"][-1] == 2.6
@@ -138,19 +139,19 @@ def test_render_opening_video_uses_configured_remotion_params(monkeypatch, tmp_p
 def test_render_opening_video_clamps_line_timing_within_duration(monkeypatch, tmp_path: Path):
     captured = {}
 
-    monkeypatch.setattr(opening_renderer, "_ensure_remotion_app_dependencies", lambda _app_dir: None)
     monkeypatch.setattr(config, "OPENING_REMOTION_DURATION_SECONDS", 1.0)
     monkeypatch.setattr(config, "OPENING_REMOTION_FPS", 20)
     monkeypatch.setattr(config, "OPENING_REMOTION_FIRST_LINE_SECONDS", 0.8)
     monkeypatch.setattr(config, "OPENING_REMOTION_LAST_LINE_SECONDS", 2.0)
 
     def fake_run(command, cwd, check, stdin):
-        captured["props"] = json.loads(command[2])
-        Path(command[3]).write_bytes(b"opening-video")
+        assert command[0] == "npx"
+        captured["props"] = json.loads(command[7])
+        Path(command[5]).write_bytes(b"opening-video")
 
     monkeypatch.setattr(opening_renderer.subprocess, "run", fake_run)
 
-    remotion.render_opening_video(
+    hyperframes.render_opening_video(
         image_size="1280x720",
         output_dir=str(tmp_path),
         script_data={
@@ -160,5 +161,5 @@ def test_render_opening_video_clamps_line_timing_within_duration(monkeypatch, tm
         opening_quote=True,
     )
 
-    assert captured["props"]["durationInFrames"] == 20
+    assert captured["props"]["durationSeconds"] == 1.0
     assert captured["props"]["lineAppearTimes"][-1] <= 0.95

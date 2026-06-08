@@ -45,7 +45,7 @@ from core.domain.summarizer import (
 )
 from core.infra.ai import text_to_audio_bytedance
 from core.infra.project_paths import ProjectPaths
-from core.infra.remotion import render_opening_video
+from core.infra.hyperframes import render_opening_video
 from core.shared import load_json_file, logger
 
 SEGMENT_VIDEO_EXTENSIONS = (".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".m4v")

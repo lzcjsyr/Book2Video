@@ -9,8 +9,6 @@ def test_windows_install_and_test_scripts_use_shared_dependency_checker() -> Non
     test_script = (REPO_ROOT / "scripts" / "test_windows.ps1").read_text(encoding="utf-8")
 
     assert "-m core.dependency_check" in install_script
-    assert "core/infra/remotion/app" in install_script
-    assert "npm ci --no-fund --no-audit" in install_script
     assert "-m pytest" in test_script
     assert "--require-api-keys" in test_script
 
@@ -20,11 +18,9 @@ def test_macos_install_and_test_scripts_use_shared_dependency_checker() -> None:
     test_script = (REPO_ROOT / "scripts" / "test_macos.sh").read_text(encoding="utf-8")
 
     assert "-m core.dependency_check" in install_script
-    assert "core/infra/remotion/app" in install_script
-    assert "npm ci --no-fund --no-audit" in install_script
     assert "-m pytest" in test_script
     assert "--require-api-keys" in test_script
 
 
-def test_remotion_package_lock_is_committed() -> None:
-    assert (REPO_ROOT / "core" / "infra" / "remotion" / "app" / "package-lock.json").exists()
+def test_hyperframes_template_is_committed() -> None:
+    assert (REPO_ROOT / "core" / "infra" / "hyperframes" / "app" / "index.html").exists()

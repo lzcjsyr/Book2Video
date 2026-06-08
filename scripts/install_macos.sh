@@ -4,7 +4,6 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_DIR="$REPO_ROOT/.venv"
 PYTHON_EXE="$VENV_DIR/bin/python"
-REMOTION_DIR="$REPO_ROOT/core/infra/remotion/app"
 
 require_command() {
   local name="$1"
@@ -34,11 +33,6 @@ if [ ! -f "$REPO_ROOT/.env" ] && [ -f "$REPO_ROOT/.env.example" ]; then
   cp "$REPO_ROOT/.env.example" "$REPO_ROOT/.env"
   echo "已生成 .env，请填入 API 密钥。"
 fi
-
-(
-  cd "$REMOTION_DIR"
-  npm ci --no-fund --no-audit
-)
 
 "$PYTHON_EXE" -m core.dependency_check --repo-root "$REPO_ROOT"
 

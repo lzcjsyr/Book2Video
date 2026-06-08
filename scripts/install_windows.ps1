@@ -1,12 +1,7 @@
-param(
-    [switch]$SkipRemotionInstall
-)
-
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $VenvDir = Join-Path $RepoRoot ".venv"
 $PythonExe = Join-Path $VenvDir "Scripts\python.exe"
-$RemotionDir = Join-Path $RepoRoot "core/infra/remotion/app"
 
 function Require-Command {
     param([string]$Name, [string]$InstallHint)
@@ -36,11 +31,7 @@ if (-not (Test-Path (Join-Path $RepoRoot ".env")) -and (Test-Path (Join-Path $Re
     Write-Host "已生成 .env，请填入 API 密钥。"
 }
 
-if (-not $SkipRemotionInstall) {
-    Push-Location $RemotionDir
-    npm ci --no-fund --no-audit
-    Pop-Location
-}
+
 
 & $PythonExe -m core.dependency_check --repo-root $RepoRoot
 

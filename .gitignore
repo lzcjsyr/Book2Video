@@ -63,6 +63,8 @@ package-lock.json
 .idea/
 .claude/
 .codex/
+.agents/
+hyperframes_opening/
 *.swp
 *.swo
 

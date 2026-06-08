@@ -3,12 +3,12 @@ from pathlib import Path
 from core.dependency_check import DependencyChecker
 
 
-def test_dependency_checker_reports_missing_runtime_and_remotion_dependencies(tmp_path: Path) -> None:
+def test_dependency_checker_reports_missing_runtime_and_hyperframes_dependencies(tmp_path: Path) -> None:
     repo_root = tmp_path
     (repo_root / ".env.example").write_text("MIMO_API_KEY=\n", encoding="utf-8")
-    remotion_app = repo_root / "core" / "infra" / "remotion" / "app"
-    remotion_app.mkdir(parents=True)
-    (remotion_app / "package.json").write_text("{}", encoding="utf-8")
+    hyperframes_app = repo_root / "core" / "infra" / "hyperframes" / "app"
+    hyperframes_app.mkdir(parents=True)
+    (hyperframes_app / "package.json").write_text("{}", encoding="utf-8")
     (repo_root / "pyproject.toml").write_text('dependencies = ["requests>=2"]\n', encoding="utf-8")
 
     checker = DependencyChecker(
@@ -25,7 +25,7 @@ def test_dependency_checker_reports_missing_runtime_and_remotion_dependencies(tm
     assert "FFmpeg" in failed_names
     assert "Node.js" in failed_names
     assert "npm" in failed_names
-    assert "Remotion dependencies" in failed_names
+    assert "HyperFrames template" in failed_names
     assert "Python packages" in failed_names
     assert "Environment file" in failed_names
     assert not report.ok
@@ -37,11 +37,10 @@ def test_dependency_checker_passes_when_core_dependencies_are_present(tmp_path: 
     (repo_root / ".env.example").write_text("MIMO_API_KEY=\n", encoding="utf-8")
     (repo_root / "input").mkdir()
     (repo_root / "music").mkdir()
-    remotion_app = repo_root / "core" / "infra" / "remotion" / "app"
-    remotion_app.mkdir(parents=True)
-    (remotion_app / "package.json").write_text("{}", encoding="utf-8")
-    remotion_renderer = repo_root / "core" / "infra" / "remotion" / "app" / "node_modules" / "@remotion" / "renderer"
-    remotion_renderer.mkdir(parents=True)
+    hyperframes_app = repo_root / "core" / "infra" / "hyperframes" / "app"
+    hyperframes_app.mkdir(parents=True)
+    (hyperframes_app / "package.json").write_text("{}", encoding="utf-8")
+    (hyperframes_app / "index.html").write_text("<html></html>", encoding="utf-8")
     (repo_root / "pyproject.toml").write_text('dependencies = ["requests>=2", "python-dotenv>=1"]\n', encoding="utf-8")
 
     checker = DependencyChecker(
@@ -63,11 +62,10 @@ def test_dependency_checker_can_require_configured_api_keys(tmp_path: Path, monk
     (repo_root / ".env.example").write_text("", encoding="utf-8")
     (repo_root / "input").mkdir()
     (repo_root / "music").mkdir()
-    remotion_app = repo_root / "core" / "infra" / "remotion" / "app"
-    remotion_app.mkdir(parents=True)
-    (remotion_app / "package.json").write_text("{}", encoding="utf-8")
-    remotion_renderer = repo_root / "core" / "infra" / "remotion" / "app" / "node_modules" / "@remotion" / "renderer"
-    remotion_renderer.mkdir(parents=True)
+    hyperframes_app = repo_root / "core" / "infra" / "hyperframes" / "app"
+    hyperframes_app.mkdir(parents=True)
+    (hyperframes_app / "package.json").write_text("{}", encoding="utf-8")
+    (hyperframes_app / "index.html").write_text("<html></html>", encoding="utf-8")
     (repo_root / "pyproject.toml").write_text('dependencies = []\n', encoding="utf-8")
 
     monkeypatch.setenv("MIMO_API_KEY", "")

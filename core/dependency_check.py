@@ -24,6 +24,7 @@ PACKAGE_IMPORT_NAMES = {
     "volcengine-python-sdk": "volcenginesdkarkruntime",
     "google-genai": "google.genai",
     "json-repair": "json_repair",
+    "pyyaml": "yaml",
 }
 
 PROVIDER_KEY_GROUPS = {
@@ -95,8 +96,8 @@ class DependencyChecker:
             self._check_command("FFmpeg", "ffmpeg", "安装 FFmpeg，并确保 ffmpeg 在 PATH 中。"),
             self._check_command("Node.js", "node", "安装 Node.js 20 LTS 或更新版本。"),
             self._check_command("npm", "npm", "安装 Node.js 时勾选 npm，并重开终端。"),
-            self._check_remotion_package_json(),
-            self._check_remotion_dependencies(),
+            self._check_hyperframes_package_json(),
+            self._check_hyperframes_template(),
             self._check_python_packages(),
             self._check_env_file(),
             self._check_music_dir(),
@@ -119,26 +120,26 @@ class DependencyChecker:
             return CheckItem(name, True, f"已找到 {path}")
         return CheckItem(name, False, f"未找到命令 {command}", fix)
 
-    def _check_remotion_package_json(self) -> CheckItem:
-        package_json = self._remotion_app_dir / "package.json"
+    def _check_hyperframes_package_json(self) -> CheckItem:
+        package_json = self._hyperframes_app_dir / "package.json"
         if package_json.exists():
-            return CheckItem("Remotion package", True, str(package_json))
+            return CheckItem("HyperFrames package", True, str(package_json))
         return CheckItem(
-            "Remotion package",
+            "HyperFrames package",
             False,
-            "缺少 Remotion 子项目 package.json",
-            "确认项目完整下载，包含 core/infra/remotion/app/package.json。",
+            "缺少 HyperFrames 子项目 package.json",
+            "确认项目完整下载，包含 core/infra/hyperframes/app/package.json。",
         )
 
-    def _check_remotion_dependencies(self) -> CheckItem:
-        renderer_dir = self._remotion_app_dir / "node_modules" / "@remotion" / "renderer"
-        if renderer_dir.exists():
-            return CheckItem("Remotion dependencies", True, "node_modules 已安装")
+    def _check_hyperframes_template(self) -> CheckItem:
+        index_html = self._hyperframes_app_dir / "index.html"
+        if index_html.exists():
+            return CheckItem("HyperFrames template", True, str(index_html))
         return CheckItem(
-            "Remotion dependencies",
+            "HyperFrames template",
             False,
-            "Remotion node_modules 未安装",
-            "进入 core/infra/remotion/app 后运行 npm install --no-fund --no-audit。",
+            "缺少 HyperFrames 网页模板 index.html",
+            "确认项目完整下载，包含 core/infra/hyperframes/app/index.html。",
         )
 
     def _check_python_packages(self) -> CheckItem:
@@ -201,8 +202,8 @@ class DependencyChecker:
         )
 
     @property
-    def _remotion_app_dir(self) -> Path:
-        return self.repo_root / "core" / "infra" / "remotion" / "app"
+    def _hyperframes_app_dir(self) -> Path:
+        return self.repo_root / "core" / "infra" / "hyperframes" / "app"
 
     def _pyproject_package_names(self) -> Iterable[str]:
         pyproject = self.repo_root / "pyproject.toml"
