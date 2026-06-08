@@ -9,7 +9,7 @@ from core.config import config
 def test_render_opening_video_preserves_source_name_text(monkeypatch, tmp_path: Path):
     captured = {}
 
-    def fake_run(command, cwd, check, stdin):
+    def fake_run(command, cwd, check, stdin, *args, **kwargs):
         assert command[0] == "npx"
         assert command[1] == "--yes"
         assert command[2] == "hyperframes@0.6.81"
@@ -38,7 +38,7 @@ def test_render_opening_video_preserves_source_name_text(monkeypatch, tmp_path: 
 def test_render_opening_video_extracts_focus_words_from_markers(monkeypatch, tmp_path: Path):
     captured = {}
 
-    def fake_run(command, cwd, check, stdin):
+    def fake_run(command, cwd, check, stdin, *args, **kwargs):
         assert command[0] == "npx"
         captured["props"] = json.loads(command[7])
         Path(command[5]).write_bytes(b"opening-video")
@@ -81,7 +81,7 @@ def test_render_opening_video_distributes_line_appearance_times(monkeypatch, tmp
         lambda _quote: ["第一行", "第二行", "第三行", "第四行"],
     )
 
-    def fake_run(command, cwd, check, stdin):
+    def fake_run(command, cwd, check, stdin, *args, **kwargs):
         assert command[0] == "npx"
         captured["props"] = json.loads(command[7])
         Path(command[5]).write_bytes(b"opening-video")
@@ -112,7 +112,7 @@ def test_render_opening_video_uses_configured_remotion_params(monkeypatch, tmp_p
     monkeypatch.setattr(config, "OPENING_REMOTION_MAX_CHARS_PER_LINE", 8)
     monkeypatch.setattr(config, "OPENING_REMOTION_MAX_LINES", 3)
 
-    def fake_run(command, cwd, check, stdin):
+    def fake_run(command, cwd, check, stdin, *args, **kwargs):
         assert command[0] == "npx"
         captured["props"] = json.loads(command[7])
         Path(command[5]).write_bytes(b"opening-video")
@@ -144,7 +144,7 @@ def test_render_opening_video_clamps_line_timing_within_duration(monkeypatch, tm
     monkeypatch.setattr(config, "OPENING_REMOTION_FIRST_LINE_SECONDS", 0.8)
     monkeypatch.setattr(config, "OPENING_REMOTION_LAST_LINE_SECONDS", 2.0)
 
-    def fake_run(command, cwd, check, stdin):
+    def fake_run(command, cwd, check, stdin, *args, **kwargs):
         assert command[0] == "npx"
         captured["props"] = json.loads(command[7])
         Path(command[5]).write_bytes(b"opening-video")

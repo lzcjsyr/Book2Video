@@ -168,14 +168,20 @@ def render_opening_video(
     ]
 
     try:
+        print("🎬 正在生成 HyperFrames 开场视频，这通常需要 10-15 秒左右...")
         subprocess.run(
             command,
             cwd=app_dir,
             check=True,
             stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
         )
         logger.info("Opening HyperFrames video rendered: %s", output_path)
         return str(output_path)
     except subprocess.CalledProcessError as exc:
         logger.warning("Opening HyperFrames render failed: %s", exc)
+        if exc.output:
+            print(f"❌ 渲染日志:\n{exc.output}")
         return None
