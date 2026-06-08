@@ -514,6 +514,47 @@ def _prompt_split_mode() -> Optional[str]:
 # CLI主要业务逻辑 (从 __main__.py 迁移)
 # ================================================================================
 
+def _interactive_skill_selector(project_root: str) -> Optional[str]:
+    """交互式写作技能选择器"""
+    import sys
+    from core.config import config, Config
+    
+    skills_dir = os.path.join(project_root, "skills")
+    if not os.path.exists(skills_dir):
+        return "book-video-script"
+
+    available_skills = [
+        d for d in os.listdir(skills_dir)
+        if os.path.isdir(os.path.join(skills_dir, d)) and not d.startswith(".")
+    ]
+    available_skills.sort()
+    if not available_skills:
+        return "book-video-script"
+
+    default_skill = os.getenv("STEP1_AGENT_SKILL") or getattr(config, "STEP1_AGENT_SKILL", "book-video-script")
+    if default_skill not in available_skills:
+        default_skill = "book-video-script" if "book-video-script" in available_skills else available_skills[0]
+
+    try:
+        default_idx = available_skills.index(default_skill)
+    except ValueError:
+        default_idx = 0
+
+    selected_skill = prompt_choice("请选择要使用的写作技能 (Skill)", available_skills, default_index=default_idx)
+    if selected_skill is None:
+        return None
+
+    # 应用覆盖
+    os.environ["STEP1_AGENT_SKILL"] = selected_skill
+    setattr(config, "STEP1_AGENT_SKILL", selected_skill)
+    setattr(Config, "STEP1_AGENT_SKILL", selected_skill)
+    config_module = sys.modules.get("core.config")
+    if config_module:
+        setattr(config_module, "STEP1_AGENT_SKILL", selected_skill)
+    print(f"✅ 已选择技能: {selected_skill}\n")
+    return selected_skill
+
+
 def _select_entry_and_context(project_root: str, output_dir: str):
     """交互式选择新建项目或打开现有项目"""
     while True:
@@ -525,6 +566,12 @@ def _select_entry_and_context(project_root: str, output_dir: str):
             if input_file is None:
                 print("\n👋 返回上一级")
                 continue
+            
+            selected_skill = _interactive_skill_selector(project_root)
+            if selected_skill is None:
+                print("\n👋 返回上一级")
+                continue
+                
             mode = prompt_choice("请选择处理方式", ["全自动（一次性全部生成）", "分步处理（每步确认并可修改产物）"], default_index=0)
             if mode is None:
                 print("👋 返回上一级")
@@ -542,6 +589,12 @@ def _select_entry_and_context(project_root: str, output_dir: str):
         if not project_dir:
             print("👋 返回上一级")
             continue
+            
+        selected_skill = _interactive_skill_selector(project_root)
+        if selected_skill is None:
+            print("\n👋 返回上一级")
+            continue
+            
         from core.pipeline.scanner import detect_project_progress
         
         # 检测项目进度并显示步骤选项
