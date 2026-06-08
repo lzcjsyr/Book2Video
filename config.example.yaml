@@ -18,9 +18,9 @@ global:
 # 步骤1：原始文稿写作
 # =============================================================================
 step1:
-  # 可选：mimo / deepseek / siliconflow / openrouter
+  # 可选：mimo / kimi / volcengine / deepseek / siliconflow / openrouter
   llm_server: deepseek
-  # 按供应商要求填写完整模型名。
+  # 按供应商要求填写完整模型名。火山第一步推荐：doubao-seed-2.0-code / doubao-seed-2.0-pro
   llm_model: deepseek-v4-pro
   # 使用根目录 skills/ 下的写作 skill；一般不需要改。
   agent_skill: book-video-script
@@ -56,7 +56,7 @@ step1_5:
 # 步骤2：要点提取 / 描述小结
 # =============================================================================
 step2:
-  # 可选：mimo / deepseek / siliconflow / openrouter / volcengine
+  # 可选：mimo / kimi / deepseek / siliconflow / openrouter / volcengine
   llm_server: volcengine
   llm_model: doubao-seed-2-0-lite-260428
   # 配图方式：

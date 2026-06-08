@@ -89,12 +89,16 @@ def _with_step1_subagent_instruction(extra_requirements: str, agents: dict[str, 
 def build_step1_agent_env() -> dict[str, str]:
     server = (config.LLM_SERVER_STEP1 or "").strip().lower()
     if not server:
-        raise RuntimeError("步骤1需要配置 LLM_SERVER_STEP1（mimo/siliconflow/openrouter/volcengine/deepseek）")
+        raise RuntimeError("步骤1需要配置 LLM_SERVER_STEP1（mimo/kimi/siliconflow/openrouter/volcengine/deepseek）")
 
     if server == "mimo":
         base_url = "https://token-plan-sgp.xiaomimimo.com/anthropic"
         api_key = (config.MIMO_API_KEY or "").strip()
         key_name = "MIMO_API_KEY"
+    elif server == "kimi":
+        base_url = "https://api.moonshot.cn/anthropic"
+        api_key = (config.KIMI_API_KEY or "").strip()
+        key_name = "KIMI_API_KEY 或 MOONSHOT_API_KEY"
     elif server == "deepseek":
         base_url = "https://api.deepseek.com/anthropic"
         api_key = (config.DEEPSEEK_API_KEY or "").strip()
@@ -108,11 +112,11 @@ def build_step1_agent_env() -> dict[str, str]:
         api_key = (config.OPENROUTER_API_KEY or "").strip()
         key_name = "OPENROUTER_API_KEY"
     elif server == "volcengine":
-        base_url = "https://ark.cn-beijing.volces.com/api/v3"
+        base_url = "https://ark.cn-beijing.volces.com/api/compatible"
         api_key = (config.VOLCENGINE_API_KEY or "").strip()
         key_name = "VOLCENGINE_API_KEY"
     else:
-        raise ValueError(f"不支持的步骤1 LLM服务商: {server}，支持的服务商: mimo, deepseek, siliconflow, openrouter, volcengine")
+        raise ValueError(f"不支持的步骤1 LLM服务商: {server}，支持的服务商: mimo, kimi, deepseek, siliconflow, openrouter, volcengine")
 
     if not api_key:
         raise RuntimeError(f"步骤1需要 {key_name}（.env），用于驱动 Claude Agent SDK")
@@ -120,6 +124,7 @@ def build_step1_agent_env() -> dict[str, str]:
     return {
         "ANTHROPIC_BASE_URL": base_url,
         "ANTHROPIC_API_KEY": api_key,
+        "ANTHROPIC_AUTH_TOKEN": api_key,
         "ANTHROPIC_MODEL": config.LLM_MODEL_STEP1,
     }
 

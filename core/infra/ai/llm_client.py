@@ -39,6 +39,10 @@ def text_to_text(
             if not config.MIMO_API_KEY:
                 raise APIError("MIMO_API_KEY未配置")
             api_key = config.MIMO_API_KEY
+        elif server == "kimi":
+            if not config.KIMI_API_KEY:
+                raise APIError("KIMI_API_KEY 或 MOONSHOT_API_KEY 未配置")
+            api_key = config.KIMI_API_KEY
         elif server == "deepseek":
             if not config.DEEPSEEK_API_KEY:
                 raise APIError("DEEPSEEK_API_KEY未配置")

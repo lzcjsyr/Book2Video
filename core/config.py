@@ -288,6 +288,7 @@ class Config:
 
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     MIMO_API_KEY = os.getenv("MIMO_API_KEY")
+    KIMI_API_KEY = os.getenv("KIMI_API_KEY") or os.getenv("MOONSHOT_API_KEY")
     DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
     VOLCENGINE_API_KEY = os.getenv("VOLCENGINE_API_KEY") or os.getenv("SEEDREAM_API_KEY")
     SEEDREAM_API_KEY = VOLCENGINE_API_KEY
@@ -302,7 +303,7 @@ class Config:
     DEFAULT_VOICE = VOICE
     DEFAULT_OUTPUT_DIR = "output"
 
-    SUPPORTED_LLM_SERVERS = ["openrouter", "siliconflow", "mimo", "deepseek", "volcengine"]
+    SUPPORTED_LLM_SERVERS = ["openrouter", "siliconflow", "mimo", "kimi", "deepseek", "volcengine"]
     SUPPORTED_IMAGE_SERVERS = ["doubao", "google", "google_adc"]
     SUPPORTED_TTS_SERVERS = ["bytedance"]
     SUPPORTED_IMAGE_METHODS = ["keywords", "description"]
@@ -350,6 +351,7 @@ class Config:
         return {
             "openrouter": bool(cls.OPENROUTER_API_KEY),
             "mimo": bool(cls.MIMO_API_KEY),
+            "kimi": bool(cls.KIMI_API_KEY),
             "deepseek": bool(cls.DEEPSEEK_API_KEY),
             "siliconflow": bool(cls.SILICONFLOW_KEY),
             "seedream": bool(cls.SEEDREAM_API_KEY),
@@ -369,6 +371,8 @@ class Config:
             missing.append("OPENROUTER_API_KEY")
         if "mimo" in llm_servers and not key_status["mimo"]:
             missing.append("MIMO_API_KEY")
+        if "kimi" in llm_servers and not key_status["kimi"]:
+            missing.append("KIMI_API_KEY 或 MOONSHOT_API_KEY")
         if "deepseek" in llm_servers and not key_status["deepseek"]:
             missing.append("DEEPSEEK_API_KEY")
         if "volcengine" in llm_servers and not key_status["seedream"]:
@@ -484,6 +488,7 @@ class Config:
         "siliconflow": "https://api.siliconflow.cn/v1",
         "openrouter": "https://openrouter.ai/api/v1",
         "mimo": "https://token-plan-sgp.xiaomimimo.com/anthropic",
+        "kimi": "https://api.moonshot.cn/v1",
         "volcengine": "https://ark.cn-beijing.volces.com/api/v3",
         "deepseek": "https://api.deepseek.com/v1",
     }

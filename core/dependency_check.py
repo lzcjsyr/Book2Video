@@ -28,6 +28,7 @@ PACKAGE_IMPORT_NAMES = {
 
 PROVIDER_KEY_GROUPS = {
     "mimo": ("MIMO_API_KEY",),
+    "kimi": ("KIMI_API_KEY", "MOONSHOT_API_KEY"),
     "deepseek": ("DEEPSEEK_API_KEY",),
     "openrouter": ("OPENROUTER_API_KEY",),
     "siliconflow": ("SILICONFLOW_KEY",),

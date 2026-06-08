@@ -12,6 +12,8 @@ def auto_detect_server_from_model(model: str, model_type: str) -> str:
     kind = (model_type or "").strip().lower()
 
     if kind == "llm":
+        if lower_model.startswith("kimi-"):
+            return "kimi"
         siliconflow_prefixes = ("zai-org/", "moonshotai/", "qwen/", "deepseek-ai/")
         if lower_model.startswith(siliconflow_prefixes):
             return "siliconflow"

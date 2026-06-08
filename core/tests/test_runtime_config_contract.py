@@ -117,6 +117,8 @@ def test_config_exposes_current_runtime_params():
     assert params["llm_server_step3"] == "volcengine"
     assert params["llm_base_url_step3"] == config.LLM_BASE_URL_STEP3
     assert "volcengine" in config.SUPPORTED_LLM_SERVERS
+    assert "kimi" in config.SUPPORTED_LLM_SERVERS
+    assert config.LLM_SERVER_URLS["kimi"] == "https://api.moonshot.cn/v1"
     assert config.IMAGE_STYLE_PRESET == params["image_style_preset"]
     assert params["cover_image_server"] == "google_adc"
 
@@ -164,6 +166,30 @@ def test_config_rejects_unsupported_llm_server():
             images_method="description",
             llm_model="model",
         )
+
+
+def test_generation_params_resolve_kimi_base_url(tmp_path):
+    from core.config import get_generation_params
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+step2:
+  llm_server: kimi
+  llm_model: kimi-k2.6
+step3:
+  llm_server: kimi
+  llm_model: kimi-k2.6
+""",
+        encoding="utf-8",
+    )
+
+    params = get_generation_params(config_path)
+
+    assert params["llm_server_step2"] == "kimi"
+    assert params["llm_base_url_step2"] == "https://api.moonshot.cn/v1"
+    assert params["llm_server_step3"] == "kimi"
+    assert params["llm_base_url_step3"] == "https://api.moonshot.cn/v1"
 
 
 def test_recovered_config_keeps_cover_validation_usable(monkeypatch, tmp_path):

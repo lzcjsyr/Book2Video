@@ -147,6 +147,52 @@ def test_build_step1_agent_env_uses_mimo_gateway(monkeypatch):
     assert env["ANTHROPIC_MODEL"] == "mimo-v2.5-pro"
 
 
+def test_build_step1_agent_env_uses_kimi_cn_gateway(monkeypatch):
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_SERVER_STEP1",
+        "kimi",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_MODEL_STEP1",
+        "kimi-k2.6",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.KIMI_API_KEY",
+        "test-kimi-key",
+        raising=False,
+    )
+    env = claude_agent.build_step1_agent_env()
+    assert env["ANTHROPIC_BASE_URL"] == "https://api.moonshot.cn/anthropic"
+    assert env["ANTHROPIC_API_KEY"] == "test-kimi-key"
+    assert env["ANTHROPIC_AUTH_TOKEN"] == "test-kimi-key"
+    assert env["ANTHROPIC_MODEL"] == "kimi-k2.6"
+
+
+def test_build_step1_agent_env_uses_volcengine_anthropic_compatible_gateway(monkeypatch):
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_SERVER_STEP1",
+        "volcengine",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_MODEL_STEP1",
+        "doubao-seed-2.0-code",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.VOLCENGINE_API_KEY",
+        "test-volc-key",
+        raising=False,
+    )
+    env = claude_agent.build_step1_agent_env()
+    assert env["ANTHROPIC_BASE_URL"] == "https://ark.cn-beijing.volces.com/api/compatible"
+    assert env["ANTHROPIC_API_KEY"] == "test-volc-key"
+    assert env["ANTHROPIC_AUTH_TOKEN"] == "test-volc-key"
+    assert env["ANTHROPIC_MODEL"] == "doubao-seed-2.0-code"
+
+
 def test_step1_agent_allows_300_turns(monkeypatch, tmp_path: Path):
     captured = {}
     output_json = tmp_path / "text" / "raw.json"
