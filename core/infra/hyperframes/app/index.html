@@ -174,7 +174,7 @@
     <!--
       data-composition-id="main": 对应主视频 composition
     -->
-    <div id="root" data-composition-id="main" data-start="0">
+    <div id="root" data-composition-id="main" data-start="0" data-width="2560" data-height="1440" data-duration="4">
       <!-- 顶部 IP 栏 -->
       <div id="masthead" class="masthead">
         <div class="ip-badge">
@@ -377,12 +377,12 @@
       // 注册主时间轴
       window.__timelines["main"] = tl;
 
-      // 6. 开启无限循环呼吸灯
+      // 6. 开启有限循环呼吸灯以确保确定性渲染
       gsap.to(".focused-word", {
         "--glow-scale": 1,
         duration: 1.2,
         yoyo: true,
-        repeat: -1,
+        repeat: Math.max(0, Math.floor(durationSeconds / 1.2) - 1),
         ease: "sine.inOut"
       });
     </script>
