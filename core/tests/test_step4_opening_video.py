@@ -24,7 +24,7 @@ def project_dir(tmp_path: Path) -> Path:
     return project
 
 
-def test_run_step_3_uses_opening_video_renderer_when_regenerating(monkeypatch, project_dir: Path):
+def test_run_step_4_uses_opening_video_renderer_when_regenerating(monkeypatch, project_dir: Path):
     called = {"renderer": 0, "image": 0}
 
     def fake_load_json_file(path):
@@ -48,7 +48,7 @@ def test_run_step_3_uses_opening_video_renderer_when_regenerating(monkeypatch, p
     monkeypatch.setattr(steps, "generate_images_for_segments", fake_segment_images)
     monkeypatch.setattr(steps, "render_opening_video", fake_render_opening_video)
 
-    result = steps.run_step_3(
+    result = steps.run_step_4(
         image_server="doubao",
         image_model="model",
         image_size="1280x720",
@@ -65,7 +65,7 @@ def test_run_step_3_uses_opening_video_renderer_when_regenerating(monkeypatch, p
     assert result["opening_image_path"].endswith("opening.mp4")
 
 
-def test_run_step_3_reuses_existing_opening_video_when_not_regenerating(monkeypatch, project_dir: Path):
+def test_run_step_4_reuses_existing_opening_video_when_not_regenerating(monkeypatch, project_dir: Path):
     existing_opening = project_dir / "images" / "opening.mp4"
     existing_opening.write_bytes(b"existing-opening-video")
 
@@ -87,7 +87,7 @@ def test_run_step_3_reuses_existing_opening_video_when_not_regenerating(monkeypa
     monkeypatch.setattr(steps, "generate_images_for_segments", fake_segment_images)
     monkeypatch.setattr(steps, "render_opening_video", fail_render_opening_video)
 
-    result = steps.run_step_3(
+    result = steps.run_step_4(
         image_server="doubao",
         image_model="model",
         image_size="1280x720",
@@ -102,7 +102,7 @@ def test_run_step_3_reuses_existing_opening_video_when_not_regenerating(monkeypa
     assert result["opening_image_path"] == str(existing_opening)
 
 
-def test_run_step_3_forwards_llm_config_to_image_prompt_safety(monkeypatch, project_dir: Path):
+def test_run_step_4_forwards_llm_config_to_image_prompt_safety(monkeypatch, project_dir: Path):
     captured = {}
 
     def fake_load_json_file(path):
@@ -121,7 +121,7 @@ def test_run_step_3_forwards_llm_config_to_image_prompt_safety(monkeypatch, proj
     monkeypatch.setattr(steps, "generate_images_for_segments", fake_segment_images)
     monkeypatch.setattr(steps, "render_opening_video", lambda *args, **kwargs: None)
 
-    result = steps.run_step_3(
+    result = steps.run_step_4(
         image_server="doubao",
         image_model="model",
         image_size="1280x720",

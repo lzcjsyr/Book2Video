@@ -68,17 +68,18 @@ def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tm
         "_run_step_3",
         lambda *_args, **_kwargs: {
             "success": True,
-            "image_paths": [f"image_{idx}.png" for idx in range(1, 6)],
-        },
-    )
-    monkeypatch.setattr(
-        run_auto_module,
-        "_run_step_4",
-        lambda *_args, **_kwargs: {
-            "success": True,
             "audio_paths": [f"voice_{idx}.wav" for idx in range(1, 6)],
         },
     )
+    def fake_step_4(*args, **kwargs):
+        captured["step4_args"] = args
+        captured["step4_kwargs"] = kwargs
+        return {
+            "success": True,
+            "image_paths": [f"image_{idx}.png" for idx in range(1, 6)],
+        }
+
+    monkeypatch.setattr(run_auto_module, "_run_step_4", fake_step_4)
     monkeypatch.setattr(
         run_auto_module,
         "_run_step_5",
@@ -97,11 +98,16 @@ def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tm
         num_segments=5,
         llm_server_step2="siliconflow",
         llm_base_url_step2="https://example.test/v1",
-        llm_server_step3="siliconflow",
-        llm_base_url_step3="https://example.test/v1",
+        llm_server_step4="siliconflow",
+        llm_base_url_step4="https://example.test/v1",
         image_server="google",
         image_model="gemini-3.1-flash-image-preview",
         image_size="1280x720",
+        visual_mode="hyperframes_agent",
+        hyperframes_style_preset="light_corporate",
+        hyperframes_max_turns=9,
+        hyperframes_render_fps=60,
+        hyperframes_concurrency=2,
         images_method="description",
         cover_image_server="google",
         cover_image_model="gemini-3.1-flash-image-preview",
@@ -117,3 +123,8 @@ def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tm
     assert result["cover_images"] == ["cover.png"]
     assert captured["raw_data"]["content"] == "x" * 1000
     assert captured["step1_kwargs"]["extra_requirements"] == "突出商业启示"
+    assert captured["step4_kwargs"]["visual_mode"] == "hyperframes_agent"
+    assert captured["step4_kwargs"]["hyperframes_style_preset"] == "light_corporate"
+    assert captured["step4_kwargs"]["hyperframes_max_turns"] == 9
+    assert captured["step4_kwargs"]["hyperframes_render_fps"] == 60
+    assert captured["step4_kwargs"]["hyperframes_concurrency"] == 2

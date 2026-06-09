@@ -21,10 +21,16 @@ from claude_agent_sdk import (
 )
 
 from core.config import config
-from core.prompts import build_step1_agent_prompt
+from core.infra.hyperframes.skill_loader import (
+    embedded_hyperframes_skill_dir,
+    load_embedded_hyperframes_skill_bundle,
+    step4_hyperframes_skill_dirs,
+)
+from core.prompts import STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE, build_step1_agent_prompt
 
 STEP1_AGENT_TOOLS = ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Skill"]
 STEP1_AGENT_SKILL = config.STEP1_AGENT_SKILL
+STEP4_HYPERFRAMES_AGENT_TOOLS = ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
 
 _STEP1_SUBAGENT_PROMPTS = {
     "title-quote-writer": "第一稿固定后生成标题、封面文案和金句候选，写入 _title_quote_candidates.json。",
@@ -126,6 +132,59 @@ def build_step1_agent_env() -> dict[str, str]:
         "ANTHROPIC_API_KEY": api_key,
         "ANTHROPIC_AUTH_TOKEN": api_key,
         "ANTHROPIC_MODEL": config.LLM_MODEL_STEP1,
+    }
+
+
+def build_step4_hyperframes_agent_env(
+    llm_server: str | None = None,
+    llm_model: str | None = None,
+    llm_base_url: str | None = None,
+) -> dict[str, str]:
+    server = (llm_server or getattr(config, "LLM_SERVER_STEP4", "") or "").strip().lower()
+    if not server:
+        raise RuntimeError("步骤4 HyperFrames Agent 需要配置 LLM_SERVER_STEP4")
+
+    if server == "mimo":
+        base_url = "https://token-plan-sgp.xiaomimimo.com/anthropic"
+        api_key = (config.MIMO_API_KEY or "").strip()
+        key_name = "MIMO_API_KEY"
+    elif server == "kimi":
+        base_url = "https://api.moonshot.cn/anthropic"
+        api_key = (config.KIMI_API_KEY or "").strip()
+        key_name = "KIMI_API_KEY 或 MOONSHOT_API_KEY"
+    elif server == "deepseek":
+        base_url = "https://api.deepseek.com/anthropic"
+        api_key = (config.DEEPSEEK_API_KEY or "").strip()
+        key_name = "DEEPSEEK_API_KEY"
+    elif server == "siliconflow":
+        base_url = "https://api.siliconflow.cn/"
+        api_key = (config.SILICONFLOW_KEY or "").strip()
+        key_name = "SILICONFLOW_KEY"
+    elif server == "openrouter":
+        base_url = "https://openrouter.ai/api"
+        api_key = (config.OPENROUTER_API_KEY or "").strip()
+        key_name = "OPENROUTER_API_KEY"
+    elif server == "volcengine":
+        base_url = "https://ark.cn-beijing.volces.com/api/compatible"
+        api_key = (config.VOLCENGINE_API_KEY or "").strip()
+        key_name = "VOLCENGINE_API_KEY"
+    else:
+        raise ValueError(f"不支持的步骤4 HyperFrames Agent LLM服务商: {server}")
+
+    base_url = (
+        (llm_base_url or "").strip()
+        or (getattr(config, "LLM_BASE_URL_STEP4_OVERRIDE", "") or "").strip()
+        or base_url
+    )
+
+    if not api_key:
+        raise RuntimeError(f"步骤4 HyperFrames Agent 需要 {key_name}（.env）")
+
+    return {
+        "ANTHROPIC_BASE_URL": base_url,
+        "ANTHROPIC_API_KEY": api_key,
+        "ANTHROPIC_AUTH_TOKEN": api_key,
+        "ANTHROPIC_MODEL": llm_model or config.LLM_MODEL_STEP4,
     }
 
 
@@ -539,5 +598,142 @@ def run_step1_agent(
         skill_path=skill_path,
         repo_root=repo_root,
         extra_requirements=extra_requirements,
+    )
+    anyio.run(runner)
+
+
+def _build_step4_hyperframes_prompt(
+    *,
+    segment_payload: dict[str, Any],
+    style_preset: str,
+    embedded_skill_bundle: str,
+) -> str:
+    payload_json = json.dumps(segment_payload, ensure_ascii=False, indent=2)
+    return STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE.format(
+        embedded_skill_bundle=embedded_skill_bundle,
+        style_preset=style_preset,
+        payload_json=payload_json,
+    )
+
+
+async def _run_step4_hyperframes_agent_async(
+    *,
+    work_dir: str,
+    project_dir: str,
+    segment_payload: dict[str, Any],
+    duration_seconds: float | None = None,
+    style_preset: str,
+    max_turns: int,
+    session_log_path: str,
+    embedded_skill_dir: str | None = None,
+    llm_server: str | None = None,
+    llm_model: str | None = None,
+    llm_base_url: str | None = None,
+) -> None:
+    work_path = Path(work_dir)
+    work_path.mkdir(parents=True, exist_ok=True)
+    skill_dir = Path(embedded_skill_dir) if embedded_skill_dir else embedded_hyperframes_skill_dir()
+    embedded_skill_bundle = load_embedded_hyperframes_skill_bundle(skill_dir)
+    skill_add_dirs = [str(path) for path in step4_hyperframes_skill_dirs(skill_dir.parent)]
+    prompt = _build_step4_hyperframes_prompt(
+        segment_payload=segment_payload,
+        style_preset=style_preset,
+        embedded_skill_bundle=embedded_skill_bundle,
+    )
+    tools = list(STEP4_HYPERFRAMES_AGENT_TOOLS)
+    options = ClaudeAgentOptions(
+        cwd=str(work_path),
+        model=llm_model or config.LLM_MODEL_STEP4,
+        tools=tools,
+        allowed_tools=tools,
+        permission_mode="acceptEdits",
+        max_turns=max(1, int(max_turns or 1)),
+        add_dirs=[str(Path(project_dir)), *skill_add_dirs],
+        env=build_step4_hyperframes_agent_env(
+            llm_server=llm_server,
+            llm_model=llm_model,
+            llm_base_url=llm_base_url,
+        ),
+    )
+    session_log = AgentSessionLog(session_log_path)
+    session_log.append(
+        "session_start",
+        {
+            "step": "step_4_hyperframes",
+            "work_dir": str(work_path),
+            "project_dir": project_dir,
+            "style_preset": style_preset,
+            "max_turns": max_turns,
+            "embedded_skill_dir": str(skill_dir),
+            "segment_payload": segment_payload,
+            "duration_seconds": duration_seconds,
+            "llm_server": llm_server,
+            "llm_model": llm_model,
+            "llm_base_url": llm_base_url,
+            "tools": tools,
+            "prompt": prompt,
+        },
+    )
+
+    result_message: ResultMessage | None = None
+    try:
+        async for message in query(prompt=prompt, options=options):
+            session_log.append("message", {"message": _serialize_sdk_message(message)})
+            if isinstance(message, ResultMessage):
+                result_message = message
+                if message.is_error:
+                    raise RuntimeError(message.result or "Claude Agent Step 4 HyperFrames failed")
+    except Exception as exc:
+        session_log.append(
+            "session_error",
+            {"error_type": type(exc).__name__, "error": str(exc)},
+        )
+        raise
+    finally:
+        if result_message is not None:
+            session_log.append(
+                "session_end",
+                {
+                    "success": not result_message.is_error,
+                    "result": _serialize_sdk_message(result_message),
+                },
+            )
+        else:
+            session_log.append(
+                "session_end",
+                {"success": False, "result": None, "note": "no ResultMessage received"},
+            )
+
+    if not (work_path / "index.html").exists():
+        raise FileNotFoundError(f"Claude Agent未生成HyperFrames index.html: {work_path / 'index.html'}")
+
+
+def run_step4_hyperframes_agent(
+    *,
+    work_dir: str,
+    project_dir: str,
+    segment_payload: dict[str, Any],
+    duration_seconds: float | None = None,
+    style_preset: str,
+    max_turns: int,
+    session_log_path: str,
+    embedded_skill_dir: str | None = None,
+    llm_server: str | None = None,
+    llm_model: str | None = None,
+    llm_base_url: str | None = None,
+) -> None:
+    runner = partial(
+        _run_step4_hyperframes_agent_async,
+        work_dir=work_dir,
+        project_dir=project_dir,
+        segment_payload=segment_payload,
+        duration_seconds=duration_seconds,
+        style_preset=style_preset,
+        max_turns=max_turns,
+        session_log_path=session_log_path,
+        embedded_skill_dir=embedded_skill_dir,
+        llm_server=llm_server,
+        llm_model=llm_model,
+        llm_base_url=llm_base_url,
     )
     anyio.run(runner)

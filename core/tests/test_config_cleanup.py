@@ -32,14 +32,14 @@ step2:
   llm_model: Pro/moonshotai/Kimi-K2.6
   images_method: keywords
 step3:
+  voice: S_TEST
+  tts_model: seed-tts-2.0-expressive
+  speech_rate: 15
+step4:
   image_server: google_adc
   image_model: gemini-3.1-flash-image-preview
   image_size: 1920x1080
   image_style_preset: style08
-step4:
-  voice: S_TEST
-  tts_model: seed-tts-2.0-expressive
-  speech_rate: 15
 step5:
   video_size: 1280x720
   enable_subtitles: false
@@ -82,7 +82,7 @@ subtitles:
   font_size: 56
 remotion_opening:
   ip_name: 测试刊头
-step3:
+step4:
   max_concurrent_image_generation: 4
 step5:
   bgm_default_volume: 0.25
@@ -110,7 +110,7 @@ def test_yaml_config_rejects_unknown_keys(tmp_path):
     from core.config import get_generation_params
 
     config_path = tmp_path / "bad.yaml"
-    config_path.write_text("step3:\n  typo_image_model: nope\n", encoding="utf-8")
+    config_path.write_text("step4:\n  typo_image_model: nope\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="未知配置项"):
         get_generation_params(config_path)

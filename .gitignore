@@ -79,6 +79,9 @@ build/
 music/*.mp3
 music/*.wav
 
-# 技能文件夹：仅提交基础技能 sample_writer，忽略其他自定义技能
+# 技能文件夹：提交内置步骤技能，忽略其他自定义技能
 skills/*
-!skills/sample_writer/
+!skills/step1/
+!skills/step1/**
+!skills/step4/
+!skills/step4/**

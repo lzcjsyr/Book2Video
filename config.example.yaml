@@ -22,7 +22,7 @@ step1:
   llm_server: deepseek
   # 按供应商要求填写完整模型名。火山第一步推荐：doubao-seed-2.0-code / doubao-seed-2.0-pro
   llm_model: deepseek-v4-pro
-  # 使用根目录 skills/ 下的写作 skill；一般不需要改。
+  # 使用根目录 skills/step1/ 下的写作 skill；一般不需要改。
   agent_skill: book-video-script
   # 可选 subagent。关闭时仍按 book-video-script 独立完成第一步。
   subagents:
@@ -67,49 +67,9 @@ step2:
   llm_temperature_keywords: 0.5
 
 # =============================================================================
-# 步骤3：视觉素材生成
+# 步骤3：语音合成
 # =============================================================================
 step3:
-  # 图像供应商：
-  # - google：使用 GOOGLE_CLOUD_API_KEY
-  # - google_adc：使用本机 Google ADC / Vertex AI
-  # - doubao：火山引擎 Seedream
-  image_server: doubao
-  # 常用模型示例：
-  # - gemini-3.1-flash-image-preview
-  # - doubao-seedream-5-0-260128
-  # - doubao-seedream-4-0-250828
-  image_model: doubao-seedream-4-0-250828
-  # 图像生成尺寸。建议与目标视频比例一致，例如 2560x1440 / 1920x1080 / 1080x1920。
-  image_size: 2560x1440
-  # 段落图像风格预设，见 core/prompts.py 的 IMAGE_STYLE_PRESETS。
-  image_style_preset: style02
-  # 图像生成并发。Google/高成本模型建议 1，稳定后再提高。
-  max_concurrent_image_generation: 1
-
-  # 图像提示词脱敏使用的 LLM。一般和步骤2保持一致。
-  llm_server: volcengine
-  llm_model: doubao-seed-2-0-lite-260428
-
-# =============================================================================
-# Remotion 开场视频
-# =============================================================================
-remotion_opening:
-  # 开场左上角刊头。
-  ip_name: 你是个牛逼
-  duration_seconds: 5.0
-  fps: 30
-  # 金句逐行出现的时间范围。
-  first_line_seconds: 0.2
-  last_line_seconds: 1.0
-  # 金句断行控制。
-  max_lines: 4
-  max_chars_per_line: 20
-
-# =============================================================================
-# 步骤4：语音合成
-# =============================================================================
-step4:
   # 音色 ID。留空时优先读取 .env 的 BYTEDANCE_TTS_VOICE_ID。
   voice: ""
   # 资源 ID：seed-tts-2.0 (语音合成2.0) / seed-icl-2.0 (声音复刻2.0，默认)
@@ -130,6 +90,60 @@ step4:
   max_concurrent_voice_synthesis: 5
 
 # =============================================================================
+# 步骤4：画面生成
+# =============================================================================
+step4:
+  # 画面生成模式：
+  # - static_image：调用图像模型生成 segment_i.png
+  # - hyperframes_agent：调用 Claude Agent + HyperFrames 生成 segment_i.mp4
+  visual_mode: static_image
+
+  # HyperFrames 动态画面参数，仅 visual_mode=hyperframes_agent 时生效。
+  hyperframes_style_preset: data_driven
+  hyperframes_max_turns: 20
+  hyperframes_render_fps: 30
+  hyperframes_concurrency: 1
+
+  # 图像供应商：
+  # - google：使用 GOOGLE_CLOUD_API_KEY
+  # - google_adc：使用本机 Google ADC / Vertex AI
+  # - doubao：火山引擎 Seedream
+  image_server: doubao
+  # 常用模型示例：
+  # - gemini-3.1-flash-image-preview
+  # - doubao-seedream-5-0-260128
+  # - doubao-seedream-4-0-250828
+  image_model: doubao-seedream-4-0-250828
+  # 图像生成尺寸。建议与目标视频比例一致，例如 2560x1440 / 1920x1080 / 1080x1920。
+  image_size: 2560x1440
+  # 段落图像风格预设，见 core/prompts.py 的 IMAGE_STYLE_PRESETS。
+  image_style_preset: style02
+  # 图像生成并发。Google/高成本模型建议 1，稳定后再提高。
+  max_concurrent_image_generation: 1
+
+  # 步骤4专用 LLM：
+  # - static_image：用于图像提示词脱敏/润色
+  # - hyperframes_agent：用于驱动 Claude Agent 生成 HyperFrames HTML
+  # llm_base_url 留空时会按 llm_server 自动推断；自建网关或兼容接口可在这里显式填写。
+  llm_server: volcengine
+  llm_base_url: ""
+  llm_model: doubao-seed-2-0-lite-260428
+
+# =============================================================================
+# Remotion 开场视频
+# =============================================================================
+remotion_opening:
+  # 开场左上角刊头。
+  ip_name: 你是个牛逼
+  duration_seconds: 5.0
+  fps: 30
+  # 金句逐行出现的时间范围。
+  first_line_seconds: 0.2
+  last_line_seconds: 1.0
+  # 金句断行控制。
+  max_lines: 4
+  max_chars_per_line: 20
+
 # 步骤5：最终视频合成
 # =============================================================================
 step5:

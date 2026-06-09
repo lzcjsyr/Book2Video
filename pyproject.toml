@@ -37,3 +37,10 @@ norecursedirs = [".git", ".venv", "venv", "node_modules", "build", "dist"]
 
 [tool.setuptools.packages.find]
 include = ["core*"]
+
+[tool.setuptools.package-data]
+"core.infra.hyperframes" = [
+    "app/*.html",
+    "app/*.json",
+    "app/package.json",
+]

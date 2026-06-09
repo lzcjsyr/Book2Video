@@ -137,12 +137,12 @@ def display_project_progress_and_select_step(progress) -> Optional[float]:
          "completed" if progress.get('has_script', False) else "not_started"),
         (2, "要点提取",
          "completed" if step2_done else "not_started"),
-        (3, "图像生成",
-         "completed" if progress.get('images_ok', False) else
-         ("in_progress" if progress.get('images_in_progress', False) else "not_started")),
-        (4, "语音合成",
+        (3, "语音合成",
          "completed" if progress.get('audio_ok', False) else
          ("in_progress" if progress.get('audio_in_progress', False) else "not_started")),
+        (4, "画面生成",
+         "completed" if progress.get('images_ok', False) else
+         ("in_progress" if progress.get('images_in_progress', False) else "not_started")),
         (5, "视频合成",
          "completed" if progress.get('has_final_video', False) else "not_started"),
         (6, "封面生成",
@@ -180,10 +180,10 @@ def display_project_progress_and_select_step(progress) -> Optional[float]:
         allowed_steps.append(1.5)  # 允许重做脚本分段
     if step2_done:
         allowed_steps.append(2)    # 允许重做要点提取
-    if progress.get('images_ok', False):
-        allowed_steps.append(3)    # 允许重做图像生成
     if progress.get('audio_ok', False):
-        allowed_steps.append(4)    # 允许重做语音合成
+        allowed_steps.append(3)    # 允许重做语音合成
+    if progress.get('images_ok', False):
+        allowed_steps.append(4)    # 允许重做画面生成
     if progress.get('has_final_video', False):
         allowed_steps.append(5)    # 允许重做视频合成
 
@@ -192,10 +192,10 @@ def display_project_progress_and_select_step(progress) -> Optional[float]:
         allowed_steps.append(1.5)  # 可执行脚本分段
     if not step2_done and progress.get('has_script', False):
         allowed_steps.append(2)    # 可执行要点提取
-    if not progress.get('images_ok', False) and step2_done:
-        allowed_steps.append(3)    # 可执行图像生成
     if not progress.get('audio_ok', False) and progress.get('has_script', False):
-        allowed_steps.append(4)    # 可执行语音合成（只需script.json）
+        allowed_steps.append(3)    # 可执行语音合成（只需script.json）
+    if not progress.get('images_ok', False) and step2_done and progress.get('audio_ok', False):
+        allowed_steps.append(4)    # 可执行画面生成（需要要点和语音时长）
     if not progress.get('has_final_video', False) and progress.get('images_ok', False) and progress.get('audio_ok', False):
         allowed_steps.append(5)    # 可执行视频合成（需要图像和音频都完成）
     if progress.get('has_raw', False):
@@ -294,6 +294,38 @@ def prompt_image_style_choice(style_type: str = "segment") -> Optional[str]:
     # 提取风格ID
     style_id = selected.split(":")[0].strip()
     return style_id
+
+
+def prompt_visual_mode_choice(default_mode: str = "static_image") -> Optional[str]:
+    """提示用户选择第四步画面生成模式。"""
+    modes = [
+        ("static_image", "静态图片"),
+        ("hyperframes_agent", "HyperFrames动态视频"),
+    ]
+    default_mode = (default_mode or "static_image").strip().lower()
+    default_idx = next((idx for idx, (mode, _label) in enumerate(modes) if mode == default_mode), 0)
+    options = [f"{mode}: {label}" for mode, label in modes]
+    selected = prompt_choice("请选择画面生成模式", options, default_index=default_idx)
+    if selected is None:
+        return None
+    return selected.split(":", 1)[0].strip()
+
+
+def prompt_hyperframes_style_choice(default_style: str = "data_driven") -> Optional[str]:
+    """提示用户选择 HyperFrames 动态画面风格。"""
+    styles = [
+        ("data_driven", "深色数据动效"),
+        ("light_corporate", "浅色商务报表"),
+        ("dark_premium", "深色高端汇报"),
+        ("cinematic_contrast", "电影高对比"),
+    ]
+    default_style = (default_style or "data_driven").strip().lower()
+    default_idx = next((idx for idx, (style, _label) in enumerate(styles) if style == default_style), 0)
+    options = [f"{style}: {label}" for style, label in styles]
+    selected = prompt_choice("请选择 HyperFrames 动态画面风格", options, default_index=default_idx)
+    if selected is None:
+        return None
+    return selected.split(":", 1)[0].strip()
 
 
 def display_file_menu(files: List[Dict[str, Any]]) -> None:
@@ -519,7 +551,7 @@ def _interactive_skill_selector(project_root: str) -> Optional[str]:
     import sys
     from core.config import config, Config
     
-    skills_dir = os.path.join(project_root, "skills")
+    skills_dir = os.path.join(project_root, "skills", "step1")
     if not os.path.exists(skills_dir):
         return "book-video-script"
 
@@ -624,6 +656,7 @@ def _prompt_segment_generation_scope(
     allow_opening: bool = True,
 ) -> Optional[Dict[str, Any]]:
     """提示用户选择全量或部分生成段落资源"""
+    resource_label = "画面素材" if step_label in {"图像", "画面"} else "音频"
     script_path = os.path.join(project_output_dir, 'text', 'script.json')
     script_data = load_json_file(script_path)
     segments = (script_data or {}).get('segments') or []
@@ -648,12 +681,12 @@ def _prompt_segment_generation_scope(
         print(
             f"输入 0 可重新生成{opening_label}；输入 1-{total_segments} 选择段落，可用空格或逗号分隔多个数字。"
         )
-        print(f"💡 提示：输入 N 可自动检测并补全缺失的{'图片' if step_label == '图像' else '音频'}。输入 q 返回上一级。")
+        print(f"💡 提示：输入 N 可自动检测并补全缺失的{resource_label}。输入 q 返回上一级。")
     else:
         print(
             f"输入 1-{total_segments} 选择段落，可用空格或逗号分隔多个数字。"
         )
-        print(f"💡 提示：输入 N 可自动检测并补全缺失的{'图片' if step_label == '图像' else '音频'}。输入 q 返回上一级。")
+        print(f"💡 提示：输入 N 可自动检测并补全缺失的{resource_label}。输入 q 返回上一级。")
 
     while True:
         try:
@@ -675,7 +708,7 @@ def _prompt_segment_generation_scope(
             missing_opening = False
 
             if allow_opening:
-                if step_label == "图像":
+                if step_label in {"图像", "画面"}:
                     if not os.path.exists(paths.opening_image()):
                         missing_opening = True
                 elif step_label == "语音":
@@ -683,18 +716,20 @@ def _prompt_segment_generation_scope(
                         missing_opening = True
 
             for i in range(1, total_segments + 1):
-                if step_label == "图像":
-                    if not paths.segment_image_exists(i):
-                        # 兼容性检查 jpg / jpeg
-                        if not os.path.exists(os.path.join(paths.images, f"segment_{i}.jpg")) and \
-                           not os.path.exists(os.path.join(paths.images, f"segment_{i}.jpeg")):
-                            missing_indices.append(i)
+                if step_label in {"图像", "画面"}:
+                    media_exists = False
+                    for ext in ("png", "jpg", "jpeg", "mp4", "mov", "avi", "mkv", "webm", "flv", "m4v"):
+                        if os.path.exists(os.path.join(paths.images, f"segment_{i}.{ext}")):
+                            media_exists = True
+                            break
+                    if not media_exists:
+                        missing_indices.append(i)
                 elif step_label == "语音":
                     if not paths.segment_audio_exists(i):
                         missing_indices.append(i)
 
             if not missing_indices and not missing_opening:
-                print(f"✅ 未检测到缺失的{'图片' if step_label == '图像' else '音频'}，请重新选择或输入 q 返回。")
+                print(f"✅ 未检测到缺失的{resource_label}，请重新选择或输入 q 返回。")
                 continue
 
             if missing_indices:
@@ -757,12 +792,14 @@ def _prompt_segment_generation_scope(
 def _run_specific_step(
     target_step, project_output_dir,
     llm_server_step2, llm_model_step2, llm_base_url_step2,
-    llm_server_step3, llm_model_step3, llm_base_url_step3,
+    llm_server_step4, llm_model_step4, llm_base_url_step4,
     image_server, image_model, image_size, video_size, image_style_preset, images_method,
     tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
     enable_subtitles, bgm_filename,
     cover_image_size, cover_image_server, cover_image_model, cover_image_style, cover_image_count, opening_quote=True,
-    mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100
+    mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100,
+    visual_mode="static_image", hyperframes_style_preset="data_driven",
+    hyperframes_max_turns=20, hyperframes_render_fps=30, hyperframes_concurrency=1,
 ):
     """执行指定步骤并返回结果"""
     from core.pipeline.steps import run_step_1_5, run_step_2, run_step_3, run_step_4, run_step_5, run_step_6
@@ -783,48 +820,6 @@ def _run_specific_step(
             images_method=images_method,
         )
     elif target_step == 3:
-        # 让用户选择段落图片风格
-        selected_style = prompt_image_style_choice(style_type="segment")
-        if selected_style is None:
-            return {"success": False, "message": "用户取消", "cancelled": True}
-
-        selection = _prompt_segment_generation_scope(
-            project_output_dir,
-            step_label="图像",
-            opening_label="开场视频",
-            allow_opening=opening_quote,
-        )
-        if selection is None:
-            return {"success": False, "message": "用户取消", "cancelled": True}
-        if selection["mode"] == "partial":
-            result = run_step_3(
-                image_server,
-                image_model,
-                image_size,
-                selected_style,
-                project_output_dir,
-                images_method,
-                opening_quote,
-                target_segments=selection["segments"],
-                regenerate_opening=selection.get("regenerate_opening", False),
-                llm_model=llm_model_step3,
-                llm_server=llm_server_step3,
-                llm_base_url=llm_base_url_step3,
-            )
-        else:
-            result = run_step_3(
-                image_server,
-                image_model,
-                image_size,
-                selected_style,
-                project_output_dir,
-                images_method,
-                opening_quote,
-                llm_model=llm_model_step3,
-                llm_server=llm_server_step3,
-                llm_base_url=llm_base_url_step3,
-            )
-    elif target_step == 4:
         selection = _prompt_segment_generation_scope(
             project_output_dir,
             step_label="语音",
@@ -834,7 +829,7 @@ def _run_specific_step(
         if selection is None:
             return {"success": False, "message": "用户取消", "cancelled": True}
         if selection["mode"] == "partial":
-            result = run_step_4(
+            result = run_step_3(
                 tts_server,
                 voice,
                 tts_model,
@@ -851,7 +846,7 @@ def _run_specific_step(
                 mute_cut_remain_ms=mute_cut_remain_ms,
             )
         else:
-            result = run_step_4(
+            result = run_step_3(
                 tts_server,
                 voice,
                 tts_model,
@@ -864,6 +859,68 @@ def _run_specific_step(
                 mute_cut_threshold=mute_cut_threshold,
                 mute_cut_min_silence_ms=mute_cut_min_silence_ms,
                 mute_cut_remain_ms=mute_cut_remain_ms,
+            )
+    elif target_step == 4:
+        selected_visual_mode = prompt_visual_mode_choice(visual_mode)
+        if selected_visual_mode is None:
+            return {"success": False, "message": "用户取消", "cancelled": True}
+
+        selected_style = image_style_preset
+        selected_hyperframes_style = hyperframes_style_preset
+        if selected_visual_mode == "hyperframes_agent":
+            selected_hyperframes_style = prompt_hyperframes_style_choice(hyperframes_style_preset)
+            if selected_hyperframes_style is None:
+                return {"success": False, "message": "用户取消", "cancelled": True}
+        else:
+            selected_style = prompt_image_style_choice(style_type="segment")
+            if selected_style is None:
+                return {"success": False, "message": "用户取消", "cancelled": True}
+
+        selection = _prompt_segment_generation_scope(
+            project_output_dir,
+            step_label="画面",
+            opening_label="开场视频",
+            allow_opening=opening_quote,
+        )
+        if selection is None:
+            return {"success": False, "message": "用户取消", "cancelled": True}
+        if selection["mode"] == "partial":
+            result = run_step_4(
+                image_server,
+                image_model,
+                image_size,
+                selected_style,
+                project_output_dir,
+                images_method,
+                opening_quote,
+                target_segments=selection["segments"],
+                regenerate_opening=selection.get("regenerate_opening", False),
+                llm_model=llm_model_step4,
+                llm_server=llm_server_step4,
+                llm_base_url=llm_base_url_step4,
+                visual_mode=selected_visual_mode,
+                hyperframes_style_preset=selected_hyperframes_style,
+                hyperframes_max_turns=hyperframes_max_turns,
+                hyperframes_render_fps=hyperframes_render_fps,
+                hyperframes_concurrency=hyperframes_concurrency,
+            )
+        else:
+            result = run_step_4(
+                image_server,
+                image_model,
+                image_size,
+                selected_style,
+                project_output_dir,
+                images_method,
+                opening_quote,
+                llm_model=llm_model_step4,
+                llm_server=llm_server_step4,
+                llm_base_url=llm_base_url_step4,
+                visual_mode=selected_visual_mode,
+                hyperframes_style_preset=selected_hyperframes_style,
+                hyperframes_max_turns=hyperframes_max_turns,
+                hyperframes_render_fps=hyperframes_render_fps,
+                hyperframes_concurrency=hyperframes_concurrency,
             )
     elif target_step == 5:
         # 让用户选择背景音乐
@@ -939,12 +996,14 @@ def _run_specific_step(
 def _run_step_by_step_loop(
     project_output_dir, initial_step,
     llm_server_step2, llm_model_step2, llm_base_url_step2,
-    llm_server_step3, llm_model_step3, llm_base_url_step3,
+    llm_server_step4, llm_model_step4, llm_base_url_step4,
     image_server, image_model, image_size, video_size, image_style_preset, images_method,
     tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
     enable_subtitles, bgm_filename,
     cover_image_size, cover_image_server, cover_image_model, cover_image_style, cover_image_count, opening_quote=True,
-    mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100
+    mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100,
+    visual_mode="static_image", hyperframes_style_preset="data_driven",
+    hyperframes_max_turns=20, hyperframes_render_fps=30, hyperframes_concurrency=1,
 ):
     """执行指定步骤，然后进入交互模式让用户选择下一步操作"""
     from core.pipeline.scanner import detect_project_progress
@@ -954,12 +1013,14 @@ def _run_step_by_step_loop(
         result = _run_specific_step(
             initial_step, project_output_dir,
             llm_server_step2, llm_model_step2, llm_base_url_step2,
-            llm_server_step3, llm_model_step3, llm_base_url_step3,
+            llm_server_step4, llm_model_step4, llm_base_url_step4,
             image_server, image_model, image_size, video_size, image_style_preset, images_method,
             tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
             enable_subtitles, bgm_filename,
             cover_image_size, cover_image_server, cover_image_model, cover_image_style, cover_image_count, opening_quote,
-            mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms
+            mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms,
+            visual_mode, hyperframes_style_preset,
+            hyperframes_max_turns, hyperframes_render_fps, hyperframes_concurrency
         )
         
         # 显示执行结果
@@ -994,12 +1055,14 @@ def _run_step_by_step_loop(
         result = _run_specific_step(
             selected_step, project_output_dir,
             llm_server_step2, llm_model_step2, llm_base_url_step2,
-            llm_server_step3, llm_model_step3, llm_base_url_step3,
+            llm_server_step4, llm_model_step4, llm_base_url_step4,
             image_server, image_model, image_size, video_size, image_style_preset, images_method,
             tts_server, voice, tts_model, speech_rate, loudness_rate, emotion, emotion_scale, num_segments,
             enable_subtitles, bgm_filename,
             cover_image_size, cover_image_server, cover_image_model, cover_image_style, cover_image_count, opening_quote,
-            mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms
+            mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms,
+            visual_mode, hyperframes_style_preset,
+            hyperframes_max_turns, hyperframes_render_fps, hyperframes_concurrency
         )
         
         # 显示结果
@@ -1027,9 +1090,9 @@ def run_cli_main(
     llm_server_step2: str = _UNSET,
     llm_model_step2: str = _UNSET,
     llm_base_url_step2: str = _UNSET,
-    llm_server_step3: str = _UNSET,
-    llm_model_step3: str = _UNSET,
-    llm_base_url_step3: str = _UNSET,
+    llm_server_step4: str = _UNSET,
+    llm_model_step4: str = _UNSET,
+    llm_base_url_step4: str = _UNSET,
     image_server: str = _UNSET,
     image_model: str = _UNSET,
     voice: Optional[str] = _UNSET,
@@ -1043,6 +1106,11 @@ def run_cli_main(
     mute_cut_min_silence_ms: Optional[int] = _UNSET,
     mute_cut_remain_ms: Optional[int] = _UNSET,
     output_dir: Optional[str] = None,
+    visual_mode: str = _UNSET,
+    hyperframes_style_preset: str = _UNSET,
+    hyperframes_max_turns: Optional[int] = _UNSET,
+    hyperframes_render_fps: Optional[int] = _UNSET,
+    hyperframes_concurrency: Optional[int] = _UNSET,
     image_style_preset: str = _UNSET,
     images_method: str = _UNSET,
     enable_subtitles: bool = _UNSET,
@@ -1075,9 +1143,9 @@ def run_cli_main(
             "llm_server_step2": llm_server_step2,
             "llm_model_step2": llm_model_step2,
             "llm_base_url_step2": llm_base_url_step2,
-            "llm_server_step3": llm_server_step3,
-            "llm_model_step3": llm_model_step3,
-            "llm_base_url_step3": llm_base_url_step3,
+            "llm_server_step4": llm_server_step4,
+            "llm_model_step4": llm_model_step4,
+            "llm_base_url_step4": llm_base_url_step4,
             "image_server": image_server,
             "image_model": image_model,
             "voice": voice,
@@ -1090,6 +1158,11 @@ def run_cli_main(
             "mute_cut_threshold": mute_cut_threshold,
             "mute_cut_min_silence_ms": mute_cut_min_silence_ms,
             "mute_cut_remain_ms": mute_cut_remain_ms,
+            "visual_mode": visual_mode,
+            "hyperframes_style_preset": hyperframes_style_preset,
+            "hyperframes_max_turns": hyperframes_max_turns,
+            "hyperframes_render_fps": hyperframes_render_fps,
+            "hyperframes_concurrency": hyperframes_concurrency,
             "image_style_preset": image_style_preset,
             "images_method": images_method,
             "enable_subtitles": enable_subtitles,
@@ -1112,9 +1185,9 @@ def run_cli_main(
         llm_server_step2 = params["llm_server_step2"]
         llm_model_step2 = params["llm_model_step2"]
         llm_base_url_step2 = params["llm_base_url_step2"]
-        llm_server_step3 = params["llm_server_step3"]
-        llm_model_step3 = params["llm_model_step3"]
-        llm_base_url_step3 = params["llm_base_url_step3"]
+        llm_server_step4 = params["llm_server_step4"]
+        llm_model_step4 = params["llm_model_step4"]
+        llm_base_url_step4 = params["llm_base_url_step4"]
         image_server = params["image_server"]
         image_model = params["image_model"]
         voice = params["voice"]
@@ -1139,6 +1212,20 @@ def run_cli_main(
             loudness_rate = int(loudness_rate)
         except Exception:
             loudness_rate = 0
+        visual_mode = params.get("visual_mode", "static_image")
+        hyperframes_style_preset = params.get("hyperframes_style_preset", "data_driven")
+        try:
+            hyperframes_max_turns = int(params.get("hyperframes_max_turns", 20))
+        except Exception:
+            hyperframes_max_turns = 20
+        try:
+            hyperframes_render_fps = int(params.get("hyperframes_render_fps", 30))
+        except Exception:
+            hyperframes_render_fps = 30
+        try:
+            hyperframes_concurrency = int(params.get("hyperframes_concurrency", 1))
+        except Exception:
+            hyperframes_concurrency = 1
         image_style_preset = params["image_style_preset"]
         images_method = params.get("images_method", config.SUPPORTED_IMAGE_METHODS[0])
         enable_subtitles = params["enable_subtitles"]
@@ -1213,13 +1300,15 @@ def run_cli_main(
             return _run_step_by_step_loop(
                 project_output_dir, selection["selected_step"],
                 llm_server_step2, llm_model_step2, llm_base_url_step2,
-                llm_server_step3, llm_model_step3, llm_base_url_step3,
+                llm_server_step4, llm_model_step4, llm_base_url_step4,
                 image_server, image_model, image_size, video_size, image_style_preset,
                 images_method, tts_server, voice, tts_model, speech_rate, loudness_rate,
                 emotion, emotion_scale, num_segments,
                 enable_subtitles, bgm_filename, cover_image_size, cover_image_server, cover_image_model,
                 cover_image_style, cover_image_count, opening_quote,
-                mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms
+                mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms,
+                visual_mode, hyperframes_style_preset,
+                hyperframes_max_turns, hyperframes_render_fps, hyperframes_concurrency
             )
 
     if input_file is not None and not os.path.isabs(input_file):
@@ -1273,11 +1362,13 @@ def run_cli_main(
         return _run_step_by_step_loop(
             project_output_dir, 0,  # 不执行初始步骤，直接进入交互模式
             llm_server_step2, llm_model_step2, llm_base_url_step2,
-            llm_server_step3, llm_model_step3, llm_base_url_step3,
+            llm_server_step4, llm_model_step4, llm_base_url_step4,
             image_server, image_model, image_size, video_size, image_style_preset,
             images_method, tts_server, voice, tts_model, speech_rate, loudness_rate,
             emotion, emotion_scale, num_segments,
             enable_subtitles, bgm_filename, cover_image_size, cover_image_server, cover_image_model,
             cover_image_style, cover_image_count, opening_quote,
-            mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms
+            mute_cut_threshold, mute_cut_min_silence_ms, mute_cut_remain_ms,
+            visual_mode, hyperframes_style_preset,
+            hyperframes_max_turns, hyperframes_render_fps, hyperframes_concurrency
         )

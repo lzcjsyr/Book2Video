@@ -3,7 +3,7 @@
 本文件承载步骤 1~6 的核心实现与跨步骤辅助函数，主要包括：
 1. 项目初始化与目录/文件落盘（raw/script/keywords/音视频资源）。
 2. 文本处理链路（摘要、分段脚本、关键词与描述摘要生成）。
-3. 多媒体生成链路（开场视频、分段配图、语音合成、最终视频合成、封面图生成）。
+3. 多媒体生成链路（语音合成、开场视频、分段画面、最终视频合成、封面图生成）。
 4. 运行时工具函数（路径解析、开场旁白生成、BGM 定位、Remotion开场渲染、失败兜底处理）。
 
 设计上保持“单步可独立调用”，便于 CLI 分步重跑、API 精细化控制与测试隔离。
@@ -46,6 +46,7 @@ from core.domain.summarizer import (
 from core.infra.ai import text_to_audio_bytedance
 from core.infra.project_paths import ProjectPaths
 from core.infra.hyperframes import render_opening_video
+from core.infra.hyperframes.segment_renderer import render_hyperframes_segments_with_agent
 from core.shared import load_json_file, logger
 
 SEGMENT_VIDEO_EXTENSIONS = (".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".m4v")
@@ -339,11 +340,11 @@ def run_step_1(
 ) -> Dict[str, Any]:
     project_output_dir, paths = _create_step1_project(input_file, output_dir)
     skill_name = getattr(config, "STEP1_AGENT_SKILL", "book-video-script")
-    skill_path = os.path.join(_get_project_root(), "skills", skill_name)
+    skill_path = os.path.join(_get_project_root(), "skills", "step1", skill_name)
     if not os.path.isdir(skill_path):
         logger.warning(f"技能路径不存在: {skill_path}，切换到默认的 sample_writer 作为兜底。")
         skill_name = "sample_writer"
-        skill_path = os.path.join(_get_project_root(), "skills", skill_name)
+        skill_path = os.path.join(_get_project_root(), "skills", "step1", skill_name)
     extract_path = os.path.join(paths.text, STEP1_EXTRACT_NAME)
     coverage_ledger_path = os.path.join(paths.text, STEP1_COVERAGE_LEDGER_NAME)
     session_log_path = os.path.join(paths.text, STEP1_SESSION_LOG_NAME)
@@ -525,139 +526,6 @@ def run_step_2(
 
 
 def run_step_3(
-    image_server: str,
-    image_model: str,
-    image_size: str,
-    image_style_preset: str,
-    project_output_dir: str,
-    images_method: str = "keywords",
-    opening_quote: bool = True,
-    target_segments: Optional[List[int]] = None,
-    regenerate_opening: bool = True,
-    llm_model: Optional[str] = None,
-    llm_server: Optional[str] = None,
-    llm_base_url: Optional[str] = None,
-) -> Dict[str, Any]:
-    paths = ProjectPaths(project_output_dir)
-    paths.ensure_dirs_exist()
-
-    script_data = load_json_file(paths.script_json())
-    if script_data is None:
-        return {"success": False, "message": "未找到脚本数据，请先完成步骤1.5"}
-
-    segments = script_data.get("segments", [])
-    total_segments = len(segments)
-    if total_segments == 0:
-        return {"success": False, "message": "脚本中缺少段落内容"}
-
-    selected_segments: Optional[List[int]] = None
-    if target_segments is not None:
-        raw_targets = list(target_segments)
-        parsed_targets: List[int] = []
-        for value in raw_targets:
-            try:
-                parsed_targets.append(int(value))
-            except (TypeError, ValueError):
-                continue
-        selected_segments = sorted({idx for idx in parsed_targets if 1 <= idx <= total_segments})
-        if raw_targets and not selected_segments:
-            return {"success": False, "message": f"段落选择无效，请输入 1-{total_segments} 之间的数字"}
-
-    images_method = images_method or getattr(config, "SUPPORTED_IMAGE_METHODS", ["keywords"])[0]
-
-    keywords_data = None
-    description_data = None
-    if images_method == "description":
-        description_data = load_json_file(paths.mini_summary_json())
-        if description_data is None:
-            return {"success": False, "message": "未找到描述小结，请先执行步骤2生成描述"}
-    else:
-        keywords_data = load_json_file(paths.keywords_json())
-        if keywords_data is None:
-            return {"success": False, "message": "未找到关键词数据，请先执行步骤2生成关键词"}
-
-    opening_image_path = None
-    opening_image_file = paths.opening_image()
-    opening_previously_exists = os.path.exists(opening_image_file)
-    opening_regenerated = False
-    if opening_quote:
-        need_refresh = regenerate_opening or not opening_previously_exists
-        if need_refresh:
-            opening_image_path = render_opening_video(
-                image_size=image_size,
-                output_dir=paths.images,
-                script_data=script_data,
-                opening_quote=opening_quote,
-            )
-            opening_regenerated = bool(opening_image_path)
-        elif opening_previously_exists:
-            opening_image_path = opening_image_file
-            print(f"保持现有开场视频: {opening_image_path}")
-
-    should_generate_segments = selected_segments is None or len(selected_segments) > 0
-    if should_generate_segments:
-        generation_targets = None if selected_segments is None else selected_segments
-        image_result = generate_images_for_segments(
-            image_server,
-            image_model,
-            script_data,
-            image_style_preset,
-            image_size,
-            paths.images,
-            images_method=images_method,
-            keywords_data=keywords_data,
-            description_data=description_data,
-            target_segments=generation_targets,
-            llm_model=llm_model,
-            llm_server=llm_server,
-            llm_base_url=llm_base_url,
-        )
-    else:
-        image_paths = []
-        for idx in range(1, total_segments + 1):
-            segment_path = paths.segment_image(idx)
-            image_paths.append(segment_path if os.path.exists(segment_path) else "")
-        image_result = {"image_paths": image_paths, "failed_segments": [], "processed_segments": []}
-
-    failed_segments = image_result.get("failed_segments", [])
-    if failed_segments:
-        failed_str = "、".join(str(idx) for idx in failed_segments)
-        return {
-            "success": False,
-            "message": f"第 {failed_str} 段图像生成失败，请调整提示或稍后重试。",
-            "failed_segments": failed_segments,
-            "image_paths": image_result.get("image_paths", []),
-            "opening_image_path": opening_image_path,
-        }
-
-    processed_segments = image_result.get("processed_segments", [])
-    if selected_segments is None:
-        message = "段落图像生成完成"
-        if opening_regenerated:
-            message += "，开场视频已更新"
-    elif processed_segments:
-        seg_text = "、".join(str(idx) for idx in processed_segments)
-        message = f"已生成第 {seg_text} 段图像"
-        if opening_regenerated:
-            message += " 并刷新开场视频"
-    else:
-        message = "未生成新的段落图像"
-        if opening_regenerated:
-            message = "已重新生成开场视频"
-
-    payload = {
-        "success": True,
-        "opening_image_path": opening_image_path,
-        "processed_segments": processed_segments,
-        "message": message,
-    }
-    for key, value in image_result.items():
-        if key != "processed_segments":
-            payload[key] = value
-    return payload
-
-
-def run_step_4(
     tts_server: str,
     voice: str,
     tts_model: str,
@@ -762,6 +630,178 @@ def run_step_4(
     }
 
 
+def run_step_4(
+    image_server: str,
+    image_model: str,
+    image_size: str,
+    image_style_preset: str,
+    project_output_dir: str,
+    images_method: str = "keywords",
+    opening_quote: bool = True,
+    target_segments: Optional[List[int]] = None,
+    regenerate_opening: bool = True,
+    llm_model: Optional[str] = None,
+    llm_server: Optional[str] = None,
+    llm_base_url: Optional[str] = None,
+    visual_mode: Optional[str] = None,
+    hyperframes_style_preset: Optional[str] = None,
+    hyperframes_max_turns: Optional[int] = None,
+    hyperframes_render_fps: Optional[int] = None,
+    hyperframes_concurrency: Optional[int] = None,
+) -> Dict[str, Any]:
+    paths = ProjectPaths(project_output_dir)
+    paths.ensure_dirs_exist()
+
+    script_data = load_json_file(paths.script_json())
+    if script_data is None:
+        return {"success": False, "message": "未找到脚本数据，请先完成步骤1.5"}
+
+    segments = script_data.get("segments", [])
+    total_segments = len(segments)
+    if total_segments == 0:
+        return {"success": False, "message": "脚本中缺少段落内容"}
+
+    selected_segments: Optional[List[int]] = None
+    if target_segments is not None:
+        raw_targets = list(target_segments)
+        parsed_targets: List[int] = []
+        for value in raw_targets:
+            try:
+                parsed_targets.append(int(value))
+            except (TypeError, ValueError):
+                continue
+        selected_segments = sorted({idx for idx in parsed_targets if 1 <= idx <= total_segments})
+        if raw_targets and not selected_segments:
+            return {"success": False, "message": f"段落选择无效，请输入 1-{total_segments} 之间的数字"}
+
+    images_method = images_method or getattr(config, "SUPPORTED_IMAGE_METHODS", ["keywords"])[0]
+
+    keywords_data = None
+    description_data = None
+    if images_method == "description":
+        description_data = load_json_file(paths.mini_summary_json())
+        if description_data is None:
+            return {"success": False, "message": "未找到描述小结，请先执行步骤2生成描述"}
+    else:
+        keywords_data = load_json_file(paths.keywords_json())
+        if keywords_data is None:
+            return {"success": False, "message": "未找到关键词数据，请先执行步骤2生成关键词"}
+
+    opening_image_path = None
+    opening_image_file = paths.opening_image()
+    opening_previously_exists = os.path.exists(opening_image_file)
+    opening_regenerated = False
+    if opening_quote:
+        need_refresh = regenerate_opening or not opening_previously_exists
+        if need_refresh:
+            opening_image_path = render_opening_video(
+                image_size=image_size,
+                output_dir=paths.images,
+                script_data=script_data,
+                opening_quote=opening_quote,
+            )
+            opening_regenerated = bool(opening_image_path)
+        elif opening_previously_exists:
+            opening_image_path = opening_image_file
+            print(f"保持现有开场视频: {opening_image_path}")
+
+    mode = (visual_mode or getattr(config, "VISUAL_MODE", "static_image") or "static_image").strip().lower()
+    if mode not in {"static_image", "hyperframes_agent"}:
+        return {"success": False, "message": f"不支持的画面生成模式: {visual_mode}"}
+
+    should_generate_segments = selected_segments is None or len(selected_segments) > 0
+    generation_targets = None if selected_segments is None else selected_segments
+    if not should_generate_segments:
+        image_paths = []
+        for idx in range(1, total_segments + 1):
+            media_path = _resolve_segment_media_path(paths, idx)
+            image_paths.append(media_path or "")
+        image_result = {"image_paths": image_paths, "failed_segments": [], "processed_segments": []}
+    elif mode == "static_image":
+        image_result = generate_images_for_segments(
+            image_server,
+            image_model,
+            script_data,
+            image_style_preset,
+            image_size,
+            paths.images,
+            images_method=images_method,
+            keywords_data=keywords_data,
+            description_data=description_data,
+            target_segments=generation_targets,
+            llm_model=llm_model,
+            llm_server=llm_server,
+            llm_base_url=llm_base_url,
+        )
+    else:
+        image_result = render_hyperframes_segments_with_agent(
+            project_output_dir=project_output_dir,
+            script_data=script_data,
+            image_size=image_size,
+            output_dir=paths.images,
+            target_segments=generation_targets,
+            keywords_data=keywords_data,
+            description_data=description_data,
+            style_preset=hyperframes_style_preset or getattr(config, "HYPERFRAMES_STYLE_PRESET", "data_driven"),
+            max_turns=int(hyperframes_max_turns or getattr(config, "HYPERFRAMES_MAX_TURNS", 20)),
+            render_fps=int(hyperframes_render_fps or getattr(config, "HYPERFRAMES_RENDER_FPS", 30)),
+            concurrency=int(hyperframes_concurrency or getattr(config, "HYPERFRAMES_CONCURRENCY", 1)),
+            session_log_path=os.path.join(paths.text, "_step4_hyperframes_agent_session.jsonl"),
+            repo_root=_get_project_root(),
+            llm_server=llm_server,
+            llm_model=llm_model,
+            llm_base_url=llm_base_url,
+        )
+
+    failed_segments = image_result.get("failed_segments", [])
+    if failed_segments:
+        failed_str = "、".join(str(idx) for idx in failed_segments)
+        missing_audio_segments = image_result.get("missing_audio_segments", [])
+        if missing_audio_segments:
+            missing_str = "、".join(str(idx) for idx in missing_audio_segments)
+            return {
+                "success": False,
+                "message": f"第 {missing_str} 段缺少音频，请先完成步骤3语音合成。",
+                "failed_segments": failed_segments,
+                "missing_audio_segments": missing_audio_segments,
+                "image_paths": image_result.get("image_paths", []),
+                "opening_image_path": opening_image_path,
+            }
+        return {
+            "success": False,
+            "message": f"第 {failed_str} 段画面生成失败，请调整提示或稍后重试。",
+            "failed_segments": failed_segments,
+            "image_paths": image_result.get("image_paths", []),
+            "opening_image_path": opening_image_path,
+        }
+
+    processed_segments = image_result.get("processed_segments", [])
+    if selected_segments is None:
+        message = "段落画面生成完成"
+        if opening_regenerated:
+            message += "，开场视频已更新"
+    elif processed_segments:
+        seg_text = "、".join(str(idx) for idx in processed_segments)
+        message = f"已生成第 {seg_text} 段画面"
+        if opening_regenerated:
+            message += " 并刷新开场视频"
+    else:
+        message = "未生成新的段落画面"
+        if opening_regenerated:
+            message = "已重新生成开场视频"
+
+    payload = {
+        "success": True,
+        "opening_image_path": opening_image_path,
+        "processed_segments": processed_segments,
+        "message": message,
+    }
+    for key, value in image_result.items():
+        if key != "processed_segments":
+            payload[key] = value
+    return payload
+
+
 def run_step_5(
     project_output_dir: str,
     image_size: str,
@@ -802,11 +842,11 @@ def run_step_5(
             audio_count += 1
 
     if image_count == 0:
-        return {"success": False, "message": "未找到图像文件，请先完成步骤3"}
+        return {"success": False, "message": "未找到画面素材，请先完成步骤4"}
     if audio_count == 0:
-        return {"success": False, "message": "未找到音频文件，请先完成步骤4"}
+        return {"success": False, "message": "未找到音频文件，请先完成步骤3"}
     if image_count != expected_segments:
-        return {"success": False, "message": f"图像文件不完整，需要{expected_segments}个，找到{image_count}个"}
+        return {"success": False, "message": f"画面素材不完整，需要{expected_segments}个，找到{image_count}个"}
     if audio_count != expected_segments:
         return {"success": False, "message": f"音频文件不完整，需要{expected_segments}个，找到{audio_count}个"}
 

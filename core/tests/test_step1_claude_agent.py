@@ -72,7 +72,7 @@ def test_run_step_1_uses_claude_agent_skill_and_loads_raw_json(monkeypatch, tmp_
     assert Path(captured["coverage_ledger_path"]).name == claude_agent.STEP1_COVERAGE_LEDGER_NAME
     assert Path(captured["session_log_path"]).name == claude_agent.STEP1_SESSION_LOG_NAME
     assert captured["num_segments"] == 70
-    assert captured["skill_path"].endswith("skills/book-video-script")
+    assert captured["skill_path"].endswith("skills/step1/book-video-script")
     assert captured["repo_root"] == steps._get_project_root()
     assert captured["extra_requirements"] == ""
     assert result["raw"]["total_length"] == 17
@@ -616,7 +616,7 @@ def test_agent_session_log_omits_skill_reference_read_content(tmp_path: Path):
                 "tool_use_result": {
                     "type": "text",
                     "file": {
-                        "filePath": "/repo/skills/book-video-script/references/reading-strategy.md",
+                        "filePath": "/repo/skills/step1/book-video-script/references/reading-strategy.md",
                         "content": skill_content,
                         "numLines": 2001,
                     },
@@ -811,4 +811,4 @@ def test_run_step_1_skill_path_fallback(monkeypatch, tmp_path: Path):
     result = steps.run_step_1(str(input_file), str(tmp_path / "output"), num_segments=70)
 
     assert result["success"] is True
-    assert captured["skill_path"].endswith("skills/sample_writer")
+    assert captured["skill_path"].endswith("skills/step1/sample_writer")

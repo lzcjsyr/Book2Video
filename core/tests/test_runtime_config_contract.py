@@ -101,7 +101,7 @@ def test_step1_subagent_prompts_do_not_depend_on_book_video_script_internals():
         "_draft_v2_structure.txt",
         "_draft_final.txt",
         "_revision_audit.json",
-        "skills/book-video-script",
+        "skills/step1/book-video-script",
     ]
     for marker in forbidden:
         assert marker not in prompts
@@ -114,8 +114,8 @@ def test_config_exposes_current_runtime_params():
 
     assert params["llm_server_step2"] == "volcengine"
     assert params["llm_base_url_step2"] == config.LLM_BASE_URL_STEP2
-    assert params["llm_server_step3"] == "volcengine"
-    assert params["llm_base_url_step3"] == config.LLM_BASE_URL_STEP3
+    assert params["llm_server_step4"] == "volcengine"
+    assert params["llm_base_url_step4"] == config.LLM_BASE_URL_STEP4
     assert "volcengine" in config.SUPPORTED_LLM_SERVERS
     assert "kimi" in config.SUPPORTED_LLM_SERVERS
     assert config.LLM_SERVER_URLS["kimi"] == "https://api.moonshot.cn/v1"
@@ -177,7 +177,7 @@ def test_generation_params_resolve_kimi_base_url(tmp_path):
 step2:
   llm_server: kimi
   llm_model: kimi-k2.6
-step3:
+step4:
   llm_server: kimi
   llm_model: kimi-k2.6
 """,
@@ -188,8 +188,29 @@ step3:
 
     assert params["llm_server_step2"] == "kimi"
     assert params["llm_base_url_step2"] == "https://api.moonshot.cn/v1"
-    assert params["llm_server_step3"] == "kimi"
-    assert params["llm_base_url_step3"] == "https://api.moonshot.cn/v1"
+    assert params["llm_server_step4"] == "kimi"
+    assert params["llm_base_url_step4"] == "https://api.moonshot.cn/v1"
+
+
+def test_step4_llm_base_url_can_be_configured_independently(tmp_path):
+    from core.config import get_generation_params
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+step4:
+  llm_server: siliconflow
+  llm_model: custom-claude-compatible-model
+  llm_base_url: https://llm-gateway.example.test/anthropic
+""",
+        encoding="utf-8",
+    )
+
+    params = get_generation_params(config_path)
+
+    assert params["llm_server_step4"] == "siliconflow"
+    assert params["llm_model_step4"] == "custom-claude-compatible-model"
+    assert params["llm_base_url_step4"] == "https://llm-gateway.example.test/anthropic"
 
 
 def test_recovered_config_keeps_cover_validation_usable(monkeypatch, tmp_path):

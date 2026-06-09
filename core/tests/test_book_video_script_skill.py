@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-SKILL_DIR = Path(__file__).resolve().parents[2] / "skills" / "book-video-script"
+SKILL_DIR = Path(__file__).resolve().parents[2] / "skills" / "step1" / "book-video-script"
 
 
 def test_writing_standard_keeps_single_clean_raw_json_schema():

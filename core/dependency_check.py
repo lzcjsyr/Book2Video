@@ -98,6 +98,7 @@ class DependencyChecker:
             self._check_command("npm", "npm", "安装 Node.js 时勾选 npm，并重开终端。"),
             self._check_hyperframes_package_json(),
             self._check_hyperframes_template(),
+            self._check_hyperframes_skill_bundle(),
             self._check_python_packages(),
             self._check_env_file(),
             self._check_music_dir(),
@@ -140,6 +141,33 @@ class DependencyChecker:
             False,
             "缺少 HyperFrames 网页模板 index.html",
             "确认项目完整下载，包含 core/infra/hyperframes/app/index.html。",
+        )
+
+    def _check_hyperframes_skill_bundle(self) -> CheckItem:
+        required_files = (
+            "hyperframes/SKILL.md",
+            "hyperframes/house-style.md",
+            "hyperframes/data-in-motion.md",
+            "hyperframes/visual-styles.md",
+            "hyperframes/references/motion-principles.md",
+            "hyperframes/references/video-composition.md",
+            "hyperframes/references/typography.md",
+            "hyperframes-cli/SKILL.md",
+            "gsap/SKILL.md",
+            "css-animations/SKILL.md",
+        )
+        missing = [
+            rel_path
+            for rel_path in required_files
+            if not (self._hyperframes_skill_dir / rel_path).exists()
+        ]
+        if not missing:
+            return CheckItem("HyperFrames embedded skills", True, str(self._hyperframes_skill_dir))
+        return CheckItem(
+            "HyperFrames embedded skills",
+            False,
+            "缺少: " + ", ".join(missing),
+            "确认项目完整下载，包含 skills/step4/hyperframes/ 内置规范文件。",
         )
 
     def _check_python_packages(self) -> CheckItem:
@@ -205,6 +233,10 @@ class DependencyChecker:
     def _hyperframes_app_dir(self) -> Path:
         return self.repo_root / "core" / "infra" / "hyperframes" / "app"
 
+    @property
+    def _hyperframes_skill_dir(self) -> Path:
+        return self.repo_root / "skills" / "step4"
+
     def _pyproject_package_names(self) -> Iterable[str]:
         pyproject = self.repo_root / "pyproject.toml"
         if not pyproject.exists():
@@ -246,10 +278,10 @@ class DependencyChecker:
         providers = [
             ("步骤1 LLM", getattr(runtime_config, "LLM_SERVER_STEP1", "")),
             ("步骤2 LLM", getattr(runtime_config, "LLM_SERVER_STEP2", "")),
-            ("步骤3 LLM", getattr(runtime_config, "LLM_SERVER_STEP3", "")),
-            ("图像生成", getattr(runtime_config, "IMAGE_SERVER", "")),
+            ("步骤4画面LLM", getattr(runtime_config, "LLM_SERVER_STEP4", "")),
+            ("步骤4画面生成", getattr(runtime_config, "IMAGE_SERVER", "")),
             ("封面生成", getattr(runtime_config, "COVER_IMAGE_SERVER", "")),
-            ("语音合成", "bytedance"),
+            ("步骤3语音合成", "bytedance"),
         ]
         groups = []
         seen = set()

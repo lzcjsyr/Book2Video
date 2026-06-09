@@ -86,7 +86,7 @@ def _strip_code_fences(text: str) -> str:
 
 
 def _desensitize_image_prompt(original_prompt: str, safety_options: Optional[Dict[str, Any]]) -> Optional[str]:
-    """使用步骤3配置的LLM对图像提示词进行脱敏。"""
+    """使用步骤4画面配置的LLM对图像提示词进行脱敏。"""
     if not original_prompt or not safety_options:
         return None
 

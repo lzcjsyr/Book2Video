@@ -32,14 +32,18 @@ def _load_yaml_file(filename: str) -> dict:
 STEP1_AGENT_PROMPT_TEMPLATE = _load_prompt_file("step1_agent.md")
 keywords_extraction_prompt = _load_prompt_file("step2_keywords.md")
 description_summary_system_prompt = _load_prompt_file("step2_summary.md")
-IMAGE_PROMPT_SAFETY_TEMPLATE = _load_prompt_file("step3_safety.md")
-IMAGE_DESCRIPTION_PROMPT_TEMPLATE = _load_prompt_file("step3_description.md")
+STEP4_IMAGE_PROMPT_SAFETY_TEMPLATE = _load_prompt_file("step4_safety.md")
+STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATE = _load_prompt_file("step4_description.md")
+STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE = _load_prompt_file("step4_hyperframes_agent.md")
+IMAGE_PROMPT_SAFETY_TEMPLATE = STEP4_IMAGE_PROMPT_SAFETY_TEMPLATE
+IMAGE_DESCRIPTION_PROMPT_TEMPLATE = STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATE
 COVER_IMAGE_PROMPT_TEMPLATE = _load_prompt_file("step6_cover.md")
 
 # ================================================================================
 # 动态加载图像与封面预设风格
 # ================================================================================
-IMAGE_STYLE_PRESETS = _load_yaml_file("step3_styles.yaml")
+STEP4_IMAGE_STYLE_PRESETS = _load_yaml_file("step4_styles.yaml")
+IMAGE_STYLE_PRESETS = STEP4_IMAGE_STYLE_PRESETS
 COVER_IMAGE_STYLE_PRESETS = _load_yaml_file("step6_styles.yaml")
 
 # ================================================================================
@@ -73,6 +77,10 @@ __all__ = [
     'IMAGE_DESCRIPTION_PROMPT_TEMPLATE',
     'IMAGE_PROMPT_SAFETY_TEMPLATE',
     'IMAGE_STYLE_PRESETS',
+    'STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATE',
+    'STEP4_IMAGE_PROMPT_SAFETY_TEMPLATE',
+    'STEP4_IMAGE_STYLE_PRESETS',
+    'STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE',
     'COVER_IMAGE_STYLE_PRESETS',
     'COVER_IMAGE_PROMPT_TEMPLATE'
 ]

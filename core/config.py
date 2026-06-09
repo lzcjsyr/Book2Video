@@ -31,24 +31,6 @@ _YAML_SCHEMA: Dict[str, Dict[str, str]] = {
         "llm_temperature_keywords": "LLM_TEMPERATURE_KEYWORDS",
     },
     "step3": {
-        "image_server": "IMAGE_SERVER",
-        "image_size": "IMAGE_SIZE",
-        "image_model": "IMAGE_MODEL",
-        "image_style_preset": "IMAGE_STYLE_PRESET",
-        "max_concurrent_image_generation": "MAX_CONCURRENT_IMAGE_GENERATION",
-        "llm_server": "LLM_SERVER_STEP3",
-        "llm_model": "LLM_MODEL_STEP3",
-    },
-    "remotion_opening": {
-        "ip_name": "OPENING_REMOTION_IP_NAME",
-        "duration_seconds": "OPENING_REMOTION_DURATION_SECONDS",
-        "fps": "OPENING_REMOTION_FPS",
-        "first_line_seconds": "OPENING_REMOTION_FIRST_LINE_SECONDS",
-        "last_line_seconds": "OPENING_REMOTION_LAST_LINE_SECONDS",
-        "max_lines": "OPENING_REMOTION_MAX_LINES",
-        "max_chars_per_line": "OPENING_REMOTION_MAX_CHARS_PER_LINE",
-    },
-    "step4": {
         "voice": "VOICE",
         "resource_id": "RESOURCE_ID",
         "tts_model": "TTS_MODEL",
@@ -60,6 +42,30 @@ _YAML_SCHEMA: Dict[str, Dict[str, str]] = {
         "mute_cut_min_silence_ms": "MUTE_CUT_MIN_SILENCE_MS",
         "mute_cut_remain_ms": "MUTE_CUT_REMAIN_MS",
         "max_concurrent_voice_synthesis": "MAX_CONCURRENT_VOICE_SYNTHESIS",
+    },
+    "remotion_opening": {
+        "ip_name": "OPENING_REMOTION_IP_NAME",
+        "duration_seconds": "OPENING_REMOTION_DURATION_SECONDS",
+        "fps": "OPENING_REMOTION_FPS",
+        "first_line_seconds": "OPENING_REMOTION_FIRST_LINE_SECONDS",
+        "last_line_seconds": "OPENING_REMOTION_LAST_LINE_SECONDS",
+        "max_lines": "OPENING_REMOTION_MAX_LINES",
+        "max_chars_per_line": "OPENING_REMOTION_MAX_CHARS_PER_LINE",
+    },
+    "step4": {
+        "visual_mode": "VISUAL_MODE",
+        "hyperframes_style_preset": "HYPERFRAMES_STYLE_PRESET",
+        "hyperframes_max_turns": "HYPERFRAMES_MAX_TURNS",
+        "hyperframes_render_fps": "HYPERFRAMES_RENDER_FPS",
+        "hyperframes_concurrency": "HYPERFRAMES_CONCURRENCY",
+        "image_server": "IMAGE_SERVER",
+        "image_size": "IMAGE_SIZE",
+        "image_model": "IMAGE_MODEL",
+        "image_style_preset": "IMAGE_STYLE_PRESET",
+        "max_concurrent_image_generation": "MAX_CONCURRENT_IMAGE_GENERATION",
+        "llm_server": "LLM_SERVER_STEP4",
+        "llm_base_url": "LLM_BASE_URL_STEP4_OVERRIDE",
+        "llm_model": "LLM_MODEL_STEP4",
     },
     "step5": {
         "video_size": "VIDEO_SIZE",
@@ -134,8 +140,14 @@ _PARAM_CONSTANTS = {
     "llm_server_step2": "LLM_SERVER_STEP2",
     "image_server": "IMAGE_SERVER",
     "image_model": "IMAGE_MODEL",
-    "llm_server_step3": "LLM_SERVER_STEP3",
-    "llm_model_step3": "LLM_MODEL_STEP3",
+    "visual_mode": "VISUAL_MODE",
+    "hyperframes_style_preset": "HYPERFRAMES_STYLE_PRESET",
+    "hyperframes_max_turns": "HYPERFRAMES_MAX_TURNS",
+    "hyperframes_render_fps": "HYPERFRAMES_RENDER_FPS",
+    "hyperframes_concurrency": "HYPERFRAMES_CONCURRENCY",
+    "llm_server_step4": "LLM_SERVER_STEP4",
+    "llm_base_url_step4": "LLM_BASE_URL_STEP4_OVERRIDE",
+    "llm_model_step4": "LLM_MODEL_STEP4",
     "voice": "VOICE",
     "resource_id": "RESOURCE_ID",
     "tts_model": "TTS_MODEL",
@@ -255,11 +267,18 @@ def _llm_base_url_for(server: str) -> str:
     return Config.LLM_SERVER_URLS.get((server or "").strip().lower(), "")
 
 
+def _resolve_step4_llm_base_url(params: Mapping[str, object]) -> str:
+    override = str(params.get("llm_base_url_step4") or "").strip()
+    if override:
+        return override
+    return _llm_base_url_for(str(params.get("llm_server_step4") or ""))
+
+
 def _base_generation_params() -> Dict[str, object]:
     values = globals()
     params = {key: values[constant] for key, constant in _PARAM_CONSTANTS.items()}
     params["llm_base_url_step2"] = config.LLM_BASE_URL_STEP2
-    params["llm_base_url_step3"] = config.LLM_BASE_URL_STEP3
+    params["llm_base_url_step4"] = _resolve_step4_llm_base_url(params)
     params["output_dir"] = "output"
     return params
 
@@ -271,7 +290,9 @@ def _apply_param_overrides(params: Dict[str, object], overrides: Dict[str, objec
         if key:
             params[key] = value
     params["llm_base_url_step2"] = _llm_base_url_for(str(params.get("llm_server_step2") or ""))
-    params["llm_base_url_step3"] = _llm_base_url_for(str(params.get("llm_server_step3") or ""))
+    if "LLM_BASE_URL_STEP4_OVERRIDE" not in overrides:
+        params["llm_base_url_step4"] = ""
+    params["llm_base_url_step4"] = _resolve_step4_llm_base_url(params)
     return params
 
 
@@ -364,7 +385,7 @@ class Config:
         """获取缺失的必需API密钥"""
         missing = []
         key_status = cls.validate_api_keys()
-        llm_servers = {cls.LLM_SERVER_STEP2, cls.LLM_SERVER_STEP3}
+        llm_servers = {cls.LLM_SERVER_STEP2, cls.LLM_SERVER_STEP4}
         if "siliconflow" in llm_servers and not key_status["siliconflow"]:
             missing.append("SILICONFLOW_KEY")
         if "openrouter" in llm_servers and not key_status["openrouter"]:
@@ -499,9 +520,12 @@ class Config:
         return self.LLM_SERVER_URLS.get((getattr(self, "LLM_SERVER_STEP2", "") or "").strip().lower(), "")
 
     @property
-    def LLM_BASE_URL_STEP3(self) -> str:
-        """根据 LLM_SERVER_STEP3 自动匹配 base URL"""
-        return self.LLM_SERVER_URLS.get((getattr(self, "LLM_SERVER_STEP3", "") or "").strip().lower(), "")
+    def LLM_BASE_URL_STEP4(self) -> str:
+        """步骤4 LLM base URL；配置为空时根据 LLM_SERVER_STEP4 自动匹配。"""
+        override = str(getattr(self, "LLM_BASE_URL_STEP4_OVERRIDE", "") or "").strip()
+        if override:
+            return override
+        return self.LLM_SERVER_URLS.get((getattr(self, "LLM_SERVER_STEP4", "") or "").strip().lower(), "")
 
 
 # 将用户配置区的模块常量挂到 Config，避免在类体内逐字段复制
@@ -574,11 +598,16 @@ class VideoGenerationConfig:
     llm_server_step2: str = LLM_SERVER_STEP2
     llm_base_url_step2: str = ""
     llm_model_step2: str = LLM_MODEL_STEP2
-    llm_server_step3: str = LLM_SERVER_STEP3
-    llm_base_url_step3: str = ""
-    llm_model_step3: str = LLM_MODEL_STEP3
+    llm_server_step4: str = LLM_SERVER_STEP4
+    llm_base_url_step4: str = ""
+    llm_model_step4: str = LLM_MODEL_STEP4
     
     # ==================== 图像生成配置 ====================
+    visual_mode: str = VISUAL_MODE
+    hyperframes_style_preset: str = HYPERFRAMES_STYLE_PRESET
+    hyperframes_max_turns: int = HYPERFRAMES_MAX_TURNS
+    hyperframes_render_fps: int = HYPERFRAMES_RENDER_FPS
+    hyperframes_concurrency: int = HYPERFRAMES_CONCURRENCY
     image_server: str = IMAGE_SERVER
     image_model: str = IMAGE_MODEL
     image_size: str = IMAGE_SIZE
@@ -649,6 +678,11 @@ class VideoGenerationConfig:
         Returns:
             VideoGenerationConfig: 配置对象
         """
+        for src, dst in _CLI_PARAM_ALIASES:
+            if src in params and dst not in params:
+                params = dict(params)
+                params[dst] = params[src]
+
         # 过滤掉不在 dataclass 字段中的键
         valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
         filtered_params = {k: v for k, v in params.items() if k in valid_fields}

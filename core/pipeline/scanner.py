@@ -26,6 +26,8 @@ from core.shared import (
 from core.infra.project_paths import ProjectPaths
 from core.config import OPENING_QUOTE
 
+SEGMENT_MEDIA_EXTENSIONS = ("png", "jpg", "jpeg", "mp4", "mov", "avi", "mkv", "webm", "flv", "m4v")
+
 
 def _project_root() -> str:
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -178,18 +180,18 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
         try:
             num_segments = len(script.get('segments', []))
             
-            # 图片检查 - 使用 ProjectPaths
+            # 画面素材检查 - 支持静态图片和 HyperFrames/视频片段
             image_files = [f for f in os.listdir(paths.images) if os.path.isfile(os.path.join(paths.images, f))] if os.path.isdir(paths.images) else []
             image_indices = []
             for f in image_files:
-                m = re.match(r'^segment_(\d+)\.(png|jpg|jpeg)$', f, re.IGNORECASE)
+                m = re.match(rf'^segment_(\d+)\.({"|".join(SEGMENT_MEDIA_EXTENSIONS)})$', f, re.IGNORECASE)
                 if m:
                     image_indices.append(int(m.group(1)))
 
             # 检测开场素材（opening.mp4 / opening.png）
             has_opening_image = os.path.exists(paths.opening_image())
 
-            # 步骤3：图像完成条件 - 根据 OPENING_QUOTE 配置调整
+            # 步骤4：画面完成条件 - 根据 OPENING_QUOTE 配置调整
             segment_images_complete = (len(image_indices) == num_segments) and (set(image_indices) == set(range(1, num_segments+1)))
             if OPENING_QUOTE:
                 images_ok = segment_images_complete and has_opening_image
@@ -209,7 +211,7 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
             # 检测开场音频（opening.wav，新项目；opening.mp3，旧项目兼容）
             has_opening_audio = os.path.exists(paths.opening_audio())
 
-            # 步骤4：音频完成条件 - 根据 OPENING_QUOTE 配置调整
+            # 步骤3：音频完成条件 - 根据 OPENING_QUOTE 配置调整
             segment_audio_complete = (len(audio_indices) == num_segments) and (set(audio_indices) == set(range(1, num_segments+1)))
             if OPENING_QUOTE:
                 audio_ok = segment_audio_complete and has_opening_audio
@@ -243,20 +245,20 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
         current_step = 2
         current_step_name = "2"
 
-    # 步骤3和4可以独立完成，取较高的步骤号
+    # 步骤3是语音，步骤4是画面；两者可以独立重跑，但进度按顺序显示
     if images_ok and audio_ok:
         current_step = 4
-        current_step_name = "3+4"
-    elif audio_ok:
+        current_step_name = "4"
+    elif images_ok:
         current_step = 4
         current_step_name = "4"
-    elif audio_in_progress:
+    elif images_in_progress:
         current_step = max(current_step, 4)
         current_step_name = "4（进行中）"
-    elif images_ok:
+    elif audio_ok:
         current_step = 3
         current_step_name = "3"
-    elif images_in_progress:
+    elif audio_in_progress:
         current_step = max(current_step, 3)
         current_step_name = "3（进行中）"
 
@@ -267,7 +269,7 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
         current_step = max(current_step, 6)
         current_step_name = "6"
 
-    # 向前推导逻辑：调整为支持并行步骤3和4
+    # 向前推导逻辑：支持步骤3语音和步骤4画面独立重跑
     if has_final_video:
         has_raw = has_script = has_keywords = has_description = images_ok = audio_ok = True
     elif images_ok and audio_ok:
@@ -332,11 +334,9 @@ def collect_ordered_assets(project_dir: str, script_data: Dict[str, Any], requir
     audio_paths: List[str] = []
     
     for i in range(1, num_segments+1):
-        # 按多种图片格式搜索
         candidates = [
-            paths.segment_image(i),
-            os.path.join(paths.images, f"segment_{i}.jpg"),
-            os.path.join(paths.images, f"segment_{i}.jpeg"),
+            os.path.join(paths.images, f"segment_{i}.{extension}")
+            for extension in SEGMENT_MEDIA_EXTENSIONS
         ]
         image_path = None
         for p in candidates:
@@ -345,7 +345,7 @@ def collect_ordered_assets(project_dir: str, script_data: Dict[str, Any], requir
                 break
                 
         if not image_path:
-            raise FileNotFoundError(f"缺少图片: segment_{i}.(png|jpg|jpeg)")
+            raise FileNotFoundError(f"缺少画面素材: segment_{i}.({'|'.join(SEGMENT_MEDIA_EXTENSIONS)})")
         image_paths.append(image_path)
         
         # 音频文件搜索 - 使用 ProjectPaths
@@ -383,23 +383,22 @@ def clear_downstream_outputs(project_dir: str, from_step) -> None:
             if os.path.exists(paths.keywords_json()):
                 os.remove(paths.keywords_json())
                     
-        if from_step <= 2:
-            # 清空 images
-            if os.path.isdir(paths.images):
-                for f in os.listdir(paths.images):
-                    fp = os.path.join(paths.images, f)
-                    if os.path.isfile(fp):
-                        os.remove(fp)
-                        
         if from_step <= 3:
-            # 清空 voice
+            # 清空 voice（步骤3语音）及其下游画面/成片
             if os.path.isdir(paths.voice):
                 for f in os.listdir(paths.voice):
                     fp = os.path.join(paths.voice, f)
                     if os.path.isfile(fp):
                         os.remove(fp)
-                        
+
         if from_step <= 4:
+            # 清空 images（步骤4画面）及其下游成片
+            if os.path.isdir(paths.images):
+                for f in os.listdir(paths.images):
+                    fp = os.path.join(paths.images, f)
+                    if os.path.isfile(fp):
+                        os.remove(fp)
+
             # 删除最终视频
             if os.path.exists(paths.final_video()):
                 os.remove(paths.final_video())

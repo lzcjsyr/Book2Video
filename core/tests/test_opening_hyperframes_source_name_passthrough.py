@@ -12,7 +12,7 @@ def test_render_opening_video_preserves_source_name_text(monkeypatch, tmp_path: 
     def fake_run(command, cwd, check, stdin, *args, **kwargs):
         assert command[0] == "npx"
         assert command[1] == "--yes"
-        assert command[2] == "hyperframes@0.6.81"
+        assert command[2] == "hyperframes@0.6.84"
         assert command[3] == "render"
         assert command[4] == "--output"
         assert command[6] == "--variables"

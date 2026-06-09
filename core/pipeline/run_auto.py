@@ -116,31 +116,6 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         description_data = load_json_file(description_path)
 
     step3 = _run_step_3(
-        image_server=config.image_server,
-        image_model=config.image_model,
-        image_size=config.image_size,
-        image_style_preset=config.image_style_preset,
-        project_output_dir=project_output_dir,
-        images_method=config.images_method,
-        opening_quote=config.opening_quote,
-        llm_model=config.llm_model_step3,
-        llm_server=config.llm_server_step3,
-        llm_base_url=config.llm_base_url_step3,
-    )
-    if not step3.get("success"):
-        failed_image_segments = step3.get("failed_segments") or step3.get("failed_image_segments") or []
-        return {
-            "success": False,
-            "message": step3.get("message", "步骤3处理失败"),
-            "failed_image_segments": failed_image_segments,
-            "needs_retry": True,
-            "stage": 3,
-            "image_paths": step3.get("image_paths", []),
-        }
-    image_paths: List[str] = step3.get("image_paths", [])
-    failed_image_segments: List[int] = []
-
-    step4 = _run_step_4(
         tts_server=config.tts_server,
         voice=config.voice,
         tts_model=config.tts_model,
@@ -153,9 +128,39 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         mute_cut_remain_ms=config.mute_cut_remain_ms,
         mute_cut_threshold=config.mute_cut_threshold,
     )
+    if not step3.get("success"):
+        return {"success": False, "message": step3.get("message", "步骤3处理失败")}
+    audio_paths = step3.get("audio_paths", [])
+
+    step4 = _run_step_4(
+        image_server=config.image_server,
+        image_model=config.image_model,
+        image_size=config.image_size,
+        image_style_preset=config.image_style_preset,
+        project_output_dir=project_output_dir,
+        images_method=config.images_method,
+        opening_quote=config.opening_quote,
+        llm_model=config.llm_model_step4,
+        llm_server=config.llm_server_step4,
+        llm_base_url=config.llm_base_url_step4,
+        visual_mode=config.visual_mode,
+        hyperframes_style_preset=config.hyperframes_style_preset,
+        hyperframes_max_turns=config.hyperframes_max_turns,
+        hyperframes_render_fps=config.hyperframes_render_fps,
+        hyperframes_concurrency=config.hyperframes_concurrency,
+    )
     if not step4.get("success"):
-        return {"success": False, "message": step4.get("message", "步骤4处理失败")}
-    audio_paths = step4.get("audio_paths", [])
+        failed_image_segments = step4.get("failed_segments") or step4.get("failed_image_segments") or []
+        return {
+            "success": False,
+            "message": step4.get("message", "步骤4处理失败"),
+            "failed_image_segments": failed_image_segments,
+            "needs_retry": True,
+            "stage": 4,
+            "image_paths": step4.get("image_paths", []),
+        }
+    image_paths: List[str] = step4.get("image_paths", [])
+    failed_image_segments: List[int] = []
 
     step5 = _run_step_5(
         project_output_dir=project_output_dir,
@@ -177,7 +182,7 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
     else:
         try:
             bgm_audio_path = _resolve_bgm_audio_path(config.bgm_filename, _get_project_root())
-            opening_image_path = step3.get("opening_image_path")
+            opening_image_path = step4.get("opening_image_path")
             opening_narration_audio_path = _invoke_opening_narration(
                 script_data,
                 paths.voice,
