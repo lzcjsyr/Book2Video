@@ -238,7 +238,7 @@ def render_hyperframes_segments_with_agent(
             "style_preset": style_preset,
             "max_turns": max_turns,
             "render_fps": render_fps,
-            "session_log_path": session_log_path,
+            "session_log_path": str(Path(output_dir) / "hyperframes" / f"segment_{idx}" / "_step4_hyperframes_agent_session.jsonl"),
             "repo_root": repo_root,
             "llm_server": llm_server,
             "llm_model": llm_model,

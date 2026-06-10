@@ -750,7 +750,7 @@ def run_step_4(
             max_turns=int(hyperframes_max_turns or getattr(config, "HYPERFRAMES_MAX_TURNS", 20)),
             render_fps=int(hyperframes_render_fps or getattr(config, "HYPERFRAMES_RENDER_FPS", 30)),
             concurrency=int(hyperframes_concurrency or getattr(config, "HYPERFRAMES_CONCURRENCY", 1)),
-            session_log_path=os.path.join(paths.text, "_step4_hyperframes_agent_session.jsonl"),
+            session_log_path=os.path.join(paths.images, "hyperframes", "_step4_hyperframes_agent_session.jsonl"),
             repo_root=_get_project_root(),
             llm_server=llm_server,
             llm_model=llm_model,

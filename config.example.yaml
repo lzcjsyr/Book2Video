@@ -102,9 +102,18 @@ step4:
   hyperframes_style_preset: data_driven
   hyperframes_max_turns: 20
   hyperframes_render_fps: 30
+  # HyperFrames 画面生成（Agent + 浏览器渲染）的并发数。
+  # 默认值为 1。对于有 API 频率限制（Rate Limit）的通道（如 mimo 建议 1-2），调大可能触发 429 报错。
+  # 若有高限额 Key 可调大至 2-4 以加速生成。
   hyperframes_concurrency: 1
 
-  # 图像供应商：
+  # 步骤4专用 LLM：
+  # - static_image：用于图像提示词脱敏/润色
+  # - hyperframes_agent：用于驱动 Claude Agent 生成 HyperFrames HTML
+  llm_server: volcengine
+  llm_model: doubao-seed-2-0-lite-260428
+
+  # 图像供应商（仅 visual_mode=static_image 时生效）：
   # - google：使用 GOOGLE_CLOUD_API_KEY
   # - google_adc：使用本机 Google ADC / Vertex AI
   # - doubao：火山引擎 Seedream
@@ -120,12 +129,6 @@ step4:
   image_style_preset: style02
   # 图像生成并发。Google/高成本模型建议 1，稳定后再提高。
   max_concurrent_image_generation: 1
-
-  # 步骤4专用 LLM：
-  # - static_image：用于图像提示词脱敏/润色
-  # - hyperframes_agent：用于驱动 Claude Agent 生成 HyperFrames HTML
-  llm_server: volcengine
-  llm_model: doubao-seed-2-0-lite-260428
 
 # =============================================================================
 # Remotion 开场视频
