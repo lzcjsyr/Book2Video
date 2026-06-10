@@ -337,8 +337,12 @@ def run_step_1(
     output_dir: str,
     num_segments: int,
     extra_requirements: str = "",
+    project_output_dir: Optional[str] = None,
 ) -> Dict[str, Any]:
-    project_output_dir, paths = _create_step1_project(input_file, output_dir)
+    if project_output_dir:
+        paths = ProjectPaths(project_output_dir)
+    else:
+        project_output_dir, paths = _create_step1_project(input_file, output_dir)
     skill_name = getattr(config, "STEP1_AGENT_SKILL", "book-video-script")
     skill_path = os.path.join(_get_project_root(), "skills", "step1", skill_name)
     if not os.path.isdir(skill_path):

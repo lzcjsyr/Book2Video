@@ -176,6 +176,8 @@ def display_project_progress_and_select_step(progress) -> Optional[float]:
     allowed_steps = []
 
     # 基于已完成的步骤确定可重做的步骤
+    if progress.get('has_raw', False):
+        allowed_steps.append(1)    # 允许重做内容生成
     if progress.get('has_script', False):
         allowed_steps.append(1.5)  # 允许重做脚本分段
     if step2_done:
@@ -188,6 +190,8 @@ def display_project_progress_and_select_step(progress) -> Optional[float]:
         allowed_steps.append(5)    # 允许重做视频合成
 
     # 添加可执行的下一步
+    if not progress.get('has_raw', False):
+        allowed_steps.append(1)    # 可执行内容生成
     if not progress.get('has_script', False) and progress.get('has_raw', False):
         allowed_steps.append(1.5)  # 可执行脚本分段
     if not step2_done and progress.get('has_script', False):
@@ -622,11 +626,6 @@ def _select_entry_and_context(project_root: str, output_dir: str):
             print("👋 返回上一级")
             continue
             
-        selected_skill = _interactive_skill_selector(project_root)
-        if selected_skill is None:
-            print("\n👋 返回上一级")
-            continue
-            
         from core.pipeline.scanner import detect_project_progress
         
         # 检测项目进度并显示步骤选项
@@ -802,11 +801,34 @@ def _run_specific_step(
     hyperframes_max_turns=20, hyperframes_render_fps=30, hyperframes_concurrency=1,
 ):
     """执行指定步骤并返回结果"""
-    from core.pipeline.steps import run_step_1_5, run_step_2, run_step_3, run_step_4, run_step_5, run_step_6
+    from core.pipeline.steps import run_step_1, run_step_1_5, run_step_2, run_step_3, run_step_4, run_step_5, run_step_6
     
     print(f"\n正在执行步骤 {target_step}...")
     
-    if target_step == 1.5:
+    if target_step == 1:
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        input_file = interactive_file_selector(input_dir=os.path.join(project_root, "input"))
+        if input_file is None:
+            return {"success": False, "message": "用户取消", "cancelled": True}
+        selected_skill = _interactive_skill_selector(project_root)
+        if selected_skill is None:
+            return {"success": False, "message": "用户取消", "cancelled": True}
+        extra_requirements = _prompt_step1_extra_requirements()
+
+        from core.pipeline.scanner import clear_downstream_outputs
+
+        print("🎬 正在重新生成第一步内容...")
+        result = run_step_1(
+            input_file,
+            os.path.dirname(project_output_dir),
+            num_segments,
+            extra_requirements=extra_requirements,
+            project_output_dir=project_output_dir,
+        )
+        if result.get("success"):
+            clear_downstream_outputs(project_output_dir, from_step=1)
+            result["message"] = "步骤1重新生成完成"
+    elif target_step == 1.5:
         split_mode = _prompt_split_mode()
         if split_mode is None:
             return {"success": False, "message": "用户取消", "cancelled": True}

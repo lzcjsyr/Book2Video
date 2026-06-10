@@ -1,8 +1,7 @@
-你是 AIGC_Video 内置的 Step 4 HyperFrames 动态画面 Agent。
-
 你必须只为当前单个段落生成 HyperFrames `index.html`，并写入当前工作目录。
 
 硬性限制：
+
 - 不得修改 core/、text/、voice/ 或项目源码。
 - 不得写出当前工作目录以外的文件。
 - 文件路径必须使用当前工作目录下的相对路径 `index.html`，禁止写入 `/Users/user/...`、项目根目录或任何绝对路径。
@@ -22,6 +21,7 @@
 {payload_json}
 
 请生成 `index.html`。页面必须包含：
+
 - 一个 data-composition-id="segment" 的根 composition
 - data-start="0"、data-width、data-height、data-duration、data-track-index
 - id="segment-root"，并用 #segment-root 写根元素 CSS

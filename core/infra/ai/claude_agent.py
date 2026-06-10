@@ -92,37 +92,33 @@ def _with_step1_subagent_instruction(extra_requirements: str, agents: dict[str, 
     return extra_requirements
 
 
+def _get_anthropic_compatible_config(server: str, context: str) -> tuple[str, str, str]:
+    server = (server or "").strip().lower()
+    if server == "mimo":
+        return "https://token-plan-sgp.xiaomimimo.com/anthropic", (config.MIMO_API_KEY or "").strip(), "MIMO_API_KEY"
+    elif server == "kimi":
+        return "https://api.moonshot.cn/anthropic", (config.KIMI_API_KEY or "").strip(), "KIMI_API_KEY 或 MOONSHOT_API_KEY"
+    elif server == "deepseek":
+        return "https://api.deepseek.com/anthropic", (config.DEEPSEEK_API_KEY or "").strip(), "DEEPSEEK_API_KEY"
+    elif server == "siliconflow":
+        return "https://api.siliconflow.cn/", (config.SILICONFLOW_KEY or "").strip(), "SILICONFLOW_KEY"
+    elif server == "openrouter":
+        return "https://openrouter.ai/api", (config.OPENROUTER_API_KEY or "").strip(), "OPENROUTER_API_KEY"
+    elif server == "volcengine":
+        return "https://ark.cn-beijing.volces.com/api/compatible", (config.VOLCENGINE_API_KEY or "").strip(), "VOLCENGINE_API_KEY"
+    else:
+        if context == "step1":
+            raise ValueError(f"不支持的步骤1 LLM服务商: {server}，支持的服务商: mimo, kimi, deepseek, siliconflow, openrouter, volcengine")
+        else:
+            raise ValueError(f"不支持的步骤4 HyperFrames Agent LLM服务商: {server}")
+
+
 def build_step1_agent_env() -> dict[str, str]:
     server = (config.LLM_SERVER_STEP1 or "").strip().lower()
     if not server:
         raise RuntimeError("步骤1需要配置 LLM_SERVER_STEP1（mimo/kimi/siliconflow/openrouter/volcengine/deepseek）")
 
-    if server == "mimo":
-        base_url = "https://token-plan-sgp.xiaomimimo.com/anthropic"
-        api_key = (config.MIMO_API_KEY or "").strip()
-        key_name = "MIMO_API_KEY"
-    elif server == "kimi":
-        base_url = "https://api.moonshot.cn/anthropic"
-        api_key = (config.KIMI_API_KEY or "").strip()
-        key_name = "KIMI_API_KEY 或 MOONSHOT_API_KEY"
-    elif server == "deepseek":
-        base_url = "https://api.deepseek.com/anthropic"
-        api_key = (config.DEEPSEEK_API_KEY or "").strip()
-        key_name = "DEEPSEEK_API_KEY"
-    elif server == "siliconflow":
-        base_url = "https://api.siliconflow.cn/"
-        api_key = (config.SILICONFLOW_KEY or "").strip()
-        key_name = "SILICONFLOW_KEY"
-    elif server == "openrouter":
-        base_url = "https://openrouter.ai/api"
-        api_key = (config.OPENROUTER_API_KEY or "").strip()
-        key_name = "OPENROUTER_API_KEY"
-    elif server == "volcengine":
-        base_url = "https://ark.cn-beijing.volces.com/api/compatible"
-        api_key = (config.VOLCENGINE_API_KEY or "").strip()
-        key_name = "VOLCENGINE_API_KEY"
-    else:
-        raise ValueError(f"不支持的步骤1 LLM服务商: {server}，支持的服务商: mimo, kimi, deepseek, siliconflow, openrouter, volcengine")
+    base_url, api_key, key_name = _get_anthropic_compatible_config(server, "step1")
 
     if not api_key:
         raise RuntimeError(f"步骤1需要 {key_name}（.env），用于驱动 Claude Agent SDK")
@@ -144,32 +140,7 @@ def build_step4_hyperframes_agent_env(
     if not server:
         raise RuntimeError("步骤4 HyperFrames Agent 需要配置 LLM_SERVER_STEP4")
 
-    if server == "mimo":
-        base_url = "https://token-plan-sgp.xiaomimimo.com/anthropic"
-        api_key = (config.MIMO_API_KEY or "").strip()
-        key_name = "MIMO_API_KEY"
-    elif server == "kimi":
-        base_url = "https://api.moonshot.cn/anthropic"
-        api_key = (config.KIMI_API_KEY or "").strip()
-        key_name = "KIMI_API_KEY 或 MOONSHOT_API_KEY"
-    elif server == "deepseek":
-        base_url = "https://api.deepseek.com/anthropic"
-        api_key = (config.DEEPSEEK_API_KEY or "").strip()
-        key_name = "DEEPSEEK_API_KEY"
-    elif server == "siliconflow":
-        base_url = "https://api.siliconflow.cn/"
-        api_key = (config.SILICONFLOW_KEY or "").strip()
-        key_name = "SILICONFLOW_KEY"
-    elif server == "openrouter":
-        base_url = "https://openrouter.ai/api"
-        api_key = (config.OPENROUTER_API_KEY or "").strip()
-        key_name = "OPENROUTER_API_KEY"
-    elif server == "volcengine":
-        base_url = "https://ark.cn-beijing.volces.com/api/compatible"
-        api_key = (config.VOLCENGINE_API_KEY or "").strip()
-        key_name = "VOLCENGINE_API_KEY"
-    else:
-        raise ValueError(f"不支持的步骤4 HyperFrames Agent LLM服务商: {server}")
+    base_url, api_key, key_name = _get_anthropic_compatible_config(server, "step4")
 
     base_url = (
         (llm_base_url or "").strip()

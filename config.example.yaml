@@ -124,9 +124,7 @@ step4:
   # 步骤4专用 LLM：
   # - static_image：用于图像提示词脱敏/润色
   # - hyperframes_agent：用于驱动 Claude Agent 生成 HyperFrames HTML
-  # llm_base_url 留空时会按 llm_server 自动推断；自建网关或兼容接口可在这里显式填写。
   llm_server: volcengine
-  llm_base_url: ""
   llm_model: doubao-seed-2-0-lite-260428
 
 # =============================================================================

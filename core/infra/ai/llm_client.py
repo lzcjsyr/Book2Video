@@ -10,6 +10,36 @@ from openai import OpenAI
 from core.config import config
 from core.shared import logger, APIError, retry_on_failure
 
+def _get_openai_api_key(server: str) -> str:
+    server = (server or "").strip().lower()
+    if server == "openrouter":
+        if not config.OPENROUTER_API_KEY:
+            raise APIError("OPENROUTER_API_KEY未配置")
+        return config.OPENROUTER_API_KEY
+    elif server == "siliconflow":
+        if not config.SILICONFLOW_KEY:
+            raise APIError("SILICONFLOW_KEY未配置")
+        return config.SILICONFLOW_KEY
+    elif server == "mimo":
+        if not config.MIMO_API_KEY:
+            raise APIError("MIMO_API_KEY未配置")
+        return config.MIMO_API_KEY
+    elif server == "kimi":
+        if not config.KIMI_API_KEY:
+            raise APIError("KIMI_API_KEY 或 MOONSHOT_API_KEY 未配置")
+        return config.KIMI_API_KEY
+    elif server == "deepseek":
+        if not config.DEEPSEEK_API_KEY:
+            raise APIError("DEEPSEEK_API_KEY未配置")
+        return config.DEEPSEEK_API_KEY
+    elif server == "volcengine":
+        if not config.VOLCENGINE_API_KEY:
+            raise APIError("VOLCENGINE_API_KEY未配置")
+        return config.VOLCENGINE_API_KEY
+    else:
+        raise ValueError(f"不支持的服务商: {server}，支持的服务商: {config.SUPPORTED_LLM_SERVERS}")
+
+
 @retry_on_failure(max_retries=2, delay=2.0)
 def text_to_text(
     server,
@@ -27,32 +57,9 @@ def text_to_text(
         {"role": "user", "content": prompt}
     ]
     try:
-        if server == "openrouter":
-            if not config.OPENROUTER_API_KEY:
-                raise APIError("OPENROUTER_API_KEY未配置")
-            api_key = config.OPENROUTER_API_KEY
-        elif server == "siliconflow":
-            if not config.SILICONFLOW_KEY:
-                raise APIError("SILICONFLOW_KEY未配置")
-            api_key = config.SILICONFLOW_KEY
-        elif server == "mimo":
-            if not config.MIMO_API_KEY:
-                raise APIError("MIMO_API_KEY未配置")
-            api_key = config.MIMO_API_KEY
-        elif server == "kimi":
-            if not config.KIMI_API_KEY:
-                raise APIError("KIMI_API_KEY 或 MOONSHOT_API_KEY 未配置")
-            api_key = config.KIMI_API_KEY
-        elif server == "deepseek":
-            if not config.DEEPSEEK_API_KEY:
-                raise APIError("DEEPSEEK_API_KEY未配置")
-            api_key = config.DEEPSEEK_API_KEY
-        elif server == "volcengine":
-            if not config.VOLCENGINE_API_KEY:
-                raise APIError("VOLCENGINE_API_KEY未配置")
-            api_key = config.VOLCENGINE_API_KEY
-        else:
-            raise ValueError(f"不支持的服务商: {server}，支持的服务商: {config.SUPPORTED_LLM_SERVERS}")
+        api_key = _get_openai_api_key(server)
+        if not base_url:
+            base_url = config.LLM_SERVER_URLS.get(server.strip().lower(), "")
         if not base_url:
             raise APIError("LLM base URL未配置")
 

@@ -255,6 +255,7 @@ def _load_yaml_overrides(config_path: str | os.PathLike[str]) -> Dict[str, objec
     return overrides
 
 
+LLM_BASE_URL_STEP4_OVERRIDE = ""
 _DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.example.yaml"
 globals().update(_load_yaml_overrides(_DEFAULT_CONFIG_PATH))
 
