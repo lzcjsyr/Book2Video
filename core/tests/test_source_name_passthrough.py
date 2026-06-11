@@ -21,6 +21,22 @@ def test_process_raw_to_script_preserves_source_name_exactly():
     assert script_data["source_name"] == raw_source_name
 
 
+def test_process_raw_to_script_defaults_segment_visualizer_to_image():
+    raw_data = {
+        "source_name": "原始作品标题",
+        "video_titles": ["视频标题"],
+        "cover_titles": ["封面标题"],
+        "cover_subtitles": [],
+        "golden_quotes": [],
+        "content": "第一段内容。\n第二段内容。",
+        "target_segments": 2,
+    }
+
+    script_data = process_raw_to_script(raw_data, num_segments=2, split_mode="manual")
+
+    assert [segment["visualizer"] for segment in script_data["segments"]] == ["image", "image"]
+
+
 def test_run_step_1_5_preserves_docx_source_name_in_script_json(monkeypatch, tmp_path: Path):
     project_dir = tmp_path / "project"
     text_dir = project_dir / "text"

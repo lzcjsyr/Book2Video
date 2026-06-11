@@ -73,10 +73,13 @@ python start.py
 step4:
   visual_mode: static_image       # 默认：生成 images/segment_i.png
   # visual_mode: hyperframes_agent # 动态：生成 images/segment_i.mp4
+  # visual_mode: mixed             # 混合：按每段 visualizer 选择图片或 HyperFrames
   hyperframes_style_preset: data_driven
 ```
 
 选择 `hyperframes_agent` 时，系统会先使用步骤 3 已生成的真实音频时长，再调用 Claude Agent 按项目内置 HyperFrames 规范生成动态 HTML 并渲染为分段视频。
+
+选择 `mixed` 时，系统读取 `text/script.json` 中每段的 `visualizer` 字段：`image` 生成 `segment_i.png`，`hyper` 生成 `segment_i.mp4`。步骤 1.5 会默认把每段 `visualizer` 写为 `image`；需要动态画面的段落可手动改为 `hyper`。混合模式下两类段落会分组并行生成。
 
 ---
 

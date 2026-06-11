@@ -345,7 +345,8 @@ def process_raw_to_script(raw_data: Dict[str, Any], num_segments: int, split_mod
                 "index": i,
                 "content": seg_text,
                 "length": length_i,
-                "estimated_duration": round(estimated_duration, 1)
+                "estimated_duration": round(estimated_duration, 1),
+                "visualizer": "image",
             })
 
         return enhanced_data

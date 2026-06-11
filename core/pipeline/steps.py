@@ -13,6 +13,7 @@ import datetime
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
 from core.config import Config, config
@@ -330,6 +331,53 @@ def _resolve_segment_media_path(paths: ProjectPaths, index: int) -> Optional[str
         pass
 
     return None
+
+
+def _normalize_segment_visualizer(segment: Dict[str, Any]) -> str:
+    visualizer = str((segment or {}).get("visualizer") or "image").strip().lower()
+    if visualizer not in {"image", "hyper"}:
+        raise ValueError(f"不支持的段落 visualizer: {visualizer}，支持 image / hyper")
+    return visualizer
+
+
+def _split_mixed_visual_targets(
+    segments: List[Dict[str, Any]],
+    selected_segments: Optional[List[int]],
+) -> Dict[str, List[int]]:
+    selected_set = set(selected_segments) if selected_segments is not None else None
+    targets = {"image": [], "hyper": []}
+    for fallback_idx, segment in enumerate(segments, 1):
+        segment_index = int((segment or {}).get("index") or fallback_idx)
+        if selected_set is not None and segment_index not in selected_set:
+            continue
+        targets[_normalize_segment_visualizer(segment)].append(segment_index)
+    return targets
+
+
+def _merge_visual_generation_results(
+    paths: ProjectPaths,
+    total_segments: int,
+    results: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    image_paths = [_resolve_segment_media_path(paths, idx) or "" for idx in range(1, total_segments + 1)]
+    failed_segments: set[int] = set()
+    processed_segments: set[int] = set()
+    missing_audio_segments: set[int] = set()
+
+    for result in results:
+        for idx, media_path in enumerate(result.get("image_paths", []) or [], 1):
+            if idx <= total_segments and media_path:
+                image_paths[idx - 1] = media_path
+        failed_segments.update(int(idx) for idx in result.get("failed_segments", []) or [])
+        processed_segments.update(int(idx) for idx in result.get("processed_segments", []) or [])
+        missing_audio_segments.update(int(idx) for idx in result.get("missing_audio_segments", []) or [])
+
+    return {
+        "image_paths": image_paths,
+        "failed_segments": sorted(failed_segments),
+        "processed_segments": sorted(processed_segments),
+        "missing_audio_segments": sorted(missing_audio_segments),
+    }
 
 
 def run_step_1(
@@ -710,7 +758,7 @@ def run_step_4(
             print(f"保持现有开场视频: {opening_image_path}")
 
     mode = (visual_mode or getattr(config, "VISUAL_MODE", "static_image") or "static_image").strip().lower()
-    if mode not in {"static_image", "hyperframes_agent"}:
+    if mode not in {"static_image", "hyperframes_agent", "mixed"}:
         return {"success": False, "message": f"不支持的画面生成模式: {visual_mode}"}
 
     should_generate_segments = selected_segments is None or len(selected_segments) > 0
@@ -721,41 +769,70 @@ def run_step_4(
             media_path = _resolve_segment_media_path(paths, idx)
             image_paths.append(media_path or "")
         image_result = {"image_paths": image_paths, "failed_segments": [], "processed_segments": []}
-    elif mode == "static_image":
-        image_result = generate_images_for_segments(
-            image_server,
-            image_model,
-            script_data,
-            image_style_preset,
-            image_size,
-            paths.images,
-            images_method=images_method,
-            keywords_data=keywords_data,
-            description_data=description_data,
-            target_segments=generation_targets,
-            llm_model=llm_model,
-            llm_server=llm_server,
-            llm_base_url=llm_base_url,
-        )
     else:
-        image_result = render_hyperframes_segments_with_agent(
-            project_output_dir=project_output_dir,
-            script_data=script_data,
-            image_size=image_size,
-            output_dir=paths.images,
-            target_segments=generation_targets,
-            keywords_data=keywords_data,
-            description_data=description_data,
-            style_preset=hyperframes_style_preset or getattr(config, "HYPERFRAMES_STYLE_PRESET", "data_driven"),
-            max_turns=int(hyperframes_max_turns or getattr(config, "HYPERFRAMES_MAX_TURNS", 20)),
-            render_fps=int(hyperframes_render_fps or getattr(config, "HYPERFRAMES_RENDER_FPS", 30)),
-            concurrency=int(hyperframes_concurrency or getattr(config, "HYPERFRAMES_CONCURRENCY", 1)),
-            session_log_path=os.path.join(paths.images, "hyperframes", "_step4_hyperframes_agent_session.jsonl"),
-            repo_root=_get_project_root(),
-            llm_server=llm_server,
-            llm_model=llm_model,
-            llm_base_url=llm_base_url,
-        )
+        def run_static(targets: Optional[List[int]]) -> Dict[str, Any]:
+            return generate_images_for_segments(
+                image_server,
+                image_model,
+                script_data,
+                image_style_preset,
+                image_size,
+                paths.images,
+                images_method=images_method,
+                keywords_data=keywords_data,
+                description_data=description_data,
+                target_segments=targets,
+                llm_model=llm_model,
+                llm_server=llm_server,
+                llm_base_url=llm_base_url,
+            )
+
+        def run_hyper(targets: Optional[List[int]]) -> Dict[str, Any]:
+            return render_hyperframes_segments_with_agent(
+                project_output_dir=project_output_dir,
+                script_data=script_data,
+                image_size=image_size,
+                output_dir=paths.images,
+                target_segments=targets,
+                keywords_data=keywords_data,
+                description_data=description_data,
+                style_preset=hyperframes_style_preset or getattr(config, "HYPERFRAMES_STYLE_PRESET", "data_driven"),
+                max_turns=int(hyperframes_max_turns or getattr(config, "HYPERFRAMES_MAX_TURNS", 20)),
+                render_fps=int(hyperframes_render_fps or getattr(config, "HYPERFRAMES_RENDER_FPS", 30)),
+                concurrency=int(hyperframes_concurrency or getattr(config, "HYPERFRAMES_CONCURRENCY", 1)),
+                session_log_path=os.path.join(paths.images, "hyperframes", "_step4_hyperframes_agent_session.jsonl"),
+                repo_root=_get_project_root(),
+                llm_server=llm_server,
+                llm_model=llm_model,
+                llm_base_url=llm_base_url,
+            )
+
+        if mode == "static_image":
+            image_result = run_static(generation_targets)
+        elif mode == "hyperframes_agent":
+            image_result = run_hyper(generation_targets)
+        else:
+            try:
+                mixed_targets = _split_mixed_visual_targets(segments, selected_segments)
+            except ValueError as exc:
+                return {"success": False, "message": str(exc)}
+
+            jobs: List[tuple[str, List[int]]] = []
+            if mixed_targets["image"]:
+                jobs.append(("image", mixed_targets["image"]))
+            if mixed_targets["hyper"]:
+                jobs.append(("hyper", mixed_targets["hyper"]))
+
+            results: List[Dict[str, Any]] = []
+            with ThreadPoolExecutor(max_workers=max(1, len(jobs))) as executor:
+                futures = {
+                    executor.submit(run_static if kind == "image" else run_hyper, targets): kind
+                    for kind, targets in jobs
+                }
+                for future in as_completed(futures):
+                    results.append(future.result())
+
+            image_result = _merge_visual_generation_results(paths, total_segments, results)
 
     failed_segments = image_result.get("failed_segments", [])
     if failed_segments:

@@ -305,6 +305,7 @@ def prompt_visual_mode_choice(default_mode: str = "static_image") -> Optional[st
     modes = [
         ("static_image", "静态图片"),
         ("hyperframes_agent", "HyperFrames动态视频"),
+        ("mixed", "混合模式（按 script.json 的 visualizer 字段选择）"),
     ]
     default_mode = (default_mode or "static_image").strip().lower()
     default_idx = next((idx for idx, (mode, _label) in enumerate(modes) if mode == default_mode), 0)
@@ -889,13 +890,13 @@ def _run_specific_step(
 
         selected_style = image_style_preset
         selected_hyperframes_style = hyperframes_style_preset
-        if selected_visual_mode == "hyperframes_agent":
-            selected_hyperframes_style = prompt_hyperframes_style_choice(hyperframes_style_preset)
-            if selected_hyperframes_style is None:
-                return {"success": False, "message": "用户取消", "cancelled": True}
-        else:
+        if selected_visual_mode in {"static_image", "mixed"}:
             selected_style = prompt_image_style_choice(style_type="segment")
             if selected_style is None:
+                return {"success": False, "message": "用户取消", "cancelled": True}
+        if selected_visual_mode in {"hyperframes_agent", "mixed"}:
+            selected_hyperframes_style = prompt_hyperframes_style_choice(hyperframes_style_preset)
+            if selected_hyperframes_style is None:
                 return {"success": False, "message": "用户取消", "cancelled": True}
 
         selection = _prompt_segment_generation_scope(

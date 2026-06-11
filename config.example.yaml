@@ -96,9 +96,10 @@ step4:
   # 画面生成模式：
   # - static_image：调用图像模型生成 segment_i.png
   # - hyperframes_agent：调用 Claude Agent + HyperFrames 生成 segment_i.mp4
+  # - mixed：读取 text/script.json 中每段的 visualizer 字段；image 走静态图，hyper 走 HyperFrames
   visual_mode: static_image
 
-  # HyperFrames 动态画面参数，仅 visual_mode=hyperframes_agent 时生效。
+  # HyperFrames 动态画面参数，仅 visual_mode=hyperframes_agent 或 mixed 且段落 visualizer=hyper 时生效。
   hyperframes_style_preset: data_driven
   hyperframes_max_turns: 20
   hyperframes_render_fps: 30
@@ -110,10 +111,11 @@ step4:
   # 步骤4专用 LLM：
   # - static_image：用于图像提示词脱敏/润色
   # - hyperframes_agent：用于驱动 Claude Agent 生成 HyperFrames HTML
+  # - mixed：同时用于上述两类任务
   llm_server: volcengine
   llm_model: doubao-seed-2-0-lite-260428
 
-  # 图像供应商（仅 visual_mode=static_image 时生效）：
+  # 图像供应商（visual_mode=static_image，或 mixed 且段落 visualizer=image 时生效）：
   # - google：使用 GOOGLE_CLOUD_API_KEY
   # - google_adc：使用本机 Google ADC / Vertex AI
   # - doubao：火山引擎 Seedream
