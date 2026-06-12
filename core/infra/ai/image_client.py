@@ -300,6 +300,9 @@ def generate_images_for_segments(
                 image_style_preset,
                 next(iter(IMAGE_STYLE_PRESETS.values()))
             )
+            # 动态移除任何关于字体的描述以避免生图带文字
+            import re
+            image_style = re.sub(r'[；，]?字体为[^；。，]*[；。，]?', '', image_style).strip()
         except Exception:
             image_style = ""
         logger.info(

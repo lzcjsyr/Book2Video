@@ -1,0 +1,243 @@
+# AIGC Video 配置模板
+# 复制为 config.yaml 后按需修改：
+#   cp config.example.yaml config.yaml
+#
+# 说明：
+# - API 密钥仍放在 .env，不要写进 YAML。
+# - 字段名会被严格校验，拼错会启动失败，便于尽早发现配置错误。
+# - 如果不确定某项含义，优先保持默认值。
+
+# =============================================================================
+# 全局开关
+# =============================================================================
+global:
+  # 是否启用开场金句。影响开场视频、开场语音和最终合成。
+  opening_quote: true
+
+# =============================================================================
+# 步骤1：原始文稿写作
+# =============================================================================
+step1:
+  # 可选：mimo / kimi / volcengine / deepseek / siliconflow / openrouter
+  llm_server: mimo
+  # 按供应商要求填写完整模型名。火山第一步推荐：doubao-seed-2.0-code / doubao-seed-2.0-pro
+  llm_model: mimo-v2.5-pro
+  # 使用根目录 skills/step1/ 下的写作 skill；一般不需要改。
+  agent_skill: book-video-script
+  # 可选 subagent。关闭时仍按 book-video-script 独立完成第一步。
+  subagents:
+    enabled: false
+    agents:
+      title-quote-writer:
+        enabled: true
+        description: 必须在第一稿完成并达标后立即调用；读取稳定第一稿，生成标题、封面文案和金句候选
+        prompt_file: prompts/step1_subagents/title-quote-writer.md
+        model: inherit
+        max_turns: 20
+        background: true
+        tools: [Read, Write]
+      fact-style-reviewer:
+        enabled: true
+        description: 必须在第一稿完成并达标后、第二稿完成并达标后调用；审查事实、节奏、口语化、传播钩子和 JSON 契约风险，只提修改建议
+        prompt_file: prompts/step1_subagents/fact-style-reviewer.md
+        model: inherit
+        max_turns: 30
+        background: false
+        tools: [Read, Grep]
+
+# =============================================================================
+# 步骤1.5：脚本分段
+# =============================================================================
+step1_5:
+  # 视频分段数量。建议 5-100，越多视频节奏越碎、生成成本越高。
+  num_segments: 50
+
+# =============================================================================
+# 步骤2：要点提取 / 描述小结
+# =============================================================================
+step2:
+  # 可选：mimo / kimi / deepseek / siliconflow / openrouter / volcengine
+  llm_server: openrouter
+  llm_model: google/gemini-2.5-flash
+  # 配图方式：
+  # - description：先生成整体描述，再结合每段文案出图，画面连贯性更好
+  # - keywords：为每段提关键词和氛围词，画面变化更明显
+  images_method: description
+  # 提取随机性，范围通常为 0-1。越大越发散。
+  llm_temperature_keywords: 0.5
+
+# =============================================================================
+# 步骤3：语音合成
+# =============================================================================
+step3:
+  # 音色 ID。留空时优先读取 .env 的 BYTEDANCE_TTS_VOICE_ID。
+  voice: "S_RerMynx52"
+  # 资源 ID：seed-tts-2.0 (语音合成2.0) / seed-icl-2.0 (声音复刻2.0，默认)
+  resource_id: seed-icl-2.0
+  # TTS 模型示例：seed-tts-2.0-standard / seed-tts-2.0-expressive
+  tts_model: seed-tts-2.0-standard
+  # 情感示例：neutral / happy / sad 等，具体取决于供应商支持。
+  emotion: neutral
+  emotion_scale: 4
+  # 语速、音量范围通常为 -50 到 100；0 表示正常。
+  speech_rate: 20
+  loudness_rate: 0
+
+  # 静音切除。threshold <= 0 表示禁用。
+  mute_cut_threshold: 400
+  mute_cut_min_silence_ms: 300
+  mute_cut_remain_ms: 200
+  max_concurrent_voice_synthesis: 5
+
+# =============================================================================
+# 步骤4：画面生成
+# =============================================================================
+step4:
+  # 画面生成模式：
+  # - static_image：调用图像模型生成 segment_i.png
+  # - hyperframes_agent：调用 Claude Agent + HyperFrames 生成 segment_i.mp4
+  visual_mode: hyperframes_agent
+
+  # HyperFrames 动态画面参数，仅 visual_mode=hyperframes_agent 时生效。
+  hyperframes_style_preset: data_driven
+  hyperframes_max_turns: 20
+  hyperframes_render_fps: 30
+  hyperframes_concurrency: 5
+
+  # 图像供应商：
+  # - google：使用 GOOGLE_CLOUD_API_KEY
+  # - google_adc：使用本机 Google ADC / Vertex AI
+  # - doubao：火山引擎 Seedream
+  image_server: google_adc
+  # 常用模型示例：
+  # - gemini-3.1-flash-image-preview
+  # - doubao-seedream-5-0-260128
+  # - doubao-seedream-4-0-250828
+  image_model: gemini-3.1-flash-image-preview
+  # 图像生成尺寸。建议与目标视频比例一致，例如 2560x1440 / 1920x1080 / 1080x1920。
+  image_size: 2560x1440
+  # 段落图像风格预设，见 core/prompts.py 的 IMAGE_STYLE_PRESETS。
+  image_style_preset: style02
+  # 图像生成并发。Google/高成本模型建议 1，稳定后再提高。
+  max_concurrent_image_generation: 1
+
+  # 步骤4专用 LLM：
+  # - static_image：用于图像提示词脱敏/润色
+  # - hyperframes_agent：用于驱动 Claude Agent 生成 HyperFrames HTML
+  llm_server: mimo
+  llm_model: mimo-v2.5-pro
+
+# =============================================================================
+# Remotion 开场视频
+# =============================================================================
+remotion_opening:
+  # 开场左上角刊头。
+  ip_name: 神爱世人悟道笔记
+  duration_seconds: 5.0
+  fps: 30
+  # 金句逐行出现的时间范围。
+  first_line_seconds: 0.2
+  last_line_seconds: 1.0
+  # 金句断行控制。
+  max_lines: 4
+  max_chars_per_line: 20
+
+# 步骤5：最终视频合成
+# =============================================================================
+step5:
+  # 最终导出尺寸，可与 image_size 不同。
+  video_size: 1280x720
+  video_output_fps: 30
+  # 编码：h264 兼容性更好；hevc 体积更小，适合 macOS/M 系列。
+  video_codec: hevc
+  # 码率模式：auto / quality。
+  video_bitrate_mode: quality
+  # quality 模式下生效，建议 60-75。
+  video_quality_level: 70
+
+  enable_subtitles: true
+  # 背景音乐文件名，位于 music/ 目录；设为 null 表示不加 BGM。
+  bgm_filename: The Sound of Slience.mp3
+  bgm_default_volume: 0.1
+  narration_default_volume: 2.0
+  # 口播整体变速，1.0 表示原速。
+  narration_speed_factor: 1.05
+
+  # BGM 响度标准化，解决不同音乐音量起伏过大的问题。
+  bgm_normalize_loudness: true
+  bgm_target_loudness: 15.0
+  bgm_loudness_range: 6.5
+
+  # 口播时自动压低 BGM。
+  audio_ducking_enabled: false
+  audio_ducking_strength: 0.5
+  audio_ducking_smooth_seconds: 0.12
+
+  opening_fadein_seconds: 1.0
+  ending_fade_seconds: 2.0
+
+  # 过渡效果。默认关闭，确保速度和稳定性。
+  enable_transitions: false
+  # 可选：crossfade / fade_white / fade_black / wipe_left / wipe_right /
+  #      slide_left / slide_right / zoom_in / zoom_out
+  transition_duration: 0.8
+  transition_style: slide_right
+
+  # 混合图片/视频素材时的处理方式。
+  image_material_target_fps: 15
+  video_material_remove_audio: true
+  # 长视频对齐口播：crop 截取前段；compress 均匀压缩到音频时长。
+  video_material_longer_than_audio_mode: crop
+  # 旧字段，保留兼容。新配置优先使用 video_material_longer_than_audio_mode。
+  video_material_duration_adjust: stretch
+  # 视频素材尺寸调整：crop / stretch。
+  video_material_resize_method: crop
+
+# =============================================================================
+# 字幕样式
+# =============================================================================
+subtitles:
+  font_size: 48
+  # 可填 auto，或字体文件绝对路径。
+  # macOS 示例：/System/Library/Fonts/PingFang.ttc
+  # Windows 示例：C:/Windows/Fonts/msyh.ttc
+  font_family: auto
+  # TTC 字体索引；普通 ttf/otf 可保持 0。
+  font_ttc_index: 0
+  color: white
+  stroke_color: black
+  stroke_width: 0
+  # [水平, 垂直]，常用：[center, bottom]
+  position: [center, bottom]
+  margin_bottom: 60
+  max_chars_per_line: 20
+  max_lines: 1
+  line_spacing: 15
+  letter_spacing: 2
+  # 背景色 RGB；background_opacity 为 0 时透明。
+  background_color: [50, 55, 64]
+  background_opacity: 0.58
+  background_h_padding: 20
+  background_v_padding: 10
+  shadow_enabled: true
+  shadow_color: "#000000aa"
+  shadow_offset: [3, 3]
+
+# =============================================================================
+# 步骤6：封面生成
+# =============================================================================
+step6:
+  cover_image_size_presets:
+    "16:9": 3200x1800
+    "9:16": 1800x3200
+    "4:3": 3000x2250
+    "3:4": 2250x3000
+    "1:1": 2500x2500
+  # 封面尺寸预设 key。可选：16:9 / 9:16 / 4:3 / 3:4 / 1:1
+  default_cover_image_size_key: "1:1"
+  cover_image_model: gemini-3.1-flash-image-preview
+  # 可选：google / google_adc / doubao
+  cover_image_server: google_adc
+  # 封面风格预设，见 core/prompts.py 的 COVER_IMAGE_STYLE_PRESETS。
+  cover_image_style: cover06
+  cover_image_count: 1

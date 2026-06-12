@@ -28,7 +28,7 @@ def test_process_raw_to_script_defaults_segment_visualizer_to_image():
         "cover_titles": ["封面标题"],
         "cover_subtitles": [],
         "golden_quotes": [],
-        "content": "第一段内容。\n第二段内容。",
+        "content": "今天的天气非常晴朗，温度适宜。\n小明背着书包去上学，路过公园。",
         "target_segments": 2,
     }
 
@@ -90,3 +90,37 @@ def test_run_step_1_5_preserves_docx_source_name_in_script_json(monkeypatch, tmp
     assert result["success"] is True
     script_data = json.loads(script_json_path.read_text(encoding="utf-8"))
     assert script_data["source_name"] == raw_source_name
+
+
+def test_process_raw_to_script_enforces_visualizer_ratio_range():
+    # Case 1: All segments are plain text (normally 100% image). Min hyper should be 30% (3 segments).
+    raw_data_plain = {
+        "source_name": "Test",
+        "video_titles": ["Test"],
+        "cover_titles": ["Test"],
+        "cover_subtitles": [],
+        "golden_quotes": [],
+        "content": "今天天气很好。\n今天温度适宜。\n今天适合郊游。\n大家都去爬山。\n山上风景极美。\n山下有小溪流。\n溪水十分清澈。\n鱼儿自由游动。\n晚风吹拂树梢。\n月亮挂在夜空。",
+        "target_segments": 10,
+    }
+    script_data_plain = process_raw_to_script(raw_data_plain, num_segments=10, split_mode="manual")
+    visualizers_plain = [seg["visualizer"] for seg in script_data_plain["segments"]]
+    hyper_count_plain = visualizers_plain.count("hyper")
+    assert len(script_data_plain["segments"]) == 10
+    assert hyper_count_plain >= 3
+
+    # Case 2: All segments contain logical/data words (normally 100% hyper). Max hyper should be 70% (7 segments, meaning 3 image).
+    raw_data_hyper = {
+        "source_name": "Test",
+        "video_titles": ["Test"],
+        "cover_titles": ["Test"],
+        "cover_subtitles": [],
+        "golden_quotes": [],
+        "content": "因为这是第一层。\n所以这是第二层。\n这意味着第三层。\n相比之下有40%。\n代码是601133。\n比手机高出两档。\n关键在于市占率。\n核心是新签订单。\n也就是说要对比。\n只要努力就成功。",
+        "target_segments": 10,
+    }
+    script_data_hyper = process_raw_to_script(raw_data_hyper, num_segments=10, split_mode="manual")
+    visualizers_hyper = [seg["visualizer"] for seg in script_data_hyper["segments"]]
+    image_count_hyper = visualizers_hyper.count("image")
+    assert len(script_data_hyper["segments"]) == 10
+    assert image_count_hyper >= 3

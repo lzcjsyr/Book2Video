@@ -1,8 +1,11 @@
 # 环境文件
 .env
-config.yaml
 
 # Python 
+.venv/
+*.egg-info/
+core/infra/hyperframes/app/.thumbnails/
+
 __pycache__/
 .pytest_cache/
 *.pyc

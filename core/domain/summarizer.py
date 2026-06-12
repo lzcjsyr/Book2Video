@@ -292,6 +292,103 @@ def _build_fallback_summary(source_text: str, max_chars: int) -> str:
     return summary
 
 
+def _score_segment_visualizer_suitability(content: str) -> float:
+    """计算内容适合做 hyper 动效的分数。分数越高越适合做动效。"""
+    score = 0.0
+    
+    # 1. 包含6位数字（中国A股股票代码常见格式，如 601133, 002341, 688376）
+    if re.search(r'\b\d{6}\b', content):
+        score += 10.0
+        
+    # 2. 包含百分比（如 40% 或 15％）
+    if re.search(r'\d+[\s]*[%％]', content):
+        score += 8.0
+        
+    # 3. 包含特定数据单位（如 微米、纳米、分贝、英寸、微克、毫克、克、千克、万只、万颗、颗、个、只...）
+    data_units = [
+        r'\d+[\s]*(?:微米|纳米|分贝|英寸|微克|毫克|克|千克|万只|万颗|颗|个|只|名|位|倍)',
+        r'(?:几百|几千|几十|上百|上千|上万|数(?:十|百|千|万))\s*(?:亿|万|千|百|个)',
+        r'\d+[\s]*(?:万|亿|千|百)',
+    ]
+    for pattern in data_units:
+        if re.search(pattern, content):
+            score += 5.0
+            
+    # 4. 包含特定商业/财报/产业结构关键词
+    structure_keywords = [
+        "第一层", "第二层", "第三层", "总包", "设备和耗材", "运维服务", "主营", "市占率",
+        "代码", "新签订单", "同比增长", "环比增长", "毛利率", "利润率", "市净率", "市盈率", "营收"
+    ]
+    for kw in structure_keywords:
+        if kw in content:
+            score += 4.0
+            
+    # 5. 包含强因果/强逻辑推导和对比转折标志
+    logical_patterns = [
+        r'这意味着', r'也就是说', r'因为', r'所以', r'从而', r'因此', r'为什么', r'逻辑', r'背后', r'原因',
+        r'简单来说', r'直白点说', r'换句话说', r'这就是', r'关键在于', r'核心是',
+        r'第一', r'第二', r'第三', r'首先', r'其次', r'最后', r'其一', r'其二',
+        r'对比', r'相比', r'相反', r'如果', r'假设', r'只要.*就', r'比'
+    ]
+    for pattern in logical_patterns:
+        if re.search(pattern, content):
+            score += 3.0
+            
+    return score
+
+
+def _determine_segment_visualizer(content: str) -> str:
+    """根据文本内容特征决定使用哪种可视化器。"""
+    return "hyper" if _score_segment_visualizer_suitability(content) > 0 else "image"
+
+
+def _adjust_visualizer_ratios(segments: List[Dict[str, Any]]) -> None:
+    """
+    调整 segments 中 visualizer 的比例，使 image 和 hyper 的比例在 3:7 到 7:3 之间。
+    即 hyper 的比例必须在 30% 到 70% 之间。
+    """
+    total = len(segments)
+    if total == 0:
+        return
+        
+    scored_segments = []
+    for seg in segments:
+        score = _score_segment_visualizer_suitability(seg["content"])
+        scored_segments.append({
+            "segment": seg,
+            "score": score,
+        })
+        
+    hyper_segs = []
+    image_segs = []
+    for item in scored_segments:
+        if item["score"] > 0:
+            item["segment"]["visualizer"] = "hyper"
+            hyper_segs.append(item)
+        else:
+            item["segment"]["visualizer"] = "image"
+            image_segs.append(item)
+            
+    min_hyper = int(total * 0.3)
+    max_hyper = int(total * 0.7)
+    
+    hyper_count = len(hyper_segs)
+    
+    if hyper_count < min_hyper:
+        # hyper 比例过低 (<30%)，升级一部分 image 为 hyper
+        image_segs.sort(key=lambda x: (x["score"], len(x["segment"]["content"])), reverse=True)
+        needed = min_hyper - hyper_count
+        for i in range(needed):
+            image_segs[i]["segment"]["visualizer"] = "hyper"
+            
+    elif hyper_count > max_hyper:
+        # hyper 比例过高 (>70%)，降级一部分 hyper 为 image
+        hyper_segs.sort(key=lambda x: (x["score"], len(x["segment"]["content"])))
+        needed = hyper_count - max_hyper
+        for i in range(needed):
+            hyper_segs[i]["segment"]["visualizer"] = "image"
+
+
 def process_raw_to_script(raw_data: Dict[str, Any], num_segments: int, split_mode: str = "auto") -> Dict[str, Any]:
     """
     将原始数据处理为分段脚本数据。
@@ -336,7 +433,7 @@ def process_raw_to_script(raw_data: Dict[str, Any], num_segments: int, split_mod
         # 更新模型信息中的处理类型
         enhanced_data["model_info"]["generation_type"] = "script_generation"
 
-        # 估算每段时长
+        # 估算每段时长并初始化为 default visualizer
         wpm = int(getattr(config, "SPEECH_SPEED_WPM", 300))
         for i, seg_text in enumerate(segments_text, 1):
             length_i = len(seg_text)
@@ -348,6 +445,9 @@ def process_raw_to_script(raw_data: Dict[str, Any], num_segments: int, split_mod
                 "estimated_duration": round(estimated_duration, 1),
                 "visualizer": "image",
             })
+
+        # 调整视觉分配比例，使之符合 3:7 ~ 7:3 限制
+        _adjust_visualizer_ratios(enhanced_data["segments"])
 
         return enhanced_data
 

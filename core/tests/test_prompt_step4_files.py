@@ -25,7 +25,6 @@ def test_hyperframes_agent_has_dedicated_step4_prompt_file():
     assert "durationSeconds" in prompt
     assert "data-start" in prompt
     assert "Inter" in prompt
-    assert "当前工作目录" in prompt
 
 
 def test_step4_hyperframes_prompt_is_loaded_from_prompt_file(monkeypatch):
@@ -34,16 +33,18 @@ def test_step4_hyperframes_prompt_is_loaded_from_prompt_file(monkeypatch):
     monkeypatch.setattr(
         claude_agent,
         "STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE",
-        "PROMPT_FILE_MARKER\n{embedded_skill_bundle}\n{style_preset}\n{payload_json}",
+        "PROMPT_FILE_MARKER\n{embedded_skill_bundle}\n{style_preset}\n{payload_json}\n{target_index_html_path}",
     )
 
     prompt = claude_agent._build_step4_hyperframes_prompt(
         segment_payload={"index": 1, "durationSeconds": 1.25},
         style_preset="data_driven",
         embedded_skill_bundle="HyperFrames rules",
+        target_index_html_path="/test/path/index.html",
     )
 
     assert prompt.startswith("PROMPT_FILE_MARKER")
     assert "HyperFrames rules" in prompt
     assert "data_driven" in prompt
     assert '"durationSeconds": 1.25' in prompt
+    assert "/test/path/index.html" in prompt
