@@ -49,8 +49,8 @@ def _split_quote_fragments(quote: str) -> List[str]:
 
 
 def _split_quote_lines(quote: str) -> List[str]:
-    max_chars = int(getattr(config, "OPENING_REMOTION_MAX_CHARS_PER_LINE", 20))
-    max_lines = int(getattr(config, "OPENING_REMOTION_MAX_LINES", 6))
+    max_chars = int(getattr(config, "OPENING_HYPERFRAMES_MAX_CHARS_PER_LINE", 20))
+    max_lines = int(getattr(config, "OPENING_HYPERFRAMES_MAX_LINES", 6))
     composer = VideoComposer()
     lines: List[str] = []
 
@@ -88,8 +88,8 @@ def _build_line_appear_times(
 
 
 def _resolve_timeline_config() -> tuple[float, int, int]:
-    duration_seconds = float(getattr(config, "OPENING_REMOTION_DURATION_SECONDS", 4.0) or 4.0)
-    fps = int(getattr(config, "OPENING_REMOTION_FPS", 30) or 30)
+    duration_seconds = float(getattr(config, "OPENING_HYPERFRAMES_DURATION_SECONDS", 4.0) or 4.0)
+    fps = int(getattr(config, "OPENING_HYPERFRAMES_FPS", 30) or 30)
 
     duration_seconds = max(0.1, duration_seconds)
     fps = max(1, fps)
@@ -98,8 +98,8 @@ def _resolve_timeline_config() -> tuple[float, int, int]:
 
 
 def _resolve_line_timing(duration_seconds: float, fps: int) -> tuple[float, float]:
-    first_line_seconds = float(getattr(config, "OPENING_REMOTION_FIRST_LINE_SECONDS", 0.5) or 0.5)
-    last_line_seconds = float(getattr(config, "OPENING_REMOTION_LAST_LINE_SECONDS", 2.0) or 2.0)
+    first_line_seconds = float(getattr(config, "OPENING_HYPERFRAMES_FIRST_LINE_SECONDS", 0.5) or 0.5)
+    last_line_seconds = float(getattr(config, "OPENING_HYPERFRAMES_LAST_LINE_SECONDS", 2.0) or 2.0)
 
     max_visible_time = max(0.0, duration_seconds - (1.0 / fps))
     first_line_seconds = min(max(0.0, first_line_seconds), max_visible_time)
@@ -142,7 +142,7 @@ def render_opening_video(
         "bookTitle": book_title,
         "quoteLines": quote_lines,
         "focusWords": marked_focus_words or _pick_focus_words(quote_lines),
-        "ipName": str(getattr(config, "OPENING_REMOTION_IP_NAME", "Cody叩底")).strip() or "Cody叩底",
+        "ipName": str(getattr(config, "OPENING_HYPERFRAMES_IP_NAME", "Cody叩底")).strip() or "Cody叩底",
         "lineAppearTimes": _build_line_appear_times(
             len(quote_lines),
             first_line_seconds=first_line_seconds,

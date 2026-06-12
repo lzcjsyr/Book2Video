@@ -71,7 +71,7 @@ def test_yaml_runtime_overrides_update_global_config_for_legacy_readers(tmp_path
 
     original = {
         "SUBTITLE_FONT_SIZE": config.SUBTITLE_FONT_SIZE,
-        "OPENING_REMOTION_IP_NAME": config.OPENING_REMOTION_IP_NAME,
+        "OPENING_HYPERFRAMES_IP_NAME": config.OPENING_HYPERFRAMES_IP_NAME,
         "MAX_CONCURRENT_IMAGE_GENERATION": config.MAX_CONCURRENT_IMAGE_GENERATION,
         "BGM_DEFAULT_VOLUME": config.BGM_DEFAULT_VOLUME,
     }
@@ -80,7 +80,7 @@ def test_yaml_runtime_overrides_update_global_config_for_legacy_readers(tmp_path
         """
 subtitles:
   font_size: 56
-remotion_opening:
+hyperframes_opening:
   ip_name: 测试刊头
 step4:
   max_concurrent_image_generation: 4
@@ -94,7 +94,7 @@ step5:
         apply_yaml_config(config_path)
 
         assert config.SUBTITLE_FONT_SIZE == 56
-        assert config.OPENING_REMOTION_IP_NAME == "测试刊头"
+        assert config.OPENING_HYPERFRAMES_IP_NAME == "测试刊头"
         assert config.MAX_CONCURRENT_IMAGE_GENERATION == 4
         assert config.BGM_DEFAULT_VOLUME == 0.25
     finally:

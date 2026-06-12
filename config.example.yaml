@@ -133,9 +133,9 @@ step4:
   max_concurrent_image_generation: 1
 
 # =============================================================================
-# Remotion 开场视频
+# HyperFrames 开场视频
 # =============================================================================
-remotion_opening:
+hyperframes_opening:
   # 开场左上角刊头。
   ip_name: 你是个牛逼
   duration_seconds: 5.0

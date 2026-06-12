@@ -14,11 +14,8 @@
 ### 2. 安装步骤
 
 ```bash
-# 1. 安装 Python 依赖
+# 安装 Python 依赖
 pip install -e .
-
-# 2. 安装 Remotion 开场视频依赖（可选）
-cd core/infra/remotion/app && npm ci && cd ../../../..
 ```
 
 *提示：macOS 用户可直接运行 `./scripts/install_macos.sh`，Windows 用户运行 `powershell -ExecutionPolicy Bypass -File scripts/install_windows.ps1` 进行一键环境安装与测试。*
@@ -105,6 +102,6 @@ step4:
 视频制作完成后，在 `output/《你的文档标题》_MMDD_HHMM/` 目录下将产生以下结构，供随时审阅或二次重制：
 
 * `final_video.mp4` — **最终合成的高清短视频文件**
-* `images/` — 各分段配图及精美的 Remotion 开场动画（`opening.mp4`）
+* `images/` — 各分段配图及精美的 HyperFrames 开场动画（`opening.mp4`）
 * `voice/` — 对应段落的高保真配音 MP3 及字幕文件（`字幕.srt`）
 * `text/` — 中间过程中 AI 生成并导出的 Word 文案脚本与段落总结文件（可供编辑修正后实现精准二次重制）

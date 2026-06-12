@@ -56,12 +56,13 @@ def test_render_opening_video_extracts_focus_words_from_markers(monkeypatch, tmp
     )
 
     assert captured["props"]["focusWords"] == ["努力", "系统"]
+    assert "".join(captured["props"]["focusWords"]) == "努力系统"
     assert "".join(captured["props"]["quoteLines"]) == "真正拉开差距的，不是努力，而是你能不能看懂系统。"
 
 
 def test_split_quote_lines_keeps_each_sentence_fragment_on_its_own_line(monkeypatch):
-    monkeypatch.setattr(config, "OPENING_REMOTION_MAX_CHARS_PER_LINE", 20)
-    monkeypatch.setattr(config, "OPENING_REMOTION_MAX_LINES", 4)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_MAX_CHARS_PER_LINE", 20)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_MAX_LINES", 4)
 
     assert opening_renderer._split_quote_lines("第一段，第二段，第三段。") == [
         "第一段，",
@@ -73,8 +74,8 @@ def test_split_quote_lines_keeps_each_sentence_fragment_on_its_own_line(monkeypa
 def test_render_opening_video_distributes_line_appearance_times(monkeypatch, tmp_path: Path):
     captured = {}
 
-    monkeypatch.setattr(config, "OPENING_REMOTION_FIRST_LINE_SECONDS", 0.5)
-    monkeypatch.setattr(config, "OPENING_REMOTION_LAST_LINE_SECONDS", 2.0)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_FIRST_LINE_SECONDS", 0.5)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_LAST_LINE_SECONDS", 2.0)
     monkeypatch.setattr(
         opening_renderer,
         "_split_quote_lines",
@@ -101,16 +102,16 @@ def test_render_opening_video_distributes_line_appearance_times(monkeypatch, tmp
     assert captured["props"]["lineAppearTimes"] == [0.5, 1.0, 1.5, 2.0]
 
 
-def test_render_opening_video_uses_configured_remotion_params(monkeypatch, tmp_path: Path):
+def test_render_opening_video_uses_configured_hyperframes_params(monkeypatch, tmp_path: Path):
     captured = {}
 
-    monkeypatch.setattr(config, "OPENING_REMOTION_IP_NAME", "测试刊头")
-    monkeypatch.setattr(config, "OPENING_REMOTION_DURATION_SECONDS", 5.0)
-    monkeypatch.setattr(config, "OPENING_REMOTION_FPS", 30)
-    monkeypatch.setattr(config, "OPENING_REMOTION_FIRST_LINE_SECONDS", 0.8)
-    monkeypatch.setattr(config, "OPENING_REMOTION_LAST_LINE_SECONDS", 2.6)
-    monkeypatch.setattr(config, "OPENING_REMOTION_MAX_CHARS_PER_LINE", 8)
-    monkeypatch.setattr(config, "OPENING_REMOTION_MAX_LINES", 3)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_IP_NAME", "测试刊头")
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_DURATION_SECONDS", 5.0)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_FPS", 30)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_FIRST_LINE_SECONDS", 0.8)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_LAST_LINE_SECONDS", 2.6)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_MAX_CHARS_PER_LINE", 8)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_MAX_LINES", 3)
 
     def fake_run(command, cwd, check, stdin, *args, **kwargs):
         assert command[0] == "npx"
@@ -139,10 +140,10 @@ def test_render_opening_video_uses_configured_remotion_params(monkeypatch, tmp_p
 def test_render_opening_video_clamps_line_timing_within_duration(monkeypatch, tmp_path: Path):
     captured = {}
 
-    monkeypatch.setattr(config, "OPENING_REMOTION_DURATION_SECONDS", 1.0)
-    monkeypatch.setattr(config, "OPENING_REMOTION_FPS", 20)
-    monkeypatch.setattr(config, "OPENING_REMOTION_FIRST_LINE_SECONDS", 0.8)
-    monkeypatch.setattr(config, "OPENING_REMOTION_LAST_LINE_SECONDS", 2.0)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_DURATION_SECONDS", 1.0)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_FPS", 20)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_FIRST_LINE_SECONDS", 0.8)
+    monkeypatch.setattr(config, "OPENING_HYPERFRAMES_LAST_LINE_SECONDS", 2.0)
 
     def fake_run(command, cwd, check, stdin, *args, **kwargs):
         assert command[0] == "npx"

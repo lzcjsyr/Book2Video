@@ -43,14 +43,14 @@ _YAML_SCHEMA: Dict[str, Dict[str, str]] = {
         "mute_cut_remain_ms": "MUTE_CUT_REMAIN_MS",
         "max_concurrent_voice_synthesis": "MAX_CONCURRENT_VOICE_SYNTHESIS",
     },
-    "remotion_opening": {
-        "ip_name": "OPENING_REMOTION_IP_NAME",
-        "duration_seconds": "OPENING_REMOTION_DURATION_SECONDS",
-        "fps": "OPENING_REMOTION_FPS",
-        "first_line_seconds": "OPENING_REMOTION_FIRST_LINE_SECONDS",
-        "last_line_seconds": "OPENING_REMOTION_LAST_LINE_SECONDS",
-        "max_lines": "OPENING_REMOTION_MAX_LINES",
-        "max_chars_per_line": "OPENING_REMOTION_MAX_CHARS_PER_LINE",
+    "hyperframes_opening": {
+        "ip_name": "OPENING_HYPERFRAMES_IP_NAME",
+        "duration_seconds": "OPENING_HYPERFRAMES_DURATION_SECONDS",
+        "fps": "OPENING_HYPERFRAMES_FPS",
+        "first_line_seconds": "OPENING_HYPERFRAMES_FIRST_LINE_SECONDS",
+        "last_line_seconds": "OPENING_HYPERFRAMES_LAST_LINE_SECONDS",
+        "max_lines": "OPENING_HYPERFRAMES_MAX_LINES",
+        "max_chars_per_line": "OPENING_HYPERFRAMES_MAX_CHARS_PER_LINE",
     },
     "step4": {
         "visual_mode": "VISUAL_MODE",
