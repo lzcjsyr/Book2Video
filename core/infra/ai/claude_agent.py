@@ -454,6 +454,15 @@ async def _run_step1_agent_async(
     repo_root: str,
     extra_requirements: str = "",
 ) -> None:
+    # Remove stale raw.json files to ensure the latest generation is captured
+    for path_str in [output_json, output_json.replace("“", "\"").replace("”", "\"").replace("‘", "'").replace("’", "'")]:
+        try:
+            p = Path(path_str)
+            if p.exists():
+                p.unlink()
+        except Exception:
+            pass
+
     subagents = _build_step1_subagents()
     effective_extra_requirements = _with_step1_subagent_instruction(extra_requirements, subagents)
     prompt = build_step1_agent_prompt(
@@ -476,6 +485,7 @@ async def _run_step1_agent_async(
         max_turns=300,
         add_dirs=_step1_agent_add_dirs(input_file),
         env=build_step1_agent_env(),
+        setting_sources=["project", "local"],
     )
     session_log = AgentSessionLog(session_log_path)
     session_log.append(
@@ -541,6 +551,22 @@ async def _run_step1_agent_async(
             )
 
     if not Path(output_json).exists():
+        # Fallback: check if the agent normalized quotes in paths and wrote to a parallel directory
+        normalized_str = str(output_json).replace("“", "\"").replace("”", "\"").replace("‘", "'").replace("’", "'")
+        normalized_path = Path(normalized_str)
+        if normalized_path.exists() and normalized_path != Path(output_json):
+            import shutil
+            Path(output_json).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(normalized_path, output_json)
+            # Copy other text files written by the agent in text_dir
+            text_path = Path(output_json).parent
+            normalized_text_path = normalized_path.parent
+            if normalized_text_path.exists() and normalized_text_path != text_path:
+                for item in normalized_text_path.glob("*"):
+                    if item.is_file():
+                        shutil.copy2(item, text_path / item.name)
+
+    if not Path(output_json).exists():
         raise FileNotFoundError(f"Claude Agent未生成raw.json: {output_json}")
 
 
@@ -578,12 +604,14 @@ def _build_step4_hyperframes_prompt(
     segment_payload: dict[str, Any],
     style_preset: str,
     embedded_skill_bundle: str,
+    target_index_html_path: str = "",
 ) -> str:
     payload_json = json.dumps(segment_payload, ensure_ascii=False, indent=2)
     return STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE.format(
         embedded_skill_bundle=embedded_skill_bundle,
         style_preset=style_preset,
         payload_json=payload_json,
+        target_index_html_path=target_index_html_path,
     )
 
 
@@ -603,6 +631,15 @@ async def _run_step4_hyperframes_agent_async(
 ) -> None:
     work_path = Path(work_dir)
     work_path.mkdir(parents=True, exist_ok=True)
+
+    # Remove stale index.html files in both actual and normalized paths to ensure fresh copy fallback trigger
+    for parent_path in [work_path, Path(str(work_path).replace("“", "\"").replace("”", "\"").replace("‘", "'").replace("’", "'"))]:
+        try:
+            stale_file = parent_path / "index.html"
+            if stale_file.exists():
+                stale_file.unlink()
+        except Exception:
+            pass
     skill_dir = Path(embedded_skill_dir) if embedded_skill_dir else embedded_hyperframes_skill_dir()
     embedded_skill_bundle = load_embedded_hyperframes_skill_bundle(skill_dir)
     skill_add_dirs = [str(path) for path in step4_hyperframes_skill_dirs(skill_dir.parent)]
@@ -610,6 +647,7 @@ async def _run_step4_hyperframes_agent_async(
         segment_payload=segment_payload,
         style_preset=style_preset,
         embedded_skill_bundle=embedded_skill_bundle,
+        target_index_html_path=str(work_path / "index.html"),
     )
     tools = list(STEP4_HYPERFRAMES_AGENT_TOOLS)
     options = ClaudeAgentOptions(
@@ -625,6 +663,7 @@ async def _run_step4_hyperframes_agent_async(
             llm_model=llm_model,
             llm_base_url=llm_base_url,
         ),
+        setting_sources=["project", "local"],
     )
     session_log = AgentSessionLog(session_log_path)
     session_log.append(
@@ -674,6 +713,17 @@ async def _run_step4_hyperframes_agent_async(
                 "session_end",
                 {"success": False, "result": None, "note": "no ResultMessage received"},
             )
+
+    if not (work_path / "index.html").exists():
+        # Fallback: check if the agent normalized quotes in paths and wrote to a parallel directory
+        normalized_str = str(work_path).replace("“", "\"").replace("”", "\"").replace("‘", "'").replace("’", "'")
+        normalized_work_path = Path(normalized_str)
+        if normalized_work_path.exists() and normalized_work_path != work_path:
+            import shutil
+            work_path.mkdir(parents=True, exist_ok=True)
+            for item in normalized_work_path.glob("*"):
+                if item.is_file():
+                    shutil.copy2(item, work_path / item.name)
 
     if not (work_path / "index.html").exists():
         raise FileNotFoundError(f"Claude Agent未生成HyperFrames index.html: {work_path / 'index.html'}")

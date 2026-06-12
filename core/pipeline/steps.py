@@ -62,7 +62,9 @@ def _initialize_project(raw_data: Dict[str, Any], output_dir: str) -> tuple:
     """Create project folder structure and persist raw outputs."""
     current_time = datetime.datetime.now()
     time_suffix = current_time.strftime("%m%d_%H%M")
-    raw_title = get_primary_video_title(raw_data, "untitled")
+    raw_title = get_primary_video_title(raw_data, "untitled").strip()
+    raw_title = re.sub(r'[“”‘’"\'`]+', '', raw_title)
+    raw_title = re.sub(r'[\\/:*?"<>|\s]+', "_", raw_title).strip("_") or "untitled"
     project_folder = f"{raw_title}_{time_suffix}"
     project_output_dir = os.path.join(output_dir, project_folder)
 
@@ -84,7 +86,27 @@ def _initialize_project(raw_data: Dict[str, Any], output_dir: str) -> tuple:
 
 def _safe_project_stem(input_file: str) -> str:
     stem = os.path.splitext(os.path.basename(input_file))[0].strip() or "untitled"
+    # Remove all straight and smart quotes (single, double, Chinese, etc.) to prevent path/agent issues
+    stem = re.sub(r'[“”‘’"\'`]+', '', stem)
     return re.sub(r'[\\/:*?"<>|\s]+', "_", stem).strip("_") or "untitled"
+
+
+def _clean_redundant_agent_folders(project_output_dir: str) -> None:
+    """自动清理 Claude 子代理因引号规范化差异而在 output 目录中额外生成的冗余文件夹。"""
+    if not project_output_dir:
+        return
+    try:
+        import shutil
+        # 1. 清理直双引号文件夹
+        normalized_dir = project_output_dir.replace("“", "\"").replace("”", "\"").replace("‘", "'").replace("’", "'")
+        if normalized_dir != project_output_dir and os.path.exists(normalized_dir) and os.path.isdir(normalized_dir):
+            shutil.rmtree(normalized_dir, ignore_errors=True)
+        # 2. 清理完全无引号的文件夹
+        quotes_stripped_dir = project_output_dir.replace("“", "").replace("”", "").replace("‘", "").replace("’", "").replace("\"", "").replace("'", "")
+        if quotes_stripped_dir != project_output_dir and os.path.exists(quotes_stripped_dir) and os.path.isdir(quotes_stripped_dir):
+            shutil.rmtree(quotes_stripped_dir, ignore_errors=True)
+    except Exception:
+        pass
 
 
 def _create_step1_project(input_file: str, output_dir: str) -> tuple[str, ProjectPaths]:
@@ -125,7 +147,16 @@ def load_step1_agent_raw(raw_json_path: str, expected_segments: int) -> Dict[str
             errors.append(f"{field}类型错误")
     content = raw_data.get("content")
     if isinstance(content, str) and ("\n" in content or "\r" in content):
-        errors.append("content不能分段")
+        logger.warning("检测到 Step 1 raw JSON 中的 content 包含换行符，将自动清理以符合输出契约。")
+        cleaned_content = re.sub(r'[\r\n]+', '', content).strip()
+        raw_data["content"] = cleaned_content
+        raw_data["total_length"] = len(cleaned_content)
+        try:
+            with open(raw_json_path, "w", encoding="utf-8") as handle:
+                json.dump(raw_data, handle, ensure_ascii=False, indent=2)
+        except Exception as exc:
+            logger.warning(f"自动写入修复后的 raw.json 失败: {exc}")
+
     if errors:
         raise ValueError(f"Step 1 raw JSON不符合输出契约: {', '.join(errors)}")
     return raw_data
@@ -421,6 +452,8 @@ def run_step_1(
         raw_docx_path = paths.raw_docx()
     except Exception:
         pass
+
+    _clean_redundant_agent_folders(project_output_dir)
 
     return {
         "success": True,
@@ -880,6 +913,8 @@ def run_step_4(
     for key, value in image_result.items():
         if key != "processed_segments":
             payload[key] = value
+    _clean_redundant_agent_folders(project_output_dir)
+
     return payload
 
 

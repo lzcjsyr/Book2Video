@@ -93,7 +93,11 @@ def test_dependency_checker_can_require_configured_api_keys(tmp_path: Path, monk
     _write_hyperframes_skill_bundle(repo_root)
     (repo_root / "pyproject.toml").write_text('dependencies = []\n', encoding="utf-8")
 
-    monkeypatch.setenv("MIMO_API_KEY", "")
+    from core.dependency_check import PROVIDER_KEY_GROUPS
+    for keys in PROVIDER_KEY_GROUPS.values():
+        for key in keys:
+            monkeypatch.setenv(key, "")
+
     checker = DependencyChecker(
         repo_root=repo_root,
         which=lambda name: f"/fake/bin/{name}",
