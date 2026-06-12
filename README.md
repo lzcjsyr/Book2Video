@@ -45,7 +45,7 @@ python start.py
 系统采用模块化设计，将长文档转化为短视频分为以下核心步骤：
 
 * **步骤 1 内容生成**：AI 提炼文档核心内容为适合短视频的篇幅。
-* **步骤 1.5 脚本分段**：智能分段并生成每段对应的口播文案。
+* **步骤 1.5 脚本分段**：按规则或 Agent 模式分段，并生成每段对应的口播文案。
 * **步骤 2 要点提取**：分析语义，提取每段画面的视觉描述或关键词。
 * **步骤 3 语音合成**：采用高品质 TTS 引擎生成拟真配音及 SRT 字幕，为画面生成提供精确时长。
 * **步骤 4 画面生成**：生成静态段落图片，或根据音频时长渲染 HyperFrames 动态画面，并渲染精美开场视频。
@@ -64,6 +64,13 @@ python start.py
 
 ### 第四步画面模式
 
+步骤 1.5 默认使用规则分段，并把每段 `visualizer` 写为 `image`。如需让 Agent 按意群分段并自动选择 `image` / `hyper`，可在 `config.yaml` 中启用：
+
+```yaml
+step1_5:
+  split_mode: agent
+```
+
 `config.yaml` 的 `step4.visual_mode` 控制画面生成方式：
 
 ```yaml
@@ -76,7 +83,7 @@ step4:
 
 选择 `hyperframes_agent` 时，系统会先使用步骤 3 已生成的真实音频时长，再调用 Claude Agent 按项目内置 HyperFrames 规范生成动态 HTML 并渲染为分段视频。
 
-选择 `mixed` 时，系统读取 `text/script.json` 中每段的 `visualizer` 字段：`image` 生成 `segment_i.png`，`hyper` 生成 `segment_i.mp4`。步骤 1.5 会默认把每段 `visualizer` 写为 `image`；需要动态画面的段落可手动改为 `hyper`。混合模式下两类段落会分组并行生成。
+选择 `mixed` 时，系统读取 `text/script.json` 中每段的 `visualizer` 字段：`image` 生成 `segment_i.png`，`hyper` 生成 `segment_i.mp4`。步骤 1.5 的默认规则模式会把每段 `visualizer` 写为 `image`；Agent 模式会自动选择。混合模式下两类段落会分组并行生成。
 
 ---
 

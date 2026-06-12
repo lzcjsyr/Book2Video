@@ -2,7 +2,7 @@
 Text-related logic: summarization, splitting to script, and keywords extraction.
 """
 
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Optional, Tuple
 import re
 import json
 import datetime
@@ -292,7 +292,12 @@ def _build_fallback_summary(source_text: str, max_chars: int) -> str:
     return summary
 
 
-def process_raw_to_script(raw_data: Dict[str, Any], num_segments: int, split_mode: str = "auto") -> Dict[str, Any]:
+def process_raw_to_script(
+    raw_data: Dict[str, Any],
+    num_segments: int,
+    split_mode: str = "auto",
+    agent_segments: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     """
     将原始数据处理为分段脚本数据。
     这是步骤1.5的核心功能，从raw数据生成最终的script数据。
@@ -314,7 +319,12 @@ def process_raw_to_script(raw_data: Dict[str, Any], num_segments: int, split_mod
             raise ValueError("原始数据的 content 字段为空")
 
         # 根据模式分段
-        segments_text = _split_text_into_segments(full_text, num_segments, split_mode)
+        if split_mode == "agent":
+            segments = _normalize_agent_segments(agent_segments or [], full_text)
+            segments_text = [segment["content"] for segment in segments]
+        else:
+            segments_text = _split_text_into_segments(full_text, num_segments, split_mode)
+            segments = [{"content": text, "visualizer": "image"} for text in segments_text]
         actual_segments = len(segments_text)
 
         # 汇总统计
@@ -338,7 +348,8 @@ def process_raw_to_script(raw_data: Dict[str, Any], num_segments: int, split_mod
 
         # 估算每段时长
         wpm = int(getattr(config, "SPEECH_SPEED_WPM", 300))
-        for i, seg_text in enumerate(segments_text, 1):
+        for i, segment in enumerate(segments, 1):
+            seg_text = segment["content"]
             length_i = len(seg_text)
             estimated_duration = length_i / max(1, wpm) * 60
             enhanced_data["segments"].append({
@@ -346,7 +357,7 @@ def process_raw_to_script(raw_data: Dict[str, Any], num_segments: int, split_mod
                 "content": seg_text,
                 "length": length_i,
                 "estimated_duration": round(estimated_duration, 1),
-                "visualizer": "image",
+                "visualizer": segment["visualizer"],
             })
 
         return enhanced_data
@@ -364,6 +375,39 @@ def _split_text_by_newlines(full_text: str) -> List[str]:
     # 按换行符切分，过滤空段
     segments = [seg.strip() for seg in re.split(r'\n+', text) if seg.strip()]
     return segments if segments else [text]
+
+
+def _compact_text_for_compare(text: str) -> str:
+    return re.sub(r'\s+', '', text or "")
+
+
+def _ends_sentence(text: str) -> bool:
+    return bool(re.search(r'[。！？!?；;][”’"\'）》」』）)]*$', (text or "").strip()))
+
+
+def _normalize_agent_segments(agent_segments: List[Dict[str, Any]], full_text: str) -> List[Dict[str, str]]:
+    if not agent_segments:
+        raise ValueError("Agent分段结果为空")
+
+    normalized: List[Dict[str, str]] = []
+    for index, segment in enumerate(agent_segments, 1):
+        if not isinstance(segment, dict):
+            raise ValueError(f"Agent分段结果第{index}段格式错误")
+        content = str(segment.get("content") or "").strip()
+        if not content:
+            raise ValueError(f"Agent分段结果第{index}段为空")
+        visualizer = str(segment.get("visualizer") or "image").strip().lower()
+        if visualizer not in {"image", "hyper"}:
+            raise ValueError(f"Agent分段结果第{index}段 visualizer 不支持: {visualizer}")
+        if index < len(agent_segments) and not _ends_sentence(content):
+            raise ValueError(f"Agent分段结果第{index}段疑似在句子内部切分")
+        normalized.append({"content": content, "visualizer": visualizer})
+
+    merged = _compact_text_for_compare("".join(segment["content"] for segment in normalized))
+    source = _compact_text_for_compare(full_text)
+    if merged != source:
+        raise ValueError("Agent分段结果与原文内容不一致")
+    return normalized
 
 
 def _split_text_into_segments(full_text: str, num_segments: int, mode: str = "auto") -> List[str]:

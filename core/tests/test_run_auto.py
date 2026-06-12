@@ -46,15 +46,16 @@ def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tm
         }
 
     monkeypatch.setattr(run_auto_module, "_run_step_1", fake_step_1)
-    monkeypatch.setattr(
-        run_auto_module,
-        "_run_step_1_5",
-        lambda *_args, **_kwargs: {
+    def fake_step_1_5(*args, **kwargs):
+        captured["step15_args"] = args
+        captured["step15_kwargs"] = kwargs
+        return {
             "success": True,
             "script_data": script_data,
             "script_path": paths.script_json(),
-        },
-    )
+        }
+
+    monkeypatch.setattr(run_auto_module, "_run_step_1_5", fake_step_1_5)
 
     def fake_step_2(*_args, **_kwargs):
         summary_path = paths.mini_summary_json()
@@ -109,6 +110,9 @@ def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tm
         hyperframes_render_fps=60,
         hyperframes_concurrency=2,
         images_method="description",
+        step1_5_split_mode="agent",
+        llm_server_step1_5="kimi",
+        llm_model_step1_5="kimi-k2.6",
         cover_image_server="google",
         cover_image_model="gemini-3.1-flash-image-preview",
         cover_image_size="1280x720",
@@ -123,6 +127,9 @@ def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tm
     assert result["cover_images"] == ["cover.png"]
     assert captured["raw_data"]["content"] == "x" * 1000
     assert captured["step1_kwargs"]["extra_requirements"] == "突出商业启示"
+    assert captured["step15_kwargs"]["split_mode"] == "agent"
+    assert captured["step15_kwargs"]["llm_server_step1_5"] == "kimi"
+    assert captured["step15_kwargs"]["llm_model_step1_5"] == "kimi-k2.6"
     assert captured["step4_kwargs"]["visual_mode"] == "hyperframes_agent"
     assert captured["step4_kwargs"]["hyperframes_style_preset"] == "light_corporate"
     assert captured["step4_kwargs"]["hyperframes_max_turns"] == 9

@@ -193,6 +193,54 @@ def test_build_step1_agent_env_uses_volcengine_anthropic_compatible_gateway(monk
     assert env["ANTHROPIC_MODEL"] == "doubao-seed-2.0-code"
 
 
+def test_build_step1_5_agent_env_uses_dedicated_model(monkeypatch):
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_SERVER_STEP1",
+        "mimo",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_MODEL_STEP1",
+        "mimo-v2.5-pro",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_SERVER_STEP1_5",
+        "kimi",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_MODEL_STEP1_5",
+        "kimi-k2.6",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.KIMI_API_KEY",
+        "test-kimi-key",
+        raising=False,
+    )
+
+    env = claude_agent.build_step1_5_agent_env()
+
+    assert env["ANTHROPIC_BASE_URL"] == "https://api.moonshot.cn/anthropic"
+    assert env["ANTHROPIC_API_KEY"] == "test-kimi-key"
+    assert env["ANTHROPIC_MODEL"] == "kimi-k2.6"
+
+
+def test_build_step1_5_segment_prompt_keeps_json_example():
+    prompt = claude_agent._build_step1_5_segment_prompt(
+        raw_json_path="/tmp/project/text/raw.json",
+        output_json_path="/tmp/project/text/_step1_5_segments.json",
+        target_segments=75,
+    )
+
+    assert "/tmp/project/text/raw.json" in prompt
+    assert "/tmp/project/text/_step1_5_segments.json" in prompt
+    assert "75" in prompt
+    assert '"segments"' in prompt
+    assert '"visualizer": "image"' in prompt
+
+
 def test_step1_agent_allows_300_turns(monkeypatch, tmp_path: Path):
     captured = {}
     output_json = tmp_path / "text" / "raw.json"

@@ -68,6 +68,29 @@ def test_example_subagents_declare_background_mode():
     assert subagents["fact-style-reviewer"]["background"] is False
 
 
+def test_config_loads_step1_5_agent_split_mode(tmp_path):
+    from core.config import _load_yaml_overrides
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+step1_5:
+  num_segments: 12
+  split_mode: agent
+  llm_server: kimi
+  llm_model: kimi-k2.6
+""",
+        encoding="utf-8",
+    )
+
+    overrides = _load_yaml_overrides(config_path)
+
+    assert overrides["NUM_SEGMENTS"] == 12
+    assert overrides["STEP1_5_SPLIT_MODE"] == "agent"
+    assert overrides["LLM_SERVER_STEP1_5"] == "kimi"
+    assert overrides["LLM_MODEL_STEP1_5"] == "kimi-k2.6"
+
+
 def test_title_quote_subagent_prompt_persists_candidates():
     prompt = Path("prompts/step1_subagents/title-quote-writer.md").read_text(encoding="utf-8")
 

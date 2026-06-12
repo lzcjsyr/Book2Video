@@ -26,9 +26,14 @@ from core.infra.hyperframes.skill_loader import (
     load_embedded_hyperframes_skill_bundle,
     step4_hyperframes_skill_dirs,
 )
-from core.prompts import STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE, build_step1_agent_prompt
+from core.prompts import (
+    STEP1_5_SEGMENT_PROMPT_TEMPLATE,
+    STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE,
+    build_step1_agent_prompt,
+)
 
 STEP1_AGENT_TOOLS = ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Skill"]
+STEP1_5_AGENT_TOOLS = ["Read", "Write"]
 STEP1_AGENT_SKILL = config.STEP1_AGENT_SKILL
 STEP4_HYPERFRAMES_AGENT_TOOLS = ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
 
@@ -107,28 +112,52 @@ def _get_anthropic_compatible_config(server: str, context: str) -> tuple[str, st
     elif server == "volcengine":
         return "https://ark.cn-beijing.volces.com/api/compatible", (config.VOLCENGINE_API_KEY or "").strip(), "VOLCENGINE_API_KEY"
     else:
-        if context == "step1":
-            raise ValueError(f"不支持的步骤1 LLM服务商: {server}，支持的服务商: mimo, kimi, deepseek, siliconflow, openrouter, volcengine")
-        else:
-            raise ValueError(f"不支持的步骤4 HyperFrames Agent LLM服务商: {server}")
+        labels = {
+            "step1": "步骤1",
+            "step1_5": "步骤1.5",
+            "step4": "步骤4 HyperFrames Agent",
+        }
+        label = labels.get(context, context)
+        raise ValueError(f"不支持的{label} LLM服务商: {server}，支持的服务商: mimo, kimi, deepseek, siliconflow, openrouter, volcengine")
 
 
-def build_step1_agent_env() -> dict[str, str]:
-    server = (config.LLM_SERVER_STEP1 or "").strip().lower()
+def _build_anthropic_agent_env(*, server: str, model: str, context: str, config_name: str) -> dict[str, str]:
+    server = (server or "").strip().lower()
     if not server:
-        raise RuntimeError("步骤1需要配置 LLM_SERVER_STEP1（mimo/kimi/siliconflow/openrouter/volcengine/deepseek）")
+        raise RuntimeError(f"{config_name} 不能为空（mimo/kimi/siliconflow/openrouter/volcengine/deepseek）")
 
-    base_url, api_key, key_name = _get_anthropic_compatible_config(server, "step1")
+    base_url, api_key, key_name = _get_anthropic_compatible_config(server, context)
 
     if not api_key:
-        raise RuntimeError(f"步骤1需要 {key_name}（.env），用于驱动 Claude Agent SDK")
+        raise RuntimeError(f"{config_name}={server} 需要 {key_name}（.env），用于驱动 Claude Agent SDK")
 
     return {
         "ANTHROPIC_BASE_URL": base_url,
         "ANTHROPIC_API_KEY": api_key,
         "ANTHROPIC_AUTH_TOKEN": api_key,
-        "ANTHROPIC_MODEL": config.LLM_MODEL_STEP1,
+        "ANTHROPIC_MODEL": model,
     }
+
+
+def build_step1_agent_env() -> dict[str, str]:
+    return _build_anthropic_agent_env(
+        server=config.LLM_SERVER_STEP1,
+        model=config.LLM_MODEL_STEP1,
+        context="step1",
+        config_name="LLM_SERVER_STEP1",
+    )
+
+
+def build_step1_5_agent_env(
+    llm_server: str | None = None,
+    llm_model: str | None = None,
+) -> dict[str, str]:
+    return _build_anthropic_agent_env(
+        server=llm_server or config.LLM_SERVER_STEP1_5,
+        model=llm_model or config.LLM_MODEL_STEP1_5,
+        context="step1_5",
+        config_name="LLM_SERVER_STEP1_5",
+    )
 
 
 def build_step4_hyperframes_agent_env(
@@ -597,6 +626,123 @@ def run_step1_agent(
         extra_requirements=extra_requirements,
     )
     anyio.run(runner)
+
+
+def _build_step1_5_segment_prompt(
+    *,
+    raw_json_path: str,
+    output_json_path: str,
+    target_segments: int,
+) -> str:
+    return (
+        STEP1_5_SEGMENT_PROMPT_TEMPLATE
+        .replace("{raw_json_path}", raw_json_path)
+        .replace("{output_json_path}", output_json_path)
+        .replace("{target_segments}", str(target_segments))
+    )
+
+
+async def _run_step1_5_segment_agent_async(
+    *,
+    raw_json_path: str,
+    output_json_path: str,
+    target_segments: int,
+    session_log_path: str,
+    repo_root: str,
+    llm_server: str | None = None,
+    llm_model: str | None = None,
+) -> list[dict[str, Any]]:
+    output_path = Path(output_json_path)
+    try:
+        if output_path.exists():
+            output_path.unlink()
+    except Exception:
+        pass
+
+    prompt = _build_step1_5_segment_prompt(
+        raw_json_path=raw_json_path,
+        output_json_path=output_json_path,
+        target_segments=target_segments,
+    )
+    tools = list(STEP1_5_AGENT_TOOLS)
+    options = ClaudeAgentOptions(
+        cwd=repo_root,
+        model=llm_model or config.LLM_MODEL_STEP1_5,
+        tools=tools,
+        allowed_tools=tools,
+        permission_mode="acceptEdits",
+        max_turns=80,
+        add_dirs=[str(Path(raw_json_path).parent)],
+        env=build_step1_5_agent_env(llm_server=llm_server, llm_model=llm_model),
+        setting_sources=["project", "local"],
+    )
+    session_log = AgentSessionLog(session_log_path)
+    session_log.append(
+        "session_start",
+        {
+            "step": "step_1_5_segment_visualizer",
+            "raw_json_path": raw_json_path,
+            "output_json_path": output_json_path,
+            "target_segments": target_segments,
+            "repo_root": repo_root,
+            "llm_server": llm_server,
+            "llm_model": llm_model,
+            "tools": tools,
+            "prompt": prompt,
+        },
+    )
+
+    result_message: ResultMessage | None = None
+    try:
+        async for message in query(prompt=prompt, options=options):
+            session_log.append("message", {"message": _serialize_sdk_message(message)})
+            if isinstance(message, ResultMessage):
+                result_message = message
+                if message.is_error:
+                    raise RuntimeError(message.result or "Claude Agent Step 1.5 failed")
+    except Exception as exc:
+        session_log.append("session_error", {"error_type": type(exc).__name__, "error": str(exc)})
+        raise
+    finally:
+        session_log.append(
+            "session_end",
+            {
+                "success": bool(result_message and not result_message.is_error),
+                "result": _serialize_sdk_message(result_message) if result_message else None,
+            },
+        )
+
+    if not output_path.exists():
+        raise FileNotFoundError(f"Claude Agent未生成分段文件: {output_json_path}")
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    segments = payload.get("segments") if isinstance(payload, dict) else None
+    if not isinstance(segments, list):
+        raise ValueError("Claude Agent分段文件缺少 segments 数组")
+    return segments
+
+
+def run_step1_5_segment_agent(
+    *,
+    raw_json_path: str,
+    output_json_path: str,
+    target_segments: int,
+    session_log_path: str,
+    repo_root: str,
+    llm_server: str | None = None,
+    llm_model: str | None = None,
+) -> list[dict[str, Any]]:
+    runner = partial(
+        _run_step1_5_segment_agent_async,
+        raw_json_path=raw_json_path,
+        output_json_path=output_json_path,
+        target_segments=target_segments,
+        session_log_path=session_log_path,
+        repo_root=repo_root,
+        llm_server=llm_server,
+        llm_model=llm_model,
+    )
+    return anyio.run(runner)
 
 
 def _build_step4_hyperframes_prompt(

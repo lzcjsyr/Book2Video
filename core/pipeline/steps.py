@@ -37,6 +37,7 @@ from core.infra.ai.claude_agent import (
     STEP1_EXTRACT_NAME,
     STEP1_SESSION_LOG_NAME,
     run_step1_agent,
+    run_step1_5_segment_agent,
 )
 from core.domain.summarizer import (
     export_plain_text_segments,
@@ -473,6 +474,8 @@ def run_step_1_5(
     raw_data: Optional[Dict[str, Any]] = None,
     auto_mode: bool = False,
     split_mode: str = "auto",
+    llm_server_step1_5: Optional[str] = None,
+    llm_model_step1_5: Optional[str] = None,
 ) -> Dict[str, Any]:
     _ = auto_mode
 
@@ -540,10 +543,28 @@ def run_step_1_5(
         if updated_raw_data is None:
             return {"success": False, "message": "处理raw数据失败：数据为空"}
 
-        if split_mode not in {"auto", "manual"}:
+        if split_mode not in {"auto", "manual", "agent"}:
             split_mode = "auto"
 
-        script_data = process_raw_to_script(updated_raw_data, num_segments, split_mode)
+        agent_segments = None
+        if split_mode == "agent":
+            print("正在调用Agent进行智能分段与画面模式选择...")
+            agent_segments = run_step1_5_segment_agent(
+                raw_json_path=raw_json_path,
+                output_json_path=os.path.join(paths.text, "_step1_5_segments.json"),
+                target_segments=num_segments,
+                session_log_path=os.path.join(paths.text, "_step1_5_agent_session.jsonl"),
+                repo_root=_get_project_root(),
+                llm_server=llm_server_step1_5,
+                llm_model=llm_model_step1_5,
+            )
+
+        script_data = process_raw_to_script(
+            updated_raw_data,
+            num_segments,
+            split_mode,
+            agent_segments=agent_segments,
+        )
 
         with open(script_path, "w", encoding="utf-8") as handle:
             json.dump(script_data, handle, ensure_ascii=False, indent=2)

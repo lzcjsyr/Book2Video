@@ -27,6 +27,9 @@ LLM_MODEL_STEP1: str = ""
 STEP1_AGENT_SKILL: str = ""
 
 NUM_SEGMENTS: int = 10
+STEP1_5_SPLIT_MODE: str = "auto"
+LLM_SERVER_STEP1_5: str = ""
+LLM_MODEL_STEP1_5: str = ""
 
 LLM_SERVER_STEP2: str = ""
 LLM_MODEL_STEP2: str = ""
@@ -130,7 +133,12 @@ _YAML_SCHEMA: Dict[str, Dict[str, str]] = {
         "llm_model": "LLM_MODEL_STEP1",
         "agent_skill": "STEP1_AGENT_SKILL",
     },
-    "step1_5": {"num_segments": "NUM_SEGMENTS"},
+    "step1_5": {
+        "num_segments": "NUM_SEGMENTS",
+        "split_mode": "STEP1_5_SPLIT_MODE",
+        "llm_server": "LLM_SERVER_STEP1_5",
+        "llm_model": "LLM_MODEL_STEP1_5",
+    },
     "step2": {
         "llm_server": "LLM_SERVER_STEP2",
         "llm_model": "LLM_MODEL_STEP2",
@@ -241,6 +249,9 @@ STEP1_SUBAGENTS = {"enabled": False, "agents": {}}
 
 _PARAM_CONSTANTS = {
     "num_segments": "NUM_SEGMENTS",
+    "step1_5_split_mode": "STEP1_5_SPLIT_MODE",
+    "llm_server_step1_5": "LLM_SERVER_STEP1_5",
+    "llm_model_step1_5": "LLM_MODEL_STEP1_5",
     "image_size": "IMAGE_SIZE",
     "video_size": "VIDEO_SIZE",
     "llm_model_step2": "LLM_MODEL_STEP2",
@@ -700,6 +711,9 @@ class VideoGenerationConfig:
     
     # ==================== 内容生成参数 ====================
     num_segments: int = NUM_SEGMENTS
+    step1_5_split_mode: str = STEP1_5_SPLIT_MODE
+    llm_server_step1_5: str = LLM_SERVER_STEP1_5
+    llm_model_step1_5: str = LLM_MODEL_STEP1_5
     extra_requirements: str = ""
     
     # ==================== LLM 配置 ====================

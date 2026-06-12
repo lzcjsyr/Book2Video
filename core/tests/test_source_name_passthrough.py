@@ -90,3 +90,54 @@ def test_run_step_1_5_preserves_docx_source_name_in_script_json(monkeypatch, tmp
     assert result["success"] is True
     script_data = json.loads(script_json_path.read_text(encoding="utf-8"))
     assert script_data["source_name"] == raw_source_name
+
+
+def test_run_step_1_5_agent_mode_uses_agent_segments(monkeypatch, tmp_path: Path):
+    project_dir = tmp_path / "project"
+    text_dir = project_dir / "text"
+    text_dir.mkdir(parents=True)
+
+    raw_json_path = text_dir / "raw.json"
+    script_json_path = text_dir / "script.json"
+    raw_json_path.write_text(
+        json.dumps(
+            {
+                "source_name": "测试来源",
+                "video_titles": ["测试标题"],
+                "cover_titles": ["测试标题"],
+                "cover_subtitles": [],
+                "golden_quotes": [],
+                "content": "收入增长很快，但利润率承压。她走进雨夜，把灯留在窗口。",
+                "target_segments": 2,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    captured = {}
+
+    def fake_agent(**kwargs):
+        captured.update(kwargs)
+        return [
+            {"content": "收入增长很快，但利润率承压。", "visualizer": "hyper"},
+            {"content": "她走进雨夜，把灯留在窗口。", "visualizer": "image"},
+        ]
+
+    monkeypatch.setattr(steps, "run_step1_5_segment_agent", fake_agent)
+    monkeypatch.setattr("core.domain.docx_transform.export_script_to_docx", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(steps, "export_plain_text_segments", lambda *_args, **_kwargs: str(text_dir / "script.txt"))
+
+    result = steps.run_step_1_5(
+        project_output_dir=str(project_dir),
+        num_segments=2,
+        is_new_project=False,
+        split_mode="agent",
+    )
+
+    assert result["success"] is True
+    assert captured["raw_json_path"] == str(raw_json_path)
+    assert captured["target_segments"] == 2
+    script_data = json.loads(script_json_path.read_text(encoding="utf-8"))
+    assert [segment["visualizer"] for segment in script_data["segments"]] == ["hyper", "image"]

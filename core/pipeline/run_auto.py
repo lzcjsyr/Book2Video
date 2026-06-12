@@ -79,7 +79,15 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         or 0
     )
 
-    step15 = _run_step_1_5(project_output_dir, config.num_segments, is_new_project=True, auto_mode=True)
+    step15 = _run_step_1_5(
+        project_output_dir,
+        config.num_segments,
+        is_new_project=True,
+        auto_mode=True,
+        split_mode=config.step1_5_split_mode,
+        llm_server_step1_5=config.llm_server_step1_5,
+        llm_model_step1_5=config.llm_model_step1_5,
+    )
     if not step15.get("success"):
         return {"success": False, "message": step15.get("message", "步骤1.5处理失败")}
     script_data = step15.get("script_data")

@@ -27,6 +27,8 @@ def test_generation_params_can_be_loaded_from_nested_yaml(tmp_path):
         """
 step1_5:
   num_segments: 12
+  llm_server: kimi
+  llm_model: kimi-k2.6
 step2:
   llm_server: siliconflow
   llm_model: Pro/moonshotai/Kimi-K2.6
@@ -55,6 +57,8 @@ step6:
     params = get_generation_params(config_path)
 
     assert params["num_segments"] == 12
+    assert params["llm_server_step1_5"] == "kimi"
+    assert params["llm_model_step1_5"] == "kimi-k2.6"
     assert params["images_method"] == "keywords"
     assert params["image_server"] == "google_adc"
     assert params["image_style_preset"] == "style08"

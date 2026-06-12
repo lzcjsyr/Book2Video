@@ -19,9 +19,9 @@ global:
 # =============================================================================
 step1:
   # 可选：mimo / kimi / volcengine / deepseek / siliconflow / openrouter
-  llm_server: deepseek
+  llm_server: volcengine
   # 按供应商要求填写完整模型名。火山第一步推荐：doubao-seed-2.0-code / doubao-seed-2.0-pro
-  llm_model: deepseek-v4-pro
+  llm_model: doubao-seed-2.0-pro
   # 使用根目录 skills/step1/ 下的写作 skill；一般不需要改。
   agent_skill: book-video-script
   # 可选 subagent。关闭时仍按 book-video-script 独立完成第一步。
@@ -49,8 +49,17 @@ step1:
 # 步骤1.5：脚本分段
 # =============================================================================
 step1_5:
+  # 可选：mimo / kimi / volcengine / deepseek / siliconflow / openrouter
+  llm_server: volcengine
+  # 仅 split_mode=agent 时使用；默认与步骤1保持一致即可。
+  llm_model: doubao-seed-2.0-pro
   # 视频分段数量。建议 5-100，越多视频节奏越碎、生成成本越高。
   num_segments: 50
+  # 分段方式：
+  # - auto：默认规则切分，并将每段 visualizer 写为 image
+  # - manual：按 raw 文稿中的换行切分，并将每段 visualizer 写为 image
+  # - agent：调用 Claude Agent 进行意群分段，并为每段选择 image / hyper
+  split_mode: auto
 
 # =============================================================================
 # 步骤2：要点提取 / 描述小结
@@ -113,7 +122,7 @@ step4:
   # - hyperframes_agent：用于驱动 Claude Agent 生成 HyperFrames HTML
   # - mixed：同时用于上述两类任务
   llm_server: volcengine
-  llm_model: doubao-seed-2-0-lite-260428
+  llm_model: doubao-seed-2.0-pro
 
   # 图像供应商（visual_mode=static_image，或 mixed 且段落 visualizer=image 时生效）：
   # - google：使用 GOOGLE_CLOUD_API_KEY

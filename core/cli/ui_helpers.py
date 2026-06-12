@@ -536,15 +536,19 @@ def print_section(title: str, icon: str = "📋", style: str = "-") -> None:
 
 
 def _prompt_split_mode() -> Optional[str]:
-    """提示用户选择文本切分模式，返回 auto/manual。"""
+    """提示用户选择文本切分模式，返回 auto/manual/agent。"""
     choice = prompt_choice(
         "请选择文本切分方式",
-        ["手动切分(根据换行符)", "自动切分(智能均分)"],
+        ["手动切分(根据换行符)", "自动切分(智能均分)", "Agent智能分段并选择画面模式"],
         default_index=1,
     )
     if choice is None:
         return None
-    return "manual" if choice.startswith("手动") else "auto"
+    if choice.startswith("手动"):
+        return "manual"
+    if choice.startswith("Agent"):
+        return "agent"
+    return "auto"
 
 
 # ================================================================================
@@ -791,6 +795,7 @@ def _prompt_segment_generation_scope(
 
 def _run_specific_step(
     target_step, project_output_dir,
+    llm_server_step1_5, llm_model_step1_5,
     llm_server_step2, llm_model_step2, llm_base_url_step2,
     llm_server_step4, llm_model_step4, llm_base_url_step4,
     image_server, image_model, image_size, video_size, image_style_preset, images_method,
@@ -833,7 +838,13 @@ def _run_specific_step(
         split_mode = _prompt_split_mode()
         if split_mode is None:
             return {"success": False, "message": "用户取消", "cancelled": True}
-        result = run_step_1_5(project_output_dir, num_segments, split_mode=split_mode)
+        result = run_step_1_5(
+            project_output_dir,
+            num_segments,
+            split_mode=split_mode,
+            llm_server_step1_5=llm_server_step1_5,
+            llm_model_step1_5=llm_model_step1_5,
+        )
     elif target_step == 2:
         result = run_step_2(
             llm_server_step2,
@@ -1018,6 +1029,7 @@ def _run_specific_step(
 
 def _run_step_by_step_loop(
     project_output_dir, initial_step,
+    llm_server_step1_5, llm_model_step1_5,
     llm_server_step2, llm_model_step2, llm_base_url_step2,
     llm_server_step4, llm_model_step4, llm_base_url_step4,
     image_server, image_model, image_size, video_size, image_style_preset, images_method,
@@ -1035,6 +1047,7 @@ def _run_step_by_step_loop(
     if initial_step > 0:
         result = _run_specific_step(
             initial_step, project_output_dir,
+            llm_server_step1_5, llm_model_step1_5,
             llm_server_step2, llm_model_step2, llm_base_url_step2,
             llm_server_step4, llm_model_step4, llm_base_url_step4,
             image_server, image_model, image_size, video_size, image_style_preset, images_method,
@@ -1077,6 +1090,7 @@ def _run_step_by_step_loop(
         # 执行选择的步骤
         result = _run_specific_step(
             selected_step, project_output_dir,
+            llm_server_step1_5, llm_model_step1_5,
             llm_server_step2, llm_model_step2, llm_base_url_step2,
             llm_server_step4, llm_model_step4, llm_base_url_step4,
             image_server, image_model, image_size, video_size, image_style_preset, images_method,
@@ -1108,6 +1122,9 @@ def _run_step_by_step_loop(
 def run_cli_main(
     input_file=None,
     num_segments: int = _UNSET,
+    step1_5_split_mode: str = _UNSET,
+    llm_server_step1_5: str = _UNSET,
+    llm_model_step1_5: str = _UNSET,
     image_size: Optional[str] = _UNSET,
     video_size: Optional[str] = _UNSET,
     llm_server_step2: str = _UNSET,
@@ -1161,6 +1178,9 @@ def run_cli_main(
         params = get_generation_params()
         overrides = {
             "num_segments": num_segments,
+            "step1_5_split_mode": step1_5_split_mode,
+            "llm_server_step1_5": llm_server_step1_5,
+            "llm_model_step1_5": llm_model_step1_5,
             "image_size": image_size,
             "video_size": video_size,
             "llm_server_step2": llm_server_step2,
@@ -1203,6 +1223,9 @@ def run_cli_main(
                 params[key] = value
 
         num_segments = params["num_segments"]
+        step1_5_split_mode = params.get("step1_5_split_mode", "auto")
+        llm_server_step1_5 = params["llm_server_step1_5"]
+        llm_model_step1_5 = params["llm_model_step1_5"]
         image_size = params["image_size"]
         video_size = params.get("video_size")
         llm_server_step2 = params["llm_server_step2"]
@@ -1322,6 +1345,7 @@ def run_cli_main(
             images_method = selection.get("image_method") or images_method
             return _run_step_by_step_loop(
                 project_output_dir, selection["selected_step"],
+                llm_server_step1_5, llm_model_step1_5,
                 llm_server_step2, llm_model_step2, llm_base_url_step2,
                 llm_server_step4, llm_model_step4, llm_base_url_step4,
                 image_server, image_model, image_size, video_size, image_style_preset,
@@ -1384,6 +1408,7 @@ def run_cli_main(
 
         return _run_step_by_step_loop(
             project_output_dir, 0,  # 不执行初始步骤，直接进入交互模式
+            llm_server_step1_5, llm_model_step1_5,
             llm_server_step2, llm_model_step2, llm_base_url_step2,
             llm_server_step4, llm_model_step4, llm_base_url_step4,
             image_server, image_model, image_size, video_size, image_style_preset,

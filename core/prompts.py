@@ -30,6 +30,7 @@ def _load_yaml_file(filename: str) -> dict:
 # 动态加载提示词模板
 # ================================================================================
 STEP1_AGENT_PROMPT_TEMPLATE = _load_prompt_file("step1_agent.md")
+STEP1_5_SEGMENT_PROMPT_TEMPLATE = _load_prompt_file("step1_5_segment.md")
 keywords_extraction_prompt = _load_prompt_file("step2_keywords.md")
 description_summary_system_prompt = _load_prompt_file("step2_summary.md")
 STEP4_IMAGE_PROMPT_SAFETY_TEMPLATE = _load_prompt_file("step4_safety.md")
@@ -71,6 +72,7 @@ def build_step1_agent_prompt(
 # ================================================================================
 __all__ = [
     'STEP1_AGENT_PROMPT_TEMPLATE',
+    'STEP1_5_SEGMENT_PROMPT_TEMPLATE',
     'build_step1_agent_prompt',
     'keywords_extraction_prompt',
     'description_summary_system_prompt',
