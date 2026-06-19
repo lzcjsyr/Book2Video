@@ -45,12 +45,10 @@ final_target_chars: 1200  # 终稿目标字数
   "golden_quotes": ["3条开场金句，观点鲜明，能让人停下来听"],
   "comment_hook_options": ["3条评论引导，优先判断句、对照句、追问句，不像运营话术"],
   "share_hook_options": ["3条转发引导，像观众看完后会自然转发的话"],
-  "content": "完整口播终稿，字数在 final_target_chars 左右，不分段，不写 Markdown 标记或小标题",
-  "total_length": 0,
-  "target_segments": 0
+  "content": "完整口播终稿，字数在 final_target_chars 左右，保留自然段落换行，不写 Markdown 标记或小标题",
+  "total_length": 0
 }
 ```
 
 - `total_length` 为 `content` 的实际字符数。
-- `target_segments` 必须使用系统传入的目标段数，直接写入，无需虚构。
-- `content` 必须完全口语化，且绝对不能有分段、小标题、换行或列表格式。
+- `content` 必须完全口语化，保留自然段落换行，且绝对不能有小标题、Markdown 或列表格式。

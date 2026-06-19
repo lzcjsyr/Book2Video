@@ -18,7 +18,7 @@ _revision_audit.json
 - 写 `_draft_final.txt` 前必须读完整 `_draft_v1.txt`，不要凭记忆改。
 - 终稿修订时，先复制 `_draft_v1.txt` 为 `_draft_final.txt`，再在副本上局部修改；只有初稿主线明显错误且局部修改无法补救时，才允许整篇重写。
 - 所有正文稿原则上不得低于入口 `SKILL.md` 的 `draft_min_chars`；不足就修当前稿。
-- 中间 txt 可以有换行；最终 raw JSON 的 `content` 再去掉换行和多余空白。
+- 中间 txt 和最终 raw JSON 的 `content` 都保留自然段落换行；只清理行首行尾空白和多余连续空行。
 - 修订完成后写 `_revision_audit.json`；audit 只能记录从初稿到终稿的真实差异。
 
 ## Rounds
@@ -127,4 +127,4 @@ _revision_audit.json
 
 ## Package JSON
 
-最后用 `_draft_final.txt` 生成 raw JSON。优先用 Python `json.dump` 写入并用 `json.load` 验证。`content` 可去掉终稿换行和多余空白，但不能改正文措辞。
+最后用 `_draft_final.txt` 生成 raw JSON。优先用 Python `json.dump` 写入并用 `json.load` 验证。`content` 保留终稿自然段落换行，可清理行首行尾空白和多余连续空行，但不能改正文措辞。

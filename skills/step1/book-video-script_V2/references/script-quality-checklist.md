@@ -30,12 +30,11 @@
 
 ### L1-2 格式扫描
 
-- 最终 JSON 的 `content` 不得有 Markdown、小标题、列表、换行或分段。
+- 最终 JSON 的 `content` 不得有 Markdown、小标题或列表；应保留自然段落换行。
 - JSON 必须能被 `json.loads` 解析。
 - `source_name` 必须是作品标题并带书名号《》。
 - 每个候选数组必须各 3 条，互不重复。
 - `total_length` 必须等于 `content` 实际字符数。
-- `target_segments` 必须来自用户或程序传入的目标段数。
 
 ### L1-3 忠实性扫描
 

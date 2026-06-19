@@ -1,11 +1,12 @@
 from pathlib import Path
 
 
-SKILL_DIR = Path(__file__).resolve().parents[2] / "skills" / "step1" / "book-video-script"
+SKILL_DIR = Path(__file__).resolve().parents[2] / "skills" / "step1" / "book-video-script_V2"
 
 
 def test_writing_standard_keeps_single_clean_raw_json_schema():
     standard = (SKILL_DIR / "references" / "writing-standard.md").read_text(encoding="utf-8")
+    final_contract = standard.split("## 最终 JSON 输出契约", 1)[1]
 
     for field in [
         "source_name",
@@ -13,13 +14,17 @@ def test_writing_standard_keeps_single_clean_raw_json_schema():
         "cover_titles",
         "cover_subtitles",
         "golden_quotes",
-        "comment_hook_options",
-        "share_hook_options",
         "content",
         "total_length",
-        "target_segments",
     ]:
-        assert standard.count(f'"{field}"') == 1
+        assert final_contract.count(f'"{field}"') == 1
+
+    assert '"comment_hook_options"' not in standard
+    assert '"share_hook_options"' not in standard
+    assert '"target_segments"' not in final_contract
+    assert "保留自然段落换行" in final_contract
+    assert "去掉换行" not in standard
+    assert "没有分段" not in standard
 
     assert "不要使用 Markdown" in standard
     assert "JSON 没有尾随逗号" in standard
@@ -63,9 +68,9 @@ def test_revision_workflow_keeps_v1_simple_and_auditable():
     workflow = (SKILL_DIR / "references" / "revision-workflow.md").read_text(encoding="utf-8")
 
     assert "第一稿的目标" in workflow
-    assert "按 `writing-standard.md` 写出完整初稿" in workflow
+    assert "按 `_angle_brief.json` 和 `writing-standard.md` 写出完整初稿" in workflow
     assert "达到 `draft_min_chars`" in workflow
-    assert "先复制上一稿" in workflow
-    assert "不得直接重写整篇" in workflow
+    assert "先复制 `_draft_v1.txt` 为 `_draft_final.txt`" in workflow
+    assert "只有初稿主线明显错误且局部修改无法补救时，才允许整篇重写" in workflow
     assert "_revision_audit.json" in workflow
     assert "before/after" in workflow

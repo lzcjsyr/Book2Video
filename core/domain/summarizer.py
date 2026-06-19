@@ -450,7 +450,20 @@ def _split_text_into_segments(full_text: str, num_segments: int, mode: str = "au
 
 
 def _split_text_by_strong_punctuation(text: str) -> List[str]:
-    normalized = re.sub(r'\s*[\r\n]+\s*', '。', text.strip())
+    source = (text or "").strip()
+
+    def _newline_replacement(match: re.Match[str]) -> str:
+        before = source[:match.start()].rstrip()
+        after = source[match.end():].lstrip()
+        if not before or not after:
+            return ""
+        if re.search(r'[。！？!?；;][”’"\'）》」』）)]*$', before):
+            return ""
+        if re.match(r'^[。！？!?；;]', after):
+            return ""
+        return "。"
+
+    normalized = re.sub(r'\s*[\r\n]+\s*', _newline_replacement, source)
     normalized = re.sub(r'[ \t]+', ' ', normalized)
     pattern = r'.+?(?:[。！？!?；;]+[”’）》」』]*)|.+$'
     return [match.group(0).strip() for match in re.finditer(pattern, normalized) if match.group(0).strip()]

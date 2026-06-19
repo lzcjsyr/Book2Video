@@ -104,13 +104,13 @@ def test_title_quote_subagent_prompt_persists_candidates():
     assert "只读取主 agent 已生成的终稿" not in prompt
 
 
-def test_reviewer_prompt_treats_comment_and_share_hooks_as_revision_dimensions():
+def test_reviewer_prompt_treats_comment_and_share_signals_as_revision_dimensions():
     prompt = Path("prompts/step1_subagents/fact-style-reviewer.md").read_text(encoding="utf-8")
 
-    assert "comment_hook_options" in prompt
-    assert "share_hook_options" in prompt
+    assert "评论点" in prompt
+    assert "转发理由" in prompt
     assert "结构和措辞" in prompt
-    assert "不要替主 agent 直接生成最终字段" in prompt
+    assert "不要替主 agent 直接生成最终字段" not in prompt
 
 
 def test_step1_subagent_prompts_do_not_depend_on_book_video_script_internals():

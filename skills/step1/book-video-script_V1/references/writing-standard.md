@@ -92,16 +92,14 @@
   "golden_quotes": ["3条开场金句，观点鲜明，像一句能让人停下来的真话"],
   "comment_hook_options": ["3条评论引导，优先判断句、对照句、追问句，不像运营话术"],
   "share_hook_options": ["3条转发引导，像观众看完后会自然转发的话"],
-  "content": "完整口播终稿，按入口 SKILL.md 的 final_target_chars 控制长度，不分段，不写Markdown或小标题",
-  "total_length": 0,
-  "target_segments": 0
+  "content": "完整口播终稿，按入口 SKILL.md 的 final_target_chars 控制长度，保留自然段落换行，不写Markdown或小标题",
+  "total_length": 0
 }
 ```
 
-- `content` 由 `_draft_final.txt` 去掉换行和多余空白生成，不改正文措辞。
+- `content` 由 `_draft_final.txt` 保留自然段落换行生成，可清理行首行尾空白，但不能改正文措辞。
 - `total_length` 写实际 `content` 字符数。
-- `target_segments` 使用用户或程序传入的目标段数，不要照抄示例值。
 - JSON 没有尾随逗号。
-- 所有字符串正确转义。
+- 所有字符串正确转义；若直接输出 JSON 文本，`content` 中的段落换行必须写成合法的 `\n` 转义，不能在字符串里放未转义的物理换行。
 - 每个候选数组各 3 条，互不重复。
-- `content` 没有分段、小标题或列表格式。
+- `content` 保留自然段落换行，但没有小标题或列表格式。

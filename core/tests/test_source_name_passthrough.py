@@ -29,7 +29,6 @@ def test_process_raw_to_script_defaults_segment_visualizer_to_image():
         "cover_subtitles": [],
         "golden_quotes": [],
         "content": "第一段内容。\n第二段内容。",
-        "target_segments": 2,
     }
 
     script_data = process_raw_to_script(raw_data, num_segments=2, split_mode="manual")
@@ -55,7 +54,6 @@ def test_run_step_1_5_preserves_docx_source_name_in_script_json(monkeypatch, tmp
                 "cover_subtitles": [],
                 "golden_quotes": [],
                 "content": "旧内容。",
-                "target_segments": 2,
             },
             ensure_ascii=False,
             indent=2,
@@ -108,7 +106,6 @@ def test_run_step_1_5_agent_mode_uses_agent_segments(monkeypatch, tmp_path: Path
                 "cover_subtitles": [],
                 "golden_quotes": [],
                 "content": "收入增长很快，但利润率承压。她走进雨夜，把灯留在窗口。",
-                "target_segments": 2,
             },
             ensure_ascii=False,
             indent=2,

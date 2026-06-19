@@ -137,6 +137,11 @@ def _extract_option_values(paragraphs: List[str], start_idx: int, end_idx: int, 
     return _dedupe_options(collected)
 
 
+def _split_content_paragraphs(content: str) -> List[str]:
+    paragraphs = [part.strip() for part in re.split(r'(?:\r\n|\r|\n)+', content or "") if part.strip()]
+    return paragraphs or [""]
+
+
 def export_script_to_docx(script_data: Dict[str, Any], docx_path: str) -> str:
     """
     将脚本JSON导出为可阅读的DOCX文档
@@ -239,8 +244,9 @@ def export_raw_to_docx(raw_data: Dict[str, Any], docx_path: str) -> str:
     content_start = document.add_paragraph("===CONTENT_START===")
     _setup_docx_paragraph(content_start)
 
-    content_para = document.add_paragraph(raw_data.get('content', ''))
-    _setup_docx_paragraph(content_para)
+    for content_part in _split_content_paragraphs(raw_data.get('content', '')):
+        content_para = document.add_paragraph(content_part)
+        _setup_docx_paragraph(content_para)
 
     content_end = document.add_paragraph("===CONTENT_END===")
     _setup_docx_paragraph(content_end)

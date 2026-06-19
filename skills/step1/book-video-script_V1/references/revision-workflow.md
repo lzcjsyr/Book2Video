@@ -17,7 +17,7 @@ _revision_audit.json
 - 进入结构稿和终稿时，先复制上一稿作为当前稿起点，再在副本上局部 `Edit`；除非结构主线完全错误，不得直接重写整篇。
 - 每轮可多次 Agent/tool 调用，但最终必须落盘到对应文件。
 - 所有正文稿原则上不得低于入口 `SKILL.md` 的 `draft_min_chars`；不足就修当前稿。
-- 中间 txt 可以有换行；最终 raw JSON 的 `content` 再去掉换行和多余空白。
+- 中间 txt 和最终 raw JSON 的 `content` 都保留自然段落换行；只清理行首行尾空白和多余连续空行。
 - 每轮定稿后再写 audit；audit 只能记录相邻版本的真实差异。
 
 ## Rounds
@@ -88,4 +88,4 @@ _revision_audit.json
 
 ## Package JSON
 
-最后用 `_draft_final.txt` 生成 raw JSON。优先用 Python `json.dump` 写入并用 `json.load` 验证。`content` 可去掉终稿换行和多余空白，但不能改正文措辞。
+最后用 `_draft_final.txt` 生成 raw JSON。优先用 Python `json.dump` 写入并用 `json.load` 验证。`content` 保留终稿自然段落换行，可清理行首行尾空白和多余连续空行，但不能改正文措辞。

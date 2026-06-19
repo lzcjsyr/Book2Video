@@ -43,14 +43,13 @@
   "golden_quotes": ["3条解说金句，直击商业本质或经济因果的真话"],
   "comment_hook_options": ["3条评论引导，抛出利益分歧、行业争议或民生对照，促使观众争论"],
   "share_hook_options": ["3条转发引导，提供社交货币，让人想发给同行、老板或家人"],
-  "content": "完整口播终稿，按 final_target_chars 左右控制字数，不分段，无 Markdown，所有数字与数据对照表完全吻合",
-  "total_length": 0,
-  "target_segments": 0
+  "content": "完整口播终稿，按 final_target_chars 左右控制字数，保留自然段落换行，无 Markdown，所有数字与数据对照表完全吻合",
+  "total_length": 0
 }
 ```
 
 ### JSON 规范细则
-- `content` 去掉换行符与多余空白，是一个连续的适合口播的字符串。
+- `content` 保留自然段落换行，可清理行首行尾空白和多余连续空行。
 - `total_length` 记录 `content` 的真实字符数。
 - 候选数组中的每一项（如标题、金句）必须各提供 3 条，且互不重复。
 - 确保 JSON 绝对可被 Python `json.loads()` 解析，不可出现多余逗号。

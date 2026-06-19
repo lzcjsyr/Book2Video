@@ -119,26 +119,23 @@ def _create_step1_project(input_file: str, output_dir: str) -> tuple[str, Projec
     return project_output_dir, paths
 
 
-def load_step1_agent_raw(raw_json_path: str, expected_segments: int) -> Dict[str, Any]:
+def load_step1_agent_raw(raw_json_path: str) -> Dict[str, Any]:
     raw_data = load_json_file(raw_json_path)
-    if raw_data.get("target_segments") != expected_segments:
-        raw_data["target_segments"] = expected_segments
+    if "target_segments" in raw_data:
+        raw_data.pop("target_segments", None)
         try:
             with open(raw_json_path, "w", encoding="utf-8") as handle:
                 json.dump(raw_data, handle, ensure_ascii=False, indent=2)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(f"清理 raw.json 中的 target_segments 失败: {exc}")
     required_fields = {
         "source_name": str,
         "video_titles": list,
         "cover_titles": list,
         "cover_subtitles": list,
         "golden_quotes": list,
-        "comment_hook_options": list,
-        "share_hook_options": list,
         "content": str,
         "total_length": int,
-        "target_segments": int,
     }
     errors: List[str] = []
     for field, expected_type in required_fields.items():
@@ -146,18 +143,6 @@ def load_step1_agent_raw(raw_json_path: str, expected_segments: int) -> Dict[str
             errors.append(field)
         elif not isinstance(raw_data[field], expected_type):
             errors.append(f"{field}类型错误")
-    content = raw_data.get("content")
-    if isinstance(content, str) and ("\n" in content or "\r" in content):
-        logger.warning("检测到 Step 1 raw JSON 中的 content 包含换行符，将自动清理以符合输出契约。")
-        cleaned_content = re.sub(r'[\r\n]+', '', content).strip()
-        raw_data["content"] = cleaned_content
-        raw_data["total_length"] = len(cleaned_content)
-        try:
-            with open(raw_json_path, "w", encoding="utf-8") as handle:
-                json.dump(raw_data, handle, ensure_ascii=False, indent=2)
-        except Exception as exc:
-            logger.warning(f"自动写入修复后的 raw.json 失败: {exc}")
-
     if errors:
         raise ValueError(f"Step 1 raw JSON不符合输出契约: {', '.join(errors)}")
     return raw_data
@@ -445,7 +430,7 @@ def run_step_1(
         repo_root=_get_project_root(),
         extra_requirements=extra_requirements,
     )
-    raw_data = load_step1_agent_raw(paths.raw_json(), expected_segments=num_segments)
+    raw_data = load_step1_agent_raw(paths.raw_json())
 
     raw_docx_path = None
     try:
@@ -500,16 +485,12 @@ def run_step_1_5(
                     "cover_subtitles": [],
                     "golden_quotes": [],
                     "content": "",
-                    "target_segments": num_segments,
                 }
             else:
                 print(f"加载raw数据: {raw_json_path}")
                 current_raw_data = load_json_file(raw_json_path)
                 if current_raw_data is None:
                     return {"success": False, "message": f"无法加载 raw.json 文件: {raw_json_path}"}
-                old_segments = current_raw_data.get("target_segments")
-                if old_segments and old_segments != num_segments:
-                    print(f"检测到分段数变更: {old_segments} → {num_segments}")
                 print(f"当前分段数: {num_segments}")
 
         updated_raw_data = current_raw_data
@@ -521,9 +502,9 @@ def run_step_1_5(
                 if parsed_data is not None:
                     print("已从编辑后的DOCX文件解析内容")
                     updated_raw_data = parsed_data
+                    updated_raw_data.pop("target_segments", None)
                     updated_raw_data.update(
                         {
-                            "target_segments": num_segments,
                             "created_time": current_raw_data.get("created_time"),
                             "model_info": current_raw_data.get("model_info", {}),
                             "total_length": len(updated_raw_data.get("content", "")),

@@ -110,7 +110,6 @@ def test_auto_mode_runs_voice_before_visual_after_swap(monkeypatch, tmp_path: Pa
                 "source_name": "source",
                 "content": "x" * 100,
                 "total_length": 100,
-                "target_segments": 5,
             },
             ensure_ascii=False,
         ),

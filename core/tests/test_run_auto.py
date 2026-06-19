@@ -18,11 +18,8 @@ def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tm
         "cover_titles": ["cover"],
         "cover_subtitles": ["subtitle"],
         "golden_quotes": ["quote"],
-        "comment_hook_options": [],
-        "share_hook_options": [],
         "content": "x" * 1000,
         "total_length": 1000,
-        "target_segments": 5,
     }
     paths.raw_json()
     with open(paths.raw_json(), "w", encoding="utf-8") as handle:

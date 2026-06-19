@@ -44,7 +44,7 @@ final_target_chars: 3200
 3. **角度 brief**：读 `references/writing-standard.md`，静默完成 HKR 判断，选定读书视频原型，保存 `_angle_brief.json`。
 4. **初稿写作**：基于 `_angle_brief.json` 和 `writing-standard.md` 生成达到 `draft_min_chars` 的 `_draft_v1.txt`。
 5. **终稿修订**：读 `references/revision-workflow.md` 和 `references/script-quality-checklist.md`，从 `_draft_v1.txt` 一次修订到 `_draft_final.txt`；修订中内置完成 L1-L4 检查，若 L1 或 L2 不通过，不得包装最终 JSON。
-6. **包装输出**：从 `_draft_final.txt` 生成标题、封面文案、金句、引导语和最终 raw JSON；除非用户要求展示过程，最终只输出项目可用的 raw JSON，并确保可被 `json.loads` 解析。
+6. **包装输出**：从 `_draft_final.txt` 生成标题、封面文案、金句和最终 raw JSON；除非用户要求展示过程，最终只输出项目可用的 raw JSON，并确保可被 `json.loads` 解析。
 
 ## 自检要求
 

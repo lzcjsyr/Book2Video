@@ -16,6 +16,19 @@ def test_auto_split_groups_short_sentences_without_empty_segments():
     assert all(content.strip() for content in contents)
 
 
+def test_auto_split_does_not_add_period_after_paragraph_newlines():
+    raw_data = {
+        "video_titles": ["测试"],
+        "content": "第一段已经结束！\n第二段继续说明。\n第三段收束。",
+    }
+
+    script = process_raw_to_script(raw_data, num_segments=3, split_mode="auto")
+    combined = "".join(segment["content"] for segment in script["segments"])
+
+    assert "！。" not in combined
+    assert "第一段已经结束！" in combined
+
+
 def test_agent_segments_keep_script_shape_and_visualizer_choices():
     raw_data = {
         "source_name": "原始作品",

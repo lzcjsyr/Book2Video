@@ -8,18 +8,15 @@ from core.infra.ai import claude_agent
 from core.pipeline import steps
 
 
-def _valid_raw(target_segments: int = 70) -> dict:
+def _valid_raw() -> dict:
     return {
         "source_name": "正义论",
         "video_titles": ["为什么正义不只是好心"],
         "cover_titles": ["正义之问"],
         "cover_subtitles": ["制度如何塑造命运"],
         "golden_quotes": ["真正的正义，要先问最弱的人站在哪里。"],
-        "comment_hook_options": ["你觉得公平更像结果，还是更像规则？"],
-        "share_hook_options": ["这条适合转给正在讨论公平的人。"],
         "content": "这是一段没有换行的完整口播终稿。",
         "total_length": 17,
-        "target_segments": target_segments,
     }
 
 
@@ -54,11 +51,11 @@ def test_run_step_1_uses_claude_agent_skill_and_loads_raw_json(monkeypatch, tmp_
             repo_root=repo_root,
             extra_requirements=extra_requirements,
         )
-        Path(output_json).write_text(json.dumps(_valid_raw(num_segments), ensure_ascii=False), encoding="utf-8")
+        Path(output_json).write_text(json.dumps(_valid_raw(), ensure_ascii=False), encoding="utf-8")
 
     monkeypatch.setattr(steps, "run_step1_agent", fake_run_step1_agent)
     monkeypatch.setattr(steps, "export_raw_to_docx", lambda *args, **kwargs: None)
-    monkeypatch.setattr(steps.config, "STEP1_AGENT_SKILL", "book-video-script")
+    monkeypatch.setattr(steps.config, "STEP1_AGENT_SKILL", "book-video-script_V2")
 
     result = steps.run_step_1(str(input_file), str(tmp_path / "output"), num_segments=70)
 
@@ -72,7 +69,7 @@ def test_run_step_1_uses_claude_agent_skill_and_loads_raw_json(monkeypatch, tmp_
     assert Path(captured["coverage_ledger_path"]).name == claude_agent.STEP1_COVERAGE_LEDGER_NAME
     assert Path(captured["session_log_path"]).name == claude_agent.STEP1_SESSION_LOG_NAME
     assert captured["num_segments"] == 70
-    assert captured["skill_path"].endswith("skills/step1/book-video-script")
+    assert captured["skill_path"].endswith("skills/step1/book-video-script_V2")
     assert captured["repo_root"] == steps._get_project_root()
     assert captured["extra_requirements"] == ""
     assert result["raw"]["total_length"] == 17
@@ -106,23 +103,51 @@ def test_step_1_rejects_agent_output_that_does_not_match_raw_contract(tmp_path: 
     invalid_path.write_text(json.dumps({"content": "缺少字段"}, ensure_ascii=False), encoding="utf-8")
 
     try:
-        steps.load_step1_agent_raw(str(invalid_path), expected_segments=70)
+        steps.load_step1_agent_raw(str(invalid_path))
     except ValueError as exc:
-        assert "comment_hook_options" in str(exc)
+        assert "source_name" in str(exc)
+        assert "comment_hook_options" not in str(exc)
+        assert "share_hook_options" not in str(exc)
     else:
         raise AssertionError("invalid Step 1 raw JSON should be rejected")
 
 
-def test_step_1_normalizes_target_segments_in_raw_json(tmp_path: Path):
+def test_step_1_loads_raw_json_without_adding_target_segments(tmp_path: Path):
     raw_path = tmp_path / "raw.json"
-    raw_data = _valid_raw(target_segments=1)
+    raw_data = _valid_raw()
     raw_path.write_text(json.dumps(raw_data, ensure_ascii=False), encoding="utf-8")
 
-    loaded = steps.load_step1_agent_raw(str(raw_path), expected_segments=70)
+    loaded = steps.load_step1_agent_raw(str(raw_path))
     persisted = json.loads(raw_path.read_text(encoding="utf-8"))
 
-    assert loaded["target_segments"] == 70
-    assert persisted["target_segments"] == 70
+    assert "target_segments" not in loaded
+    assert "target_segments" not in persisted
+
+
+def test_step_1_preserves_content_newlines_in_raw_json(tmp_path: Path):
+    raw_path = tmp_path / "raw.json"
+    content = "第一段内容。\n\n第二段内容。\n第三段内容。"
+    raw_data = {**_valid_raw(), "content": content, "total_length": len(content)}
+    raw_path.write_text(json.dumps(raw_data, ensure_ascii=False), encoding="utf-8")
+
+    loaded = steps.load_step1_agent_raw(str(raw_path))
+    persisted = json.loads(raw_path.read_text(encoding="utf-8"))
+
+    assert loaded["content"] == content
+    assert persisted["content"] == content
+    assert persisted["total_length"] == len(content)
+
+
+def test_step_1_removes_legacy_target_segments_from_raw_json(tmp_path: Path):
+    raw_path = tmp_path / "raw.json"
+    raw_data = {**_valid_raw(), "target_segments": 1}
+    raw_path.write_text(json.dumps(raw_data, ensure_ascii=False), encoding="utf-8")
+
+    loaded = steps.load_step1_agent_raw(str(raw_path))
+    persisted = json.loads(raw_path.read_text(encoding="utf-8"))
+
+    assert "target_segments" not in loaded
+    assert "target_segments" not in persisted
 
 
 def test_build_step1_agent_env_uses_mimo_gateway(monkeypatch):
