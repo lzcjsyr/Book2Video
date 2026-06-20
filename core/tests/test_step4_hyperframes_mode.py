@@ -108,7 +108,7 @@ def test_cli_step_4_mixed_mode_prompts_both_style_choices(monkeypatch, tmp_path)
     monkeypatch.setattr(
         ui_helpers,
         "prompt_hyperframes_style_choice",
-        lambda *_args, **_kwargs: style_calls.append("hyper") or "dark_premium",
+        lambda *_args, **_kwargs: style_calls.append("hf") or "dark_premium",
     )
     monkeypatch.setattr(
         ui_helpers,
@@ -165,7 +165,7 @@ def test_cli_step_4_mixed_mode_prompts_both_style_choices(monkeypatch, tmp_path)
     )
 
     assert result["success"] is True
-    assert style_calls == ["image", "hyper"]
+    assert style_calls == ["image", "hf"]
     assert captured["args"][3] == "style08"
     assert captured["kwargs"]["visual_mode"] == "mixed"
     assert captured["kwargs"]["hyperframes_style_preset"] == "dark_premium"
@@ -207,7 +207,7 @@ def test_run_step_4_mixed_mode_dispatches_by_segment_visualizer(monkeypatch, tmp
     script_path = Path(paths.script_json())
     script = json.loads(script_path.read_text(encoding="utf-8"))
     script["segments"][0]["visualizer"] = "image"
-    script["segments"][1]["visualizer"] = "hyper"
+    script["segments"][1]["visualizer"] = "hf"
     script_path.write_text(json.dumps(script, ensure_ascii=False), encoding="utf-8")
 
     captured = {"static_targets": None, "hyper_targets": None}

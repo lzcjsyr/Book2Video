@@ -52,9 +52,13 @@ def test_embedded_hyperframes_skill_loader_uses_core_resources():
     assert embedded_hyperframes_skill_dir().as_posix().endswith("skills/step4/hyperframes")
     assert [path.name for path in skill_dirs] == [
         "hyperframes",
+        "hyperframes-core",
+        "hyperframes-animation",
+        "hyperframes-creative",
         "hyperframes-cli",
-        "gsap",
-        "css-animations",
+        "hyperframes-media",
+        "hyperframes-registry",
+        "general-video",
     ]
 
 
@@ -106,10 +110,13 @@ def test_segment_renderer_uses_audio_duration_and_render_command(monkeypatch, tm
     assert Path(result["image_paths"][0]).exists()
     assert agent_inputs[0]["duration_seconds"] == 0.75
     assert agent_inputs[0]["style_preset"] == "data_driven"
+    assert "keywords" not in agent_inputs[0]["segment_payload"]
+    assert "atmosphere" not in agent_inputs[0]["segment_payload"]
+    assert agent_inputs[0]["segment_payload"]["content"] == "收入同比增长30%，利润承压。"
     assert agent_inputs[0]["llm_server"] == "siliconflow"
     assert agent_inputs[0]["llm_model"] == "step4-model"
     assert agent_inputs[0]["llm_base_url"] == "https://llm-gateway.example.test/anthropic"
-    assert commands[0]["command"][:4] == ["npx", "--yes", "hyperframes@0.6.84", "render"]
+    assert commands[0]["command"][:4] == ["npx", "--yes", "hyperframes@0.6.115", "render"]
     assert "--fps" in commands[0]["command"]
     assert "60" in commands[0]["command"]
     assert commands[0]["cwd"] == Path(paths.images) / "hyperframes" / "segment_1"

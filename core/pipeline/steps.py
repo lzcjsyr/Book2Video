@@ -352,8 +352,8 @@ def _resolve_segment_media_path(paths: ProjectPaths, index: int) -> Optional[str
 
 def _normalize_segment_visualizer(segment: Dict[str, Any]) -> str:
     visualizer = str((segment or {}).get("visualizer") or "image").strip().lower()
-    if visualizer not in {"image", "hyper"}:
-        raise ValueError(f"不支持的段落 visualizer: {visualizer}，支持 image / hyper")
+    if visualizer not in {"image", "hf"}:
+        raise ValueError(f"不支持的段落 visualizer: {visualizer}，支持 image / hf")
     return visualizer
 
 
@@ -362,7 +362,7 @@ def _split_mixed_visual_targets(
     selected_segments: Optional[List[int]],
 ) -> Dict[str, List[int]]:
     selected_set = set(selected_segments) if selected_segments is not None else None
-    targets = {"image": [], "hyper": []}
+    targets = {"image": [], "hf": []}
     for fallback_idx, segment in enumerate(segments, 1):
         segment_index = int((segment or {}).get("index") or fallback_idx)
         if selected_set is not None and segment_index not in selected_set:
@@ -855,8 +855,8 @@ def run_step_4(
             jobs: List[tuple[str, List[int]]] = []
             if mixed_targets["image"]:
                 jobs.append(("image", mixed_targets["image"]))
-            if mixed_targets["hyper"]:
-                jobs.append(("hyper", mixed_targets["hyper"]))
+            if mixed_targets["hf"]:
+                jobs.append(("hf", mixed_targets["hf"]))
 
             results: List[Dict[str, Any]] = []
             with ThreadPoolExecutor(max_workers=max(1, len(jobs))) as executor:

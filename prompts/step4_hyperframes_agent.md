@@ -1,97 +1,169 @@
+<!-- STEP4_HYPERFRAMES_PROMPT_VERSION: 2026-06-20-structure-review-v4 -->
+
 你必须只为当前单个段落生成 HyperFrames `index.html`，并且必须将其写入指定的绝对路径：`{target_index_html_path}`。
 
 ---
 
-## 一、系统与环境限制（硬性红线）
+## 一、任务边界
 
-- **工作空间限制**：必须写入指定的绝对路径 `{target_index_html_path}`，不得修改 core/、text/、voice/ 或项目源码，不得处理当前段落以外的内容。
-- **路径限制**：写出文件时，你必须调用 Write 工具写入指定的绝对路径 `{target_index_html_path}`。严禁写入系统根目录、用户家目录或任何其他绝对路径。
+- 只处理当前段落，只生成一个 standalone HyperFrames HTML 页面，不处理其他段落。
+- 必须写入 `{target_index_html_path}`；不得写入系统根目录、用户家目录或其他绝对路径。
+- 不得修改 core/、text/、voice/、prompts/、skills/ 或其他项目源码。
+- 调用方会把该页面渲染为当前段落的 `segment_i.mp4`，所以页面必须完全依赖输入 JSON 和本文件内代码，不依赖运行时网络数据、随机数或当前时间。
 
+## 二、输入契约
 
-## 二、HyperFrames 结构规范与物理安全容器（HTML/CSS契约）
+当前段落 JSON 包含并必须使用这些变量：`segmentIndex`、`title`、`content`、`durationSeconds`、`width`、`height`、`stylePreset`、`descriptionSummary`。
 
-- **独立页面 (Standalone)**：必须生成 standalone (独立运行) 的 HyperFrames HTML 页面，绝对不能用 `<template>` 包裹根元素。
-- **根容器要求**：包含一个 data-composition-id="segment" 的根 composition 容器，必须包含 `data-start="0"`。
-- **参数绑定**：必须使用传入的 `durationSeconds` 作为 composition 的 `data-duration` 属性。
-- **CSS选择器与ID**：根容器必须同时携带 `id="segment-root"`，编写 CSS 时必须使用 `#segment-root` 来选择根元素，不要使用 `[data-composition-id="segment"]` 等属性选择器。
-- **内容安全容器机制 (#content-wrapper 强制注入)**：
-  为了实现物理级别的字幕避让，所有前台可见元素（标题、文本、卡片、图表等）**必须且只能**被包裹在一个名为 `#content-wrapper` 的容器内。绝对禁止在容器外放置任何可见的前台元素。
-  在 CSS 中，必须为 `#content-wrapper` 设置以下绝对红线样式：
-  ```css
-  #content-wrapper {{
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 80%;           /* 强制占用顶部的 80% 区域，彻底让出底部 20% 的字幕区 */
-    padding: 100px 160px;  /* 顶和两侧的安全填充 */
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between; /* 强行垂直均分，防止拥挤 */
-    overflow: hidden;      /* 严禁任何内容溢出或下穿进入底部的 20% 空间 */
-  }}
-  ```
-  在 `#content-wrapper` 之外（即直接挂载在 `#segment-root` 下），仅允许放置纯背景修饰元素（如 `.background-grid`、全屏背景颜色或渐变图层）。
+- composition 必须严格匹配 `width` x `height`。
+- composition 的 `data-duration` 必须使用传入的 `durationSeconds`。
+- 画面主题必须来自当前段落 `content`；`title` 和 `descriptionSummary` 只能用来理解上下文，不能把摘要里的新句子直接搬上画面。
+- 禁止依赖外部 `keywords`、`atmosphere`、`keywords.json` 或其他段落文件生成屏幕文案。第四步必须由 Agent 根据当前段落 `content` 自己提炼画面关键词。
 
-## 三、文字与布局合理性规范（防叠、防错乱、防侵占）
+## 三、屏幕文案提炼硬规则
 
-- **极简原则与信息轻量化**：
-  * **不要贪多**：每页最多展示 1 到 2 个核心信息块（如“单个大数字”或“两个并排对比”）。绝不能堆砌过多的数据指标或长篇段落。字数越少，排版越稳定，视觉冲击力越强。
-  * **卡片/方框容器与文字的相对比例与防溢出设计**：
-    为了保证精致的视觉设计，你可以使用带背景色和边框的卡片/方框容器（Card/Box），但必须严格约束容器与文字的相对比例，防止文字溢出或紧贴边缘：
-    1. **超大字号禁止使用固定大小的盒子包裹**：如果大数字/百分比（如字号 > 120px，例如“几百亿”、“0.003”）需要卡片背景或边框，**严禁为卡片设置固定的 width 和 height**。必须使用 `width: auto; height: auto;` 并通过 `padding` 自然撑开盒子，或者让超大文字直接悬浮于背景画布之上。
-    2. **固定大小盒子的字号安全余量**：如果在并列多栏（如三列步骤卡片「光刻」「刻蚀」「薄膜沉积」）中使用了固定宽高或等比（`flex: 1`）的卡片，**卡片内文字的字号必须控制在安全余量内**（卡片标题字号建议在 60px - 85px 之间，辅助说明文字建议在 30px - 45px 之间）。卡片内部所有文字占用的宽度总和不得超过卡片可用宽度的 75%，四周必须留有至少 15% 的内边距（Padding）呼吸空间，绝不允许大字撑爆卡片边框。
-  * **严格限制垂直排版行数（防底部截断）**：为了确保底部 20% 的字幕区域完全留白，且前台可见内容不被截断，在 `#content-wrapper` 内，**所有可见的元素（标题、数字、标签组等）在垂直方向上最多只允许排列成 2 行（最多 2 个垂直堆叠的 Block 块）**。严禁垂直排列 3 行及以上的元素。
-  * **禁止文字与数据卡片左右并排（防宽度挤压）**：如果页面上同时包含一段长句描述（字数 > 8字）和若干个数据指标，**严禁将描述文字与数据指标放置在左右并列的两栏中**（这会极大地压缩文字的可用宽度，导致其出现难看的折行）。所有长句描述文字**必须作为 100% 宽度的通栏**，以**垂直堆叠（上下排布）**的形式放置在数据指标上方或下方。
-- **多栏布局严禁使用绝对定位**：
-  * **绝对红线**：若并排放置多个数据或对比项，**严禁**为每个列使用 `position: absolute; left: XXpx;` 定位！这种绝对定位在文字长度微变时必然会导致元素互相重叠遮挡。
-  * **必须使用 Flex 布局**：任何并排对比或列容器，必须通过 Flex 布局（`display: flex; justify-content: space-between; gap: 60px; width: 100%;`）或 Grid 布局进行物理隔离，让浏览器自动计算空间，强制保留 `gap` 安全距离，绝不重叠。
-- **文字对齐与防折行规范**：
-  * **语义与中文自然换行控制**：为了杜绝字词在容器边缘被任意拆分换行（例如把“不高”拆成“不”和“高”分别显示在两行），你必须应用以下两条规则：
-    1. **Nowrap 保护短语**：对于 10 个字以内的简短文字/短语，必须在 CSS 中应用 `white-space: nowrap;` 确保其必须完整显示在单行中，绝不允许折行。
-    2. **手动分句物理换行**：对于超过 10 个字、必须折行的句子，你**必须手动根据其中文自然语义（如逗号、分句连词「但」、「因为」）**，将其拆分为两行展示（使用 `<br>` 或分立的 `<div>`），而不是任由浏览器自动折行。例如：将「运维收入占比不高，但毛利率好、持续性长」在 HTML 中显式写为「运维收入占比不高，<br>但毛利率好、持续性长」。
-  * **股票代码与专用ID的整体性约束**：股票代码（如 `002341` 等六位数字）、公司ID、专有编号等标识符号**必须被视为一个不可分割的整体**。**严禁**为股票代码/编号的不同数位单独设置不同的字号（Font Size）或不同的字重（Font Weight），也严禁将同一组代码拆分到不同的 HTML 元素中分别控制样式。股票代码的全部数位必须使用完全一致的字号、字重和样式，以防出现“大小字不一致”的视觉瑕疵。
-  * **大字/小字基线对齐**：大数字与辅助小字并排时，必须使用 Flex 并设置 `align-items: baseline;`，以保证文字底部齐平，防止发生上下错乱。
-- **字体声明**：
-  * 必须优先使用 HyperFrames 可映射的系统无衬线字体，例如 `Inter`、`Helvetica`、`Arial`。
-  * 不要使用 `PingFang SC`、`Microsoft YaHei`、`Noto Sans SC` 等未声明 `@font-face` 且在系统上可能缺失的字体作为唯一声明（但可通过 fallback 机制保底：`font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;`，由浏览器自动处理中文回退）。
-- **分辨率自适应字号**：
-  严禁使用偏小字号，所有文字都在 `#content-wrapper` 内自适应大小，优先使用超大字体突出重点：
-  * **当画布为 2560x1440 时**：
-    - 主视觉大数字 / 百分比：280px - 420px (超大高亮)
-    - 核心关键词 / 结论标签：130px - 200px (font-weight: 800)
-    - 辅助说明短语：60px - 90px
-  * **当画布为 1920x1080 时**：
-    - 主视觉大数字 / 百分比：210px - 315px
-    - 核心关键词 / 结论标签：100px - 150px
-    - 辅助说明短语：45px - 68px
-  * **当画布为 1280x720 时**：
-    - 主视觉大数字 / 百分比：140px - 210px
-    - 核心关键词 / 结论标签：65px - 100px
-    - 辅助说明短语：30px - 45px
+在写 HTML 前，必须先在心里完成这一步：从当前段落 `content` 提炼 `visualKeywords`，再把 `visualKeywords` 放进画面。不要把这个分析写入文件。
 
-## 四、动画与逻辑规范（GSAP 契约）
+- `visualKeywords.hero`：1 个主关键词或短结论，2-8 个中文字符；这是画面最大文字。
+- `visualKeywords.support`：最多 1 个辅助短语，4-12 个中文字符；只在确实需要补充逻辑时使用。
+- `visualKeywords.contrast`：可选，最多 2 个短词，用于左右/前后对比。
+- 画面上禁止直接展示 `content` 原句或超过 12 个中文字符的连续原文片段。
+- 画面上可读中文总量最多 28 个中文字符。书名、人名、数字计入总量。
+- 如果当前段落是铺垫句、口语句或完整长句，也必须压缩成关键词、短判断或对比词，而不是整句拆行。
+- 英文装饰词不参与内容表达，默认不要使用。
 
-- **动画开发原则**：遵循“先静后动（Layout Before Animation）”原则，即先用 CSS 编写出元素在最清晰呈现时刻的静态最终布局，再用 `gsap.from()` 动画将其从隐藏或位移状态还原回来。
-  - **重要警告**：使用 `gsap.from()` 动画时，**绝对不能**在 CSS 中对动画目标元素设置 `opacity: 0`！这会导致 `gsap.from` 将其从 `opacity: 0`（动画起点）还原到 CSS 的目标态 `opacity: 0`（动画终点），导致元素自始至终完全隐形（视频画面全白）。
-  - **解决方案**：在 CSS 中不设置 `opacity` 或是设为默认的可见状态，让 GSAP 的 `from` 方法自动初始化并还原；如果为了避免初闪（FOUC）必须在 CSS 中使用 `opacity: 0`，则必须在 JS 中改用 `gsap.fromTo` 并显式声明终点（例如 `gsap.fromTo(target, {{ autoAlpha: 0 }}, {{ autoAlpha: 1 }})`）。
-- **时间线注册**：必须创建并注册一个 paused 状态的 GSAP timeline 到全局，供渲染器外部寻迹：
+## 四、版式结构选择
+
+写 HTML 前必须先选择一个结构模板，并让所有可读元素服务这个结构。不要自由散放元素。
+
+- `hero_verdict`：一个大结论 + 一个辅助短语；适合判断、转折、金句。
+- `left_list_right_verdict`：左侧 2-3 个原因/对象，右侧一个结论/数字；两侧必须用线条、箭头、对齐或色彩建立关系。
+- `before_after`：左右或上下对比；两侧都必须有信息，不能一侧空着。
+- `number_to_conclusion`：大数字/年份/比例 + 明确结论；数字必须靠近或指向结论。
+- `cause_effect`：原因 -> 结果；必须有箭头、流向线或阶梯。
+- `quote_focus`：书名/人物/短金句；只保留必要署名。
+
+结构硬规则：
+
+- 画面必须有清晰阅读路径：先看什么、再看什么、最后得出什么。
+- 只允许 1 个主焦点，最多 1 个副焦点；禁止多个互不相连的信息岛。
+- 大留白必须服务主焦点；split frame 不能只填一侧。
+- 相关元素必须靠近、对齐或用线/箭头连接；数字不能孤立在角落。
+
+## 五、HyperFrames 结构硬规则
+
+- 生成 standalone 页面，根 composition 直接放在 `<body>`，绝不能用 `<template>` 包裹。
+- 根容器必须是 `id="segment-root"`，同时包含 `data-composition-id="segment"`、`data-start="0"`、`data-width`、`data-height`、`data-duration`、`data-track-index`。
+- CSS 选择根元素时必须使用 `#segment-root`，不要用 `[data-composition-id="segment"]`。
+- 必须创建 paused GSAP timeline 并注册：
   ```javascript
   window.__timelines = window.__timelines || {{}};
   const tl = gsap.timeline({{ paused: true }});
   window.__timelines.segment = tl;
   ```
 
+## 六、字幕避让与安全容器
+
+所有前台可见元素（标题、文本、卡片、图表、标签、数字）必须且只能放在 `#content-wrapper` 内。`#content-wrapper` 外只允许放纯背景修饰层。
+
+禁止在 `#content-wrapper` 外放任何可读文本，包括角标、页码、timecode、SEG、BOOK REVIEW、章节号、来源、小号标签。
+
+`#content-wrapper` 必须使用以下安全样式，强制让出底部 20% 字幕区：
+
+```css
+#content-wrapper {{
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 80%;
+  padding: 100px 160px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}}
+```
+
+## 七、项目视觉方向
+
+默认做“现代中文商业/财经/报告/书评讲解”风格：高对比、清晰克制、数据叙事强、适合 3-5 秒内看懂。用动效揭示论证结构，不做纯装饰堆叠。
+
+- 避免 web-dashboard 式拥挤、小字标签、密集坐标轴、饼图和过多说明文字。
+- 优先使用大数字、对比块、进度条、简洁卡片、时间线、金句框、左右/前后对比。
+- 每段只表达一个核心 insight，最多三个主数据点。
+- 数据数字使用 `font-variant-numeric: tabular-nums`。
+- 趋势可用高度、宽度、透明度或位置变化表达；对比用左右、上下或 before/after 结构。
+- `stylePreset` 是用户选择的业务风格 ID。视觉语言必须优先遵循下面注入的官方 HyperFrames 风格映射，不要自行发明另一套风格体系。
+- 官方风格只提供色彩、质感、动效方向；项目层面的可读性规则优先级更高。即使官方示例包含小号元信息、registration marks、monospace metadata，本项目也禁止生成可读小字。
+
+## 八、版式与中文排版安全
+
+- 每页最多展示 1-2 个核心信息块；`#content-wrapper` 内垂直方向最多 2 个主要 block。
+- 多栏、并排对比、数据卡片必须用 Flex/Grid 和明确 `gap`，禁止用 `position:absolute; left: ...` 排列列项。
+- 长句（超过 8 个中文字符）不要和数据卡片左右并排；应作为通栏放在数据上方或下方。
+- 10 字以内短语必须 `white-space: nowrap`。长句必须按中文语义手动 `<br>` 分行，不要任由浏览器拆词。
+- 股票代码、公司编号、专有 ID 必须作为不可拆分整体，不能拆成多个元素或大小字混排。
+- 大数字和单位/小字并排时用 Flex 且 `align-items: baseline`。
+- 大数字或百分比字号超过 120px 时，不要放进固定宽高盒子；用 `auto` 尺寸和 padding 自然撑开。
+- 固定尺寸卡片内文字必须留足边距：标题约 60-85px，说明约 30-45px，文字占用不要超过可用宽度 75%。
+- 字体优先用可映射系统无衬线：`font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;`。不要把 `PingFang SC`、`Microsoft YaHei`、`Noto Sans SC` 作为唯一字体声明。
+- 不使用负 letter-spacing；核心字号不要用 viewport units。
+- 禁止生成可读小字、角标、timecode、SEG 标记、BOOK REVIEW 标签、来源标签、装饰性英文元信息。
+- 所有可读文字必须清楚服务当前段落 insight；纯装饰只能用线条、色块、纹理、形状，不能用文字。
+- 所有可读文字必须高对比、易读。禁止把承载信息的文字做成低透明度装饰效果。
+- 深色背景上的可读文字：主关键词/结论必须使用 `#fff`、`#f8f9fa` 或等效高亮色；辅助短语透明度不得低于 `rgba(..., 0.68)`；标签类文字透明度不得低于 `rgba(..., 0.55)`。
+- 浅色背景上的可读文字必须使用接近黑色或深品牌色，不能用浅灰低对比文字。
+- 低于 `0.4` 透明度的颜色只能用于纯装饰线条、纹理、光效，不能用于任何汉字、数字、英文、单位或可读标签。
+
+硬性最小字号：
+
+- 2560x1440：任何可读文字不得小于 60px；主关键词/结论不得小于 150px。
+- 1920x1080：任何可读文字不得小于 45px；主关键词/结论不得小于 112px。
+- 1280x720：任何可读文字不得小于 34px；主关键词/结论不得小于 75px。
+
+建议字号：
+
+- 2560x1440：大数字 280-420px，关键词/结论 130-200px，辅助短语 60-90px。
+- 1920x1080：大数字 210-315px，关键词/结论 100-150px，辅助短语 45-68px。
+- 1280x720：大数字 140-210px，关键词/结论 65-100px，辅助短语 30-45px。
+
+## 九、动画规则
+
+- 先写最清晰呈现时刻的静态布局，再加动画；CSS 最终位置是地面真值。
+- 用 `durationSeconds` 控制总时长，最后 0.25-0.5 秒保留稳定停留或干净退出。
+- 相关元素错峰 0.1-0.2 秒进入，避免所有元素同时出现。
+- 使用 `gsap.from()` 时，CSS 中不要给目标元素设置 `opacity: 0`；需要初始隐藏时用 `gsap.fromTo()` 显式写终点。
+- 动画必须可 seek、可重复渲染；不要用 `Date.now()`、`Math.random()`、交互事件、hover、scroll 或网络请求驱动关键画面。
+
+## 十、生成后视觉自检
+
+写出 `index.html` 后，必须在当前 work_dir 里完成一次预览级自检；发现问题必须先修正 HTML，再结束任务。
+
+1. 运行 `npx --yes hyperframes@0.6.115 validate --json`，检查运行错误、网络错误和文字对比度问题。
+2. 运行 `npx --yes hyperframes@0.6.115 inspect --json --samples 15`，检查文字溢出、裁切、越界和布局逃逸。
+3. 运行 `npx --yes hyperframes@0.6.115 snapshot --frames 5`，生成关键帧截图。
+4. 使用可用的读图能力查看 `snapshots/` 中的 PNG 关键帧，并用视觉判断复核：
+   - 是否能明确看出所选结构模板；
+   - 阅读路径是否一眼清楚，主焦点和副焦点是否明确；
+   - 相关元素是否靠近、对齐或连接，是否存在孤立数字、空半屏或无关系的信息岛；
+   - 排版是否清楚、稳定、没有遮挡或贴边；
+   - 可读文字是否足够大、足够亮，辅助文字是否满足对比度要求；
+   - 画面是否只表达当前段落的核心 insight，没有把原句长句搬上屏；
+   - 视觉风格是否符合官方风格映射，并且有必要的强调色/层次，不单调、不杂乱；
+   - 底部 20% 字幕区是否保持干净。
+5. 如果任一检查或截图判断不合格，必须修改 `index.html` 后重新运行相关检查。最终回复中简要说明检查结果。
+
 ---
 
-## 五、输入参数与上下文
+## 十一、上下文
 
-### 1. 内置 HyperFrames 规范与参考
+### 1. 官方/内置 HyperFrames 规范与参考
 {embedded_skill_bundle}
 
-### 2. 风格预设
-{style_preset}
+### 2. 官方风格映射
+{style_context}
 
 ### 3. 当前段落输入 JSON
 {payload_json}

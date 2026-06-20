@@ -57,8 +57,8 @@ step1_5:
   num_segments: 50
   # 分段方式：
   # - auto：默认规则切分，并将每段 visualizer 写为 image
-  # - manual：按 raw 文稿中的换行切分，并将每段 visualizer 写为 image
-  # - agent：调用 Claude Agent 进行意群分段，并为每段选择 image / hyper
+  # - manual：按 raw 文稿中的换行切分；段尾带【hf】的段落会写为 visualizer=hf，否则为 image
+  # - agent：调用 Claude Agent 进行意群分段，并为每段选择 image / hf
   split_mode: auto
 
 # =============================================================================
@@ -105,10 +105,10 @@ step4:
   # 画面生成模式：
   # - static_image：调用图像模型生成 segment_i.png
   # - hyperframes_agent：调用 Claude Agent + HyperFrames 生成 segment_i.mp4
-  # - mixed：读取 text/script.json 中每段的 visualizer 字段；image 走静态图，hyper 走 HyperFrames
+  # - mixed：读取 text/script.json 中每段的 visualizer 字段；image 走静态图，hf 走 HyperFrames
   visual_mode: static_image
 
-  # HyperFrames 动态画面参数，仅 visual_mode=hyperframes_agent 或 mixed 且段落 visualizer=hyper 时生效。
+  # HyperFrames 动态画面参数，仅 visual_mode=hyperframes_agent 或 mixed 且段落 visualizer=hf 时生效。
   hyperframes_style_preset: data_driven
   hyperframes_max_turns: 20
   hyperframes_render_fps: 30

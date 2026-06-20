@@ -324,7 +324,7 @@ def process_raw_to_script(
             segments_text = [segment["content"] for segment in segments]
         else:
             segments_text = _split_text_into_segments(full_text, num_segments, split_mode)
-            segments = [{"content": text, "visualizer": "image"} for text in segments_text]
+            segments = [_normalize_marked_segment(text) for text in segments_text]
         actual_segments = len(segments_text)
 
         # 汇总统计
@@ -377,6 +377,26 @@ def _split_text_by_newlines(full_text: str) -> List[str]:
     return segments if segments else [text]
 
 
+HF_MARKER_PATTERN = re.compile(r'\s*【hf】\s*$', re.IGNORECASE)
+
+
+def _normalize_visualizer_value(visualizer: Any) -> str:
+    value = str(visualizer or "image").strip().lower()
+    if value in {"image", "hf"}:
+        return value
+    raise ValueError(f"visualizer 不支持: {value}")
+
+
+def _normalize_marked_segment(text: str) -> Dict[str, str]:
+    content = str(text or "").strip()
+    if HF_MARKER_PATTERN.search(content):
+        return {
+            "content": HF_MARKER_PATTERN.sub("", content).strip(),
+            "visualizer": "hf",
+        }
+    return {"content": content, "visualizer": "image"}
+
+
 def _compact_text_for_compare(text: str) -> str:
     return re.sub(r'\s+', '', text or "")
 
@@ -396,9 +416,10 @@ def _normalize_agent_segments(agent_segments: List[Dict[str, Any]], full_text: s
         content = str(segment.get("content") or "").strip()
         if not content:
             raise ValueError(f"Agent分段结果第{index}段为空")
-        visualizer = str(segment.get("visualizer") or "image").strip().lower()
-        if visualizer not in {"image", "hyper"}:
-            raise ValueError(f"Agent分段结果第{index}段 visualizer 不支持: {visualizer}")
+        try:
+            visualizer = _normalize_visualizer_value(segment.get("visualizer"))
+        except ValueError as exc:
+            raise ValueError(f"Agent分段结果第{index}段 {exc}") from exc
         if index < len(agent_segments) and not _ends_sentence(content):
             raise ValueError(f"Agent分段结果第{index}段疑似在句子内部切分")
         normalized.append({"content": content, "visualizer": visualizer})

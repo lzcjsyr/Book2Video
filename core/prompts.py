@@ -36,6 +36,7 @@ description_summary_system_prompt = _load_prompt_file("step2_summary.md")
 STEP4_IMAGE_PROMPT_SAFETY_TEMPLATE = _load_prompt_file("step4_safety.md")
 STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATE = _load_prompt_file("step4_description.md")
 STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE = _load_prompt_file("step4_hyperframes_agent.md")
+STEP4_HYPERFRAMES_PROMPT_VERSION = "2026-06-20-structure-review-v4"
 IMAGE_PROMPT_SAFETY_TEMPLATE = STEP4_IMAGE_PROMPT_SAFETY_TEMPLATE
 IMAGE_DESCRIPTION_PROMPT_TEMPLATE = STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATE
 COVER_IMAGE_PROMPT_TEMPLATE = _load_prompt_file("step6_cover.md")
@@ -44,12 +45,32 @@ COVER_IMAGE_PROMPT_TEMPLATE = _load_prompt_file("step6_cover.md")
 # 动态加载图像与封面预设风格
 # ================================================================================
 STEP4_IMAGE_STYLE_PRESETS = _load_yaml_file("step4_styles.yaml")
+STEP4_HYPERFRAMES_STYLE_PRESETS = _load_yaml_file("step4_hyperframes_styles.yaml")
 IMAGE_STYLE_PRESETS = STEP4_IMAGE_STYLE_PRESETS
 COVER_IMAGE_STYLE_PRESETS = _load_yaml_file("step6_styles.yaml")
 
 # ================================================================================
 # 提示词构造函数
 # ================================================================================
+def build_step4_hyperframes_style_context(style_preset: str) -> str:
+    """构建第四步 HyperFrames 官方风格映射上下文。"""
+    style_id = (style_preset or "data_driven").strip()
+    style = STEP4_HYPERFRAMES_STYLE_PRESETS.get(style_id) or STEP4_HYPERFRAMES_STYLE_PRESETS.get("data_driven", {})
+    references = style.get("references") or []
+    reference_lines = "\n".join(f"- {item}" for item in references) if references else "- 无"
+    return "\n".join(
+        [
+            f"用户选择的业务风格：{style_id}",
+            f"显示名称：{style.get('label', style_id)}",
+            f"官方 HyperFrames 风格：{style.get('official_style', 'Swiss Pulse')}",
+            f"官方调色板：{style.get('palette', 'dark-premium')}",
+            f"适用场景：{style.get('best_for', '')}",
+            "必须优先参考：",
+            reference_lines,
+        ]
+    ).strip()
+
+
 def build_step1_agent_prompt(
     input_file: str,
     output_json: str,
@@ -82,6 +103,9 @@ __all__ = [
     'STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATE',
     'STEP4_IMAGE_PROMPT_SAFETY_TEMPLATE',
     'STEP4_IMAGE_STYLE_PRESETS',
+    'STEP4_HYPERFRAMES_STYLE_PRESETS',
+    'STEP4_HYPERFRAMES_PROMPT_VERSION',
+    'build_step4_hyperframes_style_context',
     'STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE',
     'COVER_IMAGE_STYLE_PRESETS',
     'COVER_IMAGE_PROMPT_TEMPLATE'

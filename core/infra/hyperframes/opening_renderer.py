@@ -159,7 +159,7 @@ def render_opening_video(
     command = [
         "npx",
         "--yes",
-        "hyperframes@0.6.84",
+        "hyperframes@0.6.115",
         "render",
         "--output",
         str(output_path),

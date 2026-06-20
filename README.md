@@ -64,7 +64,7 @@ python start.py
 
 ### 第四步画面模式
 
-步骤 1.5 默认使用规则分段，并把每段 `visualizer` 写为 `image`。如需让 Agent 按意群分段并自动选择 `image` / `hyper`，可在 `config.yaml` 中启用：
+步骤 1.5 默认使用规则分段，并把每段 `visualizer` 写为 `image`。手动编辑 `raw.docx` 时，可在某段末尾添加 `【hf】`，让该段写为 `visualizer: "hf"` 并使用 HyperFrames 动态配图；输出到 `script.json` 时会自动移除这个标记。如需让 Agent 按意群分段并自动选择 `image` / `hf`，可在 `config.yaml` 中启用：
 
 ```yaml
 step1_5:
@@ -83,7 +83,7 @@ step4:
 
 选择 `hyperframes_agent` 时，系统会先使用步骤 3 已生成的真实音频时长，再调用 Claude Agent 按项目内置 HyperFrames 规范生成动态 HTML 并渲染为分段视频。
 
-选择 `mixed` 时，系统读取 `text/script.json` 中每段的 `visualizer` 字段：`image` 生成 `segment_i.png`，`hyper` 生成 `segment_i.mp4`。步骤 1.5 的默认规则模式会把每段 `visualizer` 写为 `image`；Agent 模式会自动选择。混合模式下两类段落会分组并行生成。
+选择 `mixed` 时，系统读取 `text/script.json` 中每段的 `visualizer` 字段：`image` 生成 `segment_i.png`，`hf` 生成 `segment_i.mp4`。步骤 1.5 的默认规则模式会把每段 `visualizer` 写为 `image`；带 `【hf】` 标记或 Agent 判定为动态配图的段落会写为 `hf`。混合模式下两类段落会分组并行生成。
 
 ---
 
@@ -93,7 +93,7 @@ step4:
 
 * 📂 **`core/`** — **系统核心代码库**。
 * 📂 **`prompts/`** — **大模型提示词与风格模板**。包含视频生成过程中，总结段落、提取视觉关键词、润色口播文案所用的核心 Prompt 预设。如需调整文案生成风格或添加自定义艺术风格，在此修改。
-* 📂 **`skills/`** — **自动化技能扩展**。`skills/step1/` 存放第一步写作 Agent skills；`skills/step4/` 存放第四步动态画面 skills，目前包括 `hyperframes/`、`hyperframes-cli/`、`gsap/` 和 `css-animations/`。
+* 📂 **`skills/`** — **自动化技能扩展**。`skills/step1/` 存放第一步写作 Agent skills；`skills/step4/` 存放第四步动态画面使用的官方 HyperFrames 核心 skills，包括 `hyperframes/`、`hyperframes-core/`、`hyperframes-animation/`、`hyperframes-creative/`、`hyperframes-cli/`、`hyperframes-media/`、`hyperframes-registry/` 和 `general-video/`。
 * 📂 **`scripts/`** — **系统管理脚本**。提供 macOS/Linux 以及 Windows 环境下一键环境安装、依赖检验以及完整功能诊断的脚本。
 * 📂 **`input/`** — **待处理文档输入目录**。放入需要转为视频的 PDF、EPUB、DOCX 等原始电子书/文档。
 * 📂 **`output/`** — **项目生成输出目录**。每一次视频制作都将在此按“项目名_时间戳”生成独立的文件夹，包含视频和全部中间缓存资源。

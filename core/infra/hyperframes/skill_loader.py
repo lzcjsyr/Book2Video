@@ -5,23 +5,29 @@ from pathlib import Path
 
 STEP4_HYPERFRAMES_SKILL_DIR_NAMES = (
     "hyperframes",
+    "hyperframes-core",
+    "hyperframes-animation",
+    "hyperframes-creative",
     "hyperframes-cli",
-    "gsap",
-    "css-animations",
+    "hyperframes-media",
+    "hyperframes-registry",
+    "general-video",
 )
 
 EMBEDDED_SKILL_FILES = (
     "hyperframes/SKILL.md",
-    "hyperframes/house-style.md",
-    "hyperframes/data-in-motion.md",
-    "hyperframes/visual-styles.md",
-    "hyperframes/references/motion-principles.md",
-    "hyperframes/references/video-composition.md",
-    "hyperframes/references/typography.md",
+    "hyperframes-core/SKILL.md",
+    "hyperframes-core/references/minimal-composition.md",
+    "hyperframes-core/references/data-attributes.md",
+    "hyperframes-core/references/determinism-rules.md",
+    "hyperframes-animation/SKILL.md",
+    "hyperframes-animation/adapters/gsap.md",
+    "hyperframes-animation/adapters/css-animations.md",
+    "hyperframes-creative/SKILL.md",
     "hyperframes-cli/SKILL.md",
-    "gsap/SKILL.md",
-    "gsap/references/effects.md",
-    "css-animations/SKILL.md",
+    "hyperframes-media/SKILL.md",
+    "hyperframes-registry/SKILL.md",
+    "general-video/SKILL.md",
 )
 
 

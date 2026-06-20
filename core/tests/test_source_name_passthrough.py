@@ -118,7 +118,7 @@ def test_run_step_1_5_agent_mode_uses_agent_segments(monkeypatch, tmp_path: Path
     def fake_agent(**kwargs):
         captured.update(kwargs)
         return [
-            {"content": "收入增长很快，但利润率承压。", "visualizer": "hyper"},
+            {"content": "收入增长很快，但利润率承压。", "visualizer": "hf"},
             {"content": "她走进雨夜，把灯留在窗口。", "visualizer": "image"},
         ]
 
@@ -137,4 +137,4 @@ def test_run_step_1_5_agent_mode_uses_agent_segments(monkeypatch, tmp_path: Path
     assert captured["raw_json_path"] == str(raw_json_path)
     assert captured["target_segments"] == 2
     script_data = json.loads(script_json_path.read_text(encoding="utf-8"))
-    assert [segment["visualizer"] for segment in script_data["segments"]] == ["hyper", "image"]
+    assert [segment["visualizer"] for segment in script_data["segments"]] == ["hf", "image"]

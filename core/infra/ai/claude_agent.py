@@ -29,6 +29,8 @@ from core.infra.hyperframes.skill_loader import (
 from core.prompts import (
     STEP1_5_SEGMENT_PROMPT_TEMPLATE,
     STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE,
+    STEP4_HYPERFRAMES_PROMPT_VERSION,
+    build_step4_hyperframes_style_context,
     build_step1_agent_prompt,
 )
 
@@ -753,9 +755,11 @@ def _build_step4_hyperframes_prompt(
     target_index_html_path: str = "",
 ) -> str:
     payload_json = json.dumps(segment_payload, ensure_ascii=False, indent=2)
+    style_context = build_step4_hyperframes_style_context(style_preset)
     return STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE.format(
         embedded_skill_bundle=embedded_skill_bundle,
         style_preset=style_preset,
+        style_context=style_context,
         payload_json=payload_json,
         target_index_html_path=target_index_html_path,
     )
@@ -819,6 +823,7 @@ async def _run_step4_hyperframes_agent_async(
             "work_dir": str(work_path),
             "project_dir": project_dir,
             "style_preset": style_preset,
+            "prompt_version": STEP4_HYPERFRAMES_PROMPT_VERSION,
             "max_turns": max_turns,
             "embedded_skill_dir": str(skill_dir),
             "segment_payload": segment_payload,

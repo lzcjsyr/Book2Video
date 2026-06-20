@@ -94,7 +94,7 @@ class DependencyChecker:
         items = [
             self._check_python(),
             self._check_command("FFmpeg", "ffmpeg", "安装 FFmpeg，并确保 ffmpeg 在 PATH 中。"),
-            self._check_command("Node.js", "node", "安装 Node.js 20 LTS 或更新版本。"),
+            self._check_command("Node.js", "node", "安装 Node.js 22 或更新版本。"),
             self._check_command("npm", "npm", "安装 Node.js 时勾选 npm，并重开终端。"),
             self._check_hyperframes_package_json(),
             self._check_hyperframes_template(),
@@ -146,15 +146,14 @@ class DependencyChecker:
     def _check_hyperframes_skill_bundle(self) -> CheckItem:
         required_files = (
             "hyperframes/SKILL.md",
-            "hyperframes/house-style.md",
-            "hyperframes/data-in-motion.md",
-            "hyperframes/visual-styles.md",
-            "hyperframes/references/motion-principles.md",
-            "hyperframes/references/video-composition.md",
-            "hyperframes/references/typography.md",
+            "hyperframes-core/SKILL.md",
+            "hyperframes-animation/SKILL.md",
+            "hyperframes-creative/SKILL.md",
             "hyperframes-cli/SKILL.md",
-            "gsap/SKILL.md",
-            "css-animations/SKILL.md",
+            "hyperframes-cli/references/lint-validate-inspect.md",
+            "hyperframes-media/SKILL.md",
+            "hyperframes-registry/SKILL.md",
+            "general-video/SKILL.md",
         )
         missing = [
             rel_path

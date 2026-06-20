@@ -44,17 +44,50 @@ def test_agent_segments_keep_script_shape_and_visualizer_choices():
         num_segments=2,
         split_mode="agent",
         agent_segments=[
-            {"content": "收入增长了百分之三十，但利润率继续承压。", "visualizer": "hyper"},
+            {"content": "收入增长了百分之三十，但利润率继续承压。", "visualizer": "hf"},
             {"content": "小镇的夜雨落下来，母亲把灯留到很晚。", "visualizer": "image"},
         ],
     )
 
     assert script["actual_segments"] == 2
     assert script["segments"][0]["index"] == 1
-    assert script["segments"][0]["visualizer"] == "hyper"
+    assert script["segments"][0]["visualizer"] == "hf"
     assert script["segments"][1]["visualizer"] == "image"
     assert "length" in script["segments"][0]
     assert "estimated_duration" in script["segments"][0]
+
+
+def test_agent_segments_reject_legacy_hyper_visualizer():
+    raw_data = {
+        "video_titles": ["测试"],
+        "content": "收入增长了百分之三十，但利润率继续承压。",
+    }
+
+    with pytest.raises(ValueError, match="visualizer 不支持: hyper"):
+        process_raw_to_script(
+            raw_data,
+            num_segments=1,
+            split_mode="agent",
+            agent_segments=[
+                {"content": "收入增长了百分之三十，但利润率继续承压。", "visualizer": "hyper"},
+            ],
+        )
+
+
+def test_manual_split_hf_marker_sets_visualizer_and_removes_marker():
+    raw_data = {
+        "video_titles": ["测试"],
+        "content": "第一段普通画面。\n第二段调用动态画面。【hf】\n第三段普通画面。",
+    }
+
+    script = process_raw_to_script(raw_data, num_segments=3, split_mode="manual")
+
+    assert [segment["content"] for segment in script["segments"]] == [
+        "第一段普通画面。",
+        "第二段调用动态画面。",
+        "第三段普通画面。",
+    ]
+    assert [segment["visualizer"] for segment in script["segments"]] == ["image", "hf", "image"]
 
 
 def test_agent_split_keeps_same_script_contract_as_rule_modes():
@@ -73,7 +106,7 @@ def test_agent_split_keeps_same_script_contract_as_rule_modes():
         num_segments=2,
         split_mode="agent",
         agent_segments=[
-            {"content": "收入增长很快，但利润率承压。", "visualizer": "hyper"},
+            {"content": "收入增长很快，但利润率承压。", "visualizer": "hf"},
             {"content": "她走进雨夜，把灯留在窗口。", "visualizer": "image"},
         ],
     )
@@ -115,7 +148,7 @@ def test_agent_segments_reject_split_inside_sentence():
             num_segments=2,
             split_mode="agent",
             agent_segments=[
-                {"content": "收入增长了百分之三十，", "visualizer": "hyper"},
-                {"content": "但利润率继续承压。", "visualizer": "hyper"},
+                {"content": "收入增长了百分之三十，", "visualizer": "hf"},
+                {"content": "但利润率继续承压。", "visualizer": "hf"},
             ],
         )

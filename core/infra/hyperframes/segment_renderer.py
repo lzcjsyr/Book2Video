@@ -14,7 +14,7 @@ from core.infra.ai.claude_agent import run_step4_hyperframes_agent
 from core.infra.project_paths import ProjectPaths
 
 
-HYPERFRAMES_VERSION = "hyperframes@0.6.84"
+HYPERFRAMES_VERSION = "hyperframes@0.6.115"
 
 
 def _parse_size(size: str) -> tuple[int, int]:
@@ -52,15 +52,6 @@ def _normalize_targets(target_segments: Optional[Iterable[int]], total_segments:
     return sorted(set(parsed))
 
 
-def _segment_lookup(data: Optional[Dict[str, Any]], segment_index: int) -> Dict[str, Any]:
-    if not isinstance(data, dict):
-        return {}
-    for segment in data.get("segments") or []:
-        if int(segment.get("index") or 0) == segment_index:
-            return dict(segment)
-    return {}
-
-
 def _build_payload(
     *,
     segment: Dict[str, Any],
@@ -72,7 +63,7 @@ def _build_payload(
     keywords_data: Optional[Dict[str, Any]],
     description_data: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    keyword_segment = _segment_lookup(keywords_data, segment_index)
+    _ = keywords_data
     return {
         "segmentIndex": segment_index,
         "index": segment_index,
@@ -82,8 +73,6 @@ def _build_payload(
         "width": width,
         "height": height,
         "stylePreset": style_preset,
-        "keywords": keyword_segment.get("keywords", []),
-        "atmosphere": keyword_segment.get("atmosphere", []),
         "descriptionSummary": (description_data or {}).get("summary", ""),
     }
 

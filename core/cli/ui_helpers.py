@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
+from core.prompts import STEP4_HYPERFRAMES_STYLE_PRESETS
 from core.shared import load_json_file
 
 
@@ -319,10 +320,8 @@ def prompt_visual_mode_choice(default_mode: str = "static_image") -> Optional[st
 def prompt_hyperframes_style_choice(default_style: str = "data_driven") -> Optional[str]:
     """提示用户选择 HyperFrames 动态画面风格。"""
     styles = [
-        ("data_driven", "深色数据动效"),
-        ("light_corporate", "浅色商务报表"),
-        ("dark_premium", "深色高端汇报"),
-        ("cinematic_contrast", "电影高对比"),
+        (style_id, str(style.get("label") or style_id))
+        for style_id, style in STEP4_HYPERFRAMES_STYLE_PRESETS.items()
     ]
     default_style = (default_style or "data_driven").strip().lower()
     default_idx = next((idx for idx, (style, _label) in enumerate(styles) if style == default_style), 0)

@@ -5,18 +5,14 @@ from core.dependency_check import DependencyChecker
 
 def _write_hyperframes_skill_bundle(repo_root: Path) -> None:
     required = {
-        "hyperframes": (
-            "SKILL.md",
-            "house-style.md",
-            "data-in-motion.md",
-            "visual-styles.md",
-            "references/motion-principles.md",
-            "references/video-composition.md",
-            "references/typography.md",
-        ),
-        "hyperframes-cli": ("SKILL.md",),
-        "gsap": ("SKILL.md",),
-        "css-animations": ("SKILL.md",),
+        "hyperframes": ("SKILL.md",),
+        "hyperframes-core": ("SKILL.md",),
+        "hyperframes-animation": ("SKILL.md",),
+        "hyperframes-creative": ("SKILL.md",),
+        "hyperframes-cli": ("SKILL.md", "references/lint-validate-inspect.md"),
+        "hyperframes-media": ("SKILL.md",),
+        "hyperframes-registry": ("SKILL.md",),
+        "general-video": ("SKILL.md",),
     }
     for skill_name, rel_paths in required.items():
         for rel_path in rel_paths:
