@@ -84,4 +84,4 @@ async def test_step4_hyperframes_agent_uses_segment_workdir_and_embedded_skill(m
     assert '"durationSeconds": 0.75' in captured["prompt"]
     assert session_log.exists()
     log_entry = json.loads(session_log.read_text(encoding="utf-8").splitlines()[0])
-    assert log_entry["prompt_version"] == "2026-06-20-structure-review-v4"
+    assert log_entry["prompt_version"] == "2026-06-20-richer-motion-v5"

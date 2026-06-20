@@ -4,10 +4,10 @@
     {"id":"height","type":"number","label":"Height","default":1440},
     {"id":"durationSeconds","type":"number","label":"Duration","default":4},
     {"id":"bookTitle","type":"string","label":"Book Title","default":"——超个体时代——"},
-    {"id":"quoteLines","type":"string","label":"Quote Lines","default":[]},
-    {"id":"focusWords","type":"string","label":"Focus Words","default":[]},
+    {"id":"quoteLines","type":"string","label":"Quote Lines","default":"[]"},
+    {"id":"focusWords","type":"string","label":"Focus Words","default":"[]"},
     {"id":"ipName","type":"string","label":"IP Name","default":"Cody叩底"},
-    {"id":"lineAppearTimes","type":"string","label":"Line Appear Times","default":[]}
+    {"id":"lineAppearTimes","type":"string","label":"Line Appear Times","default":"[]"}
   ]'>
 
 <head>
@@ -23,10 +23,12 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
   <style>
     :root {
-      --bg-color: #121920;
+      --bg-color: #0f171b;
+      --bg-deep: #090f12;
       --text-color: #f3eee4;
       --muted-color: rgba(236, 231, 222, 0.78);
       --accent-color: #e7c992;
+      --accent-soft: rgba(231, 201, 146, 0.18);
       --font-serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
       --font-sans: "Outfit", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     }
@@ -48,8 +50,103 @@
 
     #root {
       position: relative;
-      background: var(--bg-color);
+      background:
+        radial-gradient(circle at 50% 42%, rgba(231, 201, 146, 0.08), transparent 34%),
+        linear-gradient(155deg, #142027 0%, var(--bg-color) 42%, var(--bg-deep) 100%);
       overflow: hidden;
+      isolation: isolate;
+    }
+
+    #root::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      opacity: 0.18;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+      background-size: 96px 96px;
+      mask-image: radial-gradient(circle at 50% 44%, #000 0%, transparent 72%);
+    }
+
+    #root::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 48%, transparent 0 48%, rgba(0, 0, 0, 0.26) 78%, rgba(0, 0, 0, 0.72) 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 18%, transparent 78%, rgba(0, 0, 0, 0.28));
+      mix-blend-mode: multiply;
+    }
+
+    .grain {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      opacity: 0.075;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.55) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 72% 34%, rgba(255, 255, 255, 0.42) 0 1px, transparent 1.6px),
+        radial-gradient(circle at 35% 78%, rgba(255, 255, 255, 0.32) 0 1px, transparent 1.7px);
+      background-size: 37px 41px, 53px 47px, 71px 67px;
+    }
+
+    .ambient-light {
+      position: absolute;
+      z-index: 1;
+      pointer-events: none;
+      filter: blur(2px);
+      opacity: 0.82;
+    }
+
+    .ambient-light.left {
+      left: -11%;
+      top: 20%;
+      width: 34%;
+      height: 44%;
+      background: radial-gradient(ellipse at center, rgba(231, 201, 146, 0.14), transparent 70%);
+    }
+
+    .ambient-light.right {
+      right: -14%;
+      bottom: 8%;
+      width: 42%;
+      height: 58%;
+      background: radial-gradient(ellipse at center, rgba(118, 167, 174, 0.12), transparent 72%);
+    }
+
+    .editorial-frame {
+      position: absolute;
+      inset: 92px 104px 118px;
+      z-index: 2;
+      border: 1px solid rgba(236, 231, 222, 0.11);
+      box-shadow:
+        inset 0 0 0 1px rgba(231, 201, 146, 0.035),
+        0 0 90px rgba(0, 0, 0, 0.18);
+      pointer-events: none;
+    }
+
+    .editorial-frame::before,
+    .editorial-frame::after {
+      content: "";
+      position: absolute;
+      width: 92px;
+      height: 1px;
+      background: rgba(231, 201, 146, 0.55);
+    }
+
+    .editorial-frame::before {
+      left: -1px;
+      top: -1px;
+    }
+
+    .editorial-frame::after {
+      right: -1px;
+      bottom: -1px;
     }
 
     /* 顶部 IP 栏 */
@@ -58,6 +155,7 @@
       top: 52px;
       left: 58px;
       right: 58px;
+      z-index: 5;
       display: flex;
       align-items: center;
       gap: 18px;
@@ -81,8 +179,8 @@
     .ip-name {
       font-size: 51px;
       font-weight: 600;
-      letter-spacing: 3px;
-      color: var(--muted-color);
+      letter-spacing: 4px;
+      color: rgba(236, 231, 222, 0.68);
       white-space: nowrap;
     }
 
@@ -102,6 +200,7 @@
       top: 0;
       bottom: 0;
       transform-origin: center center;
+      z-index: 3;
     }
 
     /* 金句文字定位容器 (动态对齐原 Remotion 布局机制) */
@@ -114,6 +213,33 @@
       font-family: var(--font-serif);
       display: flex;
       flex-direction: column;
+      align-items: center;
+      will-change: transform, filter;
+    }
+
+    .quote-shell {
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 58px 86px 64px;
+    }
+
+    .quote-shell::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: 82%;
+      height: 100%;
+      transform: translateX(-50%);
+      background:
+        linear-gradient(90deg, transparent, rgba(231, 201, 146, 0.075), transparent),
+        radial-gradient(ellipse at center, rgba(255, 255, 255, 0.045), transparent 70%);
+      border-top: 1px solid rgba(231, 201, 146, 0.22);
+      border-bottom: 1px solid rgba(231, 201, 146, 0.16);
+      opacity: 0.95;
+      pointer-events: none;
     }
 
     .quote-line {
@@ -130,6 +256,7 @@
       overflow: hidden;
       white-space: nowrap;
       transform-origin: center center;
+      z-index: 1;
     }
 
     /* 扫光效果的斜切色块 */
@@ -138,12 +265,12 @@
       top: -8%;
       bottom: -8%;
       left: -24%;
-      width: 36%;
+      width: 24%;
       background: linear-gradient(90deg,
           rgba(255, 255, 255, 0) 0%,
-          rgba(255, 244, 213, 0.15) 30%,
-          rgba(255, 244, 213, 0.6) 50%,
-          rgba(255, 244, 213, 0.15) 70%,
+          rgba(255, 244, 213, 0.06) 28%,
+          rgba(255, 244, 213, 0.28) 50%,
+          rgba(255, 244, 213, 0.06) 72%,
           rgba(255, 255, 255, 0) 100%);
       transform: translateX(-40%) skewX(-18deg);
       opacity: 0;
@@ -158,8 +285,8 @@
       color: var(--accent-color);
       font-weight: 900;
       display: inline-block;
-      background: linear-gradient(transparent 64%,
-          rgba(231, 201, 146, calc((0.15 + 0.25 * var(--glow-scale)) * var(--glow-base-opacity))) 0);
+      background: linear-gradient(transparent 68%,
+          rgba(231, 201, 146, calc((0.12 + 0.22 * var(--glow-scale)) * var(--glow-base-opacity))) 0);
       text-shadow: 0 0 calc(12px + 16px * var(--glow-scale)) rgba(231, 201, 146, calc((0.15 + 0.3 * var(--glow-scale)) * var(--glow-base-opacity)));
       transform: scale(calc(1.01 + 0.02 * var(--glow-scale) * var(--glow-base-opacity)));
       margin: 0 2px;
@@ -170,10 +297,28 @@
       position: absolute;
       left: 0;
       right: 0;
-      bottom: 250px;
+      bottom: 226px;
       text-align: center;
-      color: rgba(236, 231, 222, 0.8);
+      color: rgba(236, 231, 222, 0.7);
       font-weight: 500;
+      z-index: 5;
+      font-family: var(--font-sans);
+      text-transform: none;
+    }
+
+    .book-title::before,
+    .book-title::after {
+      content: "";
+      display: inline-block;
+      width: 88px;
+      height: 1px;
+      margin: 0 28px 0.28em;
+      background: linear-gradient(90deg, transparent, rgba(231, 201, 146, 0.56));
+      vertical-align: middle;
+    }
+
+    .book-title::after {
+      background: linear-gradient(90deg, rgba(231, 201, 146, 0.56), transparent);
     }
   </style>
 </head>
@@ -183,6 +328,11 @@
       data-composition-id="main": 对应主视频 composition
     -->
   <div id="root" data-composition-id="main" data-start="0" data-width="2560" data-height="1440" data-duration="4">
+    <div class="grain"></div>
+    <div class="ambient-light left"></div>
+    <div class="ambient-light right"></div>
+    <div class="editorial-frame"></div>
+
     <!-- 顶部 IP 栏 -->
     <div id="masthead" class="masthead">
       <div class="ip-badge">
@@ -195,7 +345,9 @@
     <!-- 镜头推进容器 -->
     <div id="camera-rig">
       <div class="quote-container">
-        <!-- 动态生成的金句将在此渲染 -->
+        <div class="quote-shell">
+          <!-- 动态生成的金句将在此渲染 -->
+        </div>
       </div>
     </div>
 
@@ -209,14 +361,29 @@
       ? window.__hyperframes.getVariables()
       : {};
 
+    function parseArrayVariable(value, fallback) {
+      if (Array.isArray(value)) {
+        return value;
+      }
+      if (typeof value === "string" && value.trim()) {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : fallback;
+        } catch (_) {
+          return fallback;
+        }
+      }
+      return fallback;
+    }
+
     const bookTitle = vars.bookTitle || "—— 超级个体时代 ——";
     const ipName = vars.ipName || "Cody叩底";
-    const quoteLines = vars.quoteLines || [
+    const quoteLines = parseArrayVariable(vars.quoteLines, [
       "这个世界根本没有什么系统",
       "只有人与人之间的交易和强者定下的规则"
-    ];
-    const focusWords = vars.focusWords || ["系统", "规则"];
-    const lineAppearTimes = vars.lineAppearTimes || [0.5, 1.25];
+    ]);
+    const focusWords = parseArrayVariable(vars.focusWords, ["系统", "规则"]);
+    const lineAppearTimes = parseArrayVariable(vars.lineAppearTimes, [0.5, 1.25]).map(Number);
     const width = parseInt(vars.width || 2560);
     const height = parseInt(vars.height || 1440);
     const durationSeconds = parseFloat(vars.durationSeconds || 4);
@@ -257,7 +424,8 @@
     bookTitleEl.style.letterSpacing = `${Math.max(1, Math.round(bookFontSize * 0.08))}px`;
 
     const quoteContainer = document.querySelector(".quote-container");
-    quoteContainer.style.gap = lineGap + "px";
+    const quoteShell = document.querySelector(".quote-shell");
+    quoteShell.style.gap = lineGap + "px";
     quoteContainer.style.transform = `translateY(${quoteOffsetY * 100}%)`;
 
     // 4. 文字分词高亮函数
@@ -299,7 +467,7 @@
       div.className = "quote-line";
       div.style.fontSize = quoteFontSize + "px";
       div.innerHTML = createLineHtml(line, index, focusWords);
-      quoteContainer.appendChild(div);
+      quoteShell.appendChild(div);
     });
 
     // 5. 构建 GSAP 动态动画时间轴
@@ -308,10 +476,40 @@
 
     // 5.1. 摄像机缓慢镜头推进
     tl.to("#camera-rig", {
-      scale: 1.06,
+      scale: 1.055,
       duration: durationSeconds,
       ease: "none"
     }, 0);
+
+    tl.from(".quote-container", {
+      opacity: 0,
+      scale: 1.035,
+      filter: "blur(10px)",
+      duration: 0.72,
+      ease: "power3.out"
+    }, 0.02);
+
+    tl.from(".editorial-frame", {
+      opacity: 0,
+      scaleX: 0.985,
+      scaleY: 0.965,
+      duration: 1.05,
+      ease: "power3.out"
+    }, 0.04);
+
+    tl.from(".ambient-light.left", {
+      opacity: 0,
+      x: -70,
+      duration: 1.2,
+      ease: "power2.out"
+    }, 0);
+
+    tl.from(".ambient-light.right", {
+      opacity: 0,
+      x: 80,
+      duration: 1.4,
+      ease: "power2.out"
+    }, 0.12);
 
     // 5.2. 顶部栏入场
     tl.from("#masthead", {
@@ -339,30 +537,31 @@
       // 文字弹性淡入
       tl.from(lineId, {
         opacity: 0,
-        y: 40,
-        scale: 1.1,
-        duration: 0.8,
-        ease: "back.out(1.2)"
+        y: 34,
+        scale: 1.045,
+        filter: "blur(6px)",
+        duration: 0.74,
+        ease: "power3.out"
       }, lineAppearTime);
 
       // 文字扫光反射
       tl.to(sweepId, {
         x: "340%",
-        duration: 0.5,
+        duration: 0.64,
         ease: "power3.out"
-      }, lineAppearTime + 0.25);
+      }, lineAppearTime + 0.28);
 
       tl.fromTo(sweepId,
         { opacity: 0 },
         {
           keyframes: [
-            { opacity: 0.35, duration: 0.1 },
-            { opacity: 0.3, duration: 0.25 },
-            { opacity: 0, duration: 0.15 }
+            { opacity: 0.16, duration: 0.12 },
+            { opacity: 0.1, duration: 0.34 },
+            { opacity: 0, duration: 0.18 }
           ],
           ease: "none"
         },
-        lineAppearTime + 0.25
+        lineAppearTime + 0.28
       );
     });
 
@@ -377,7 +576,7 @@
     // 5.5. 底部书名淡入
     tl.from("#book-title", {
       opacity: 0,
-      y: 12,
+      y: 10,
       duration: 1.0,
       ease: "power3.out"
     }, lastLineAppearTime + 0.55);

@@ -26,7 +26,7 @@ def test_hyperframes_agent_has_dedicated_step4_prompt_file():
     assert "durationSeconds" in prompt
     assert "data-start" in prompt
     assert "Inter" in prompt
-    assert "STEP4_HYPERFRAMES_PROMPT_VERSION: 2026-06-20-structure-review-v4" in prompt
+    assert "STEP4_HYPERFRAMES_PROMPT_VERSION: 2026-06-20-richer-motion-v5" in prompt
     assert "visualKeywords" in prompt
     assert "禁止依赖外部 `keywords`" in prompt
     assert "禁止直接展示 `content` 原句" in prompt
@@ -45,6 +45,10 @@ def test_hyperframes_agent_has_dedicated_step4_prompt_file():
     assert "查看 `snapshots/` 中的 PNG 关键帧" in prompt
     assert "是否能明确看出所选结构模板" in prompt
     assert "孤立数字、空半屏或无关系的信息岛" in prompt
+    assert "必须加入 2-3 层非文字视觉层" in prompt
+    assert "至少 2 个元素必须有持续或分阶段变化" in prompt
+    assert "轻微镜头运动" in prompt
+    assert "不要只生成静态大字 + 分隔线 + 淡入上移" in prompt
 
 
 def test_step4_hyperframes_prompt_is_loaded_from_prompt_file(monkeypatch):
