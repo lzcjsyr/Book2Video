@@ -23,6 +23,19 @@ def _hyperframes_app_dir() -> Path:
     return Path(__file__).resolve().parent / "app"
 
 
+def _hyperframes_subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    path_parts = [
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        str(Path.home() / ".nvm/versions/node/v22.22.3/bin"),
+        str(Path.home() / ".nvm/versions/node/v22.22.2/bin"),
+    ]
+    current_path = env.get("PATH", "")
+    env["PATH"] = os.pathsep.join([*path_parts, current_path]) if current_path else os.pathsep.join(path_parts)
+    return env
+
+
 def _split_quote_fragments(quote: str) -> List[str]:
     fragments: List[str] = []
     normalized = (quote or "").replace("\r\n", "\n").replace("\r", "\n")
@@ -177,6 +190,7 @@ def render_opening_video(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            env=_hyperframes_subprocess_env(),
         )
         logger.info("Opening HyperFrames video rendered: %s", output_path)
         return str(output_path)

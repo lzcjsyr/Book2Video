@@ -123,22 +123,54 @@ def _get_anthropic_compatible_config(server: str, context: str) -> tuple[str, st
         raise ValueError(f"不支持的{label} LLM服务商: {server}，支持的服务商: mimo, kimi, deepseek, siliconflow, openrouter, volcengine")
 
 
+def _normalize_anthropic_agent_model(server: str, model: str | None) -> str:
+    return (model or "").strip()
+
+
+def _anthropic_agent_options_model(server: str, model: str | None) -> str | None:
+    if (server or "").strip().lower() == "deepseek":
+        return None
+    return _normalize_anthropic_agent_model(server, model)
+
+
+def _normalize_anthropic_agent_base_url(server: str, base_url: str) -> str:
+    normalized = (base_url or "").strip().rstrip("/")
+    if (server or "").strip().lower() == "deepseek" and normalized in {
+        "https://api.deepseek.com",
+        "https://api.deepseek.com/v1",
+    }:
+        return "https://api.deepseek.com/anthropic"
+    return normalized
+
+
 def _build_anthropic_agent_env(*, server: str, model: str, context: str, config_name: str) -> dict[str, str]:
     server = (server or "").strip().lower()
     if not server:
         raise RuntimeError(f"{config_name} 不能为空（mimo/kimi/siliconflow/openrouter/volcengine/deepseek）")
 
     base_url, api_key, key_name = _get_anthropic_compatible_config(server, context)
+    base_url = _normalize_anthropic_agent_base_url(server, base_url)
 
     if not api_key:
         raise RuntimeError(f"{config_name}={server} 需要 {key_name}（.env），用于驱动 Claude Agent SDK")
 
-    return {
+    env = {
         "ANTHROPIC_BASE_URL": base_url,
         "ANTHROPIC_API_KEY": api_key,
         "ANTHROPIC_AUTH_TOKEN": api_key,
-        "ANTHROPIC_MODEL": model,
+        "ANTHROPIC_MODEL": _normalize_anthropic_agent_model(server, model),
     }
+    if server == "deepseek":
+        env.update(
+            {
+                "ANTHROPIC_DEFAULT_OPUS_MODEL": _normalize_anthropic_agent_model(server, model),
+                "ANTHROPIC_DEFAULT_SONNET_MODEL": _normalize_anthropic_agent_model(server, model),
+                "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash",
+                "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4-flash",
+                "CLAUDE_CODE_EFFORT_LEVEL": "max",
+            }
+        )
+    return env
 
 
 def build_step1_agent_env() -> dict[str, str]:
@@ -178,16 +210,32 @@ def build_step4_hyperframes_agent_env(
         or (getattr(config, "LLM_BASE_URL_STEP4_OVERRIDE", "") or "").strip()
         or base_url
     )
+    base_url = _normalize_anthropic_agent_base_url(server, base_url)
 
     if not api_key:
         raise RuntimeError(f"步骤4 HyperFrames Agent 需要 {key_name}（.env）")
 
-    return {
+    env = {
         "ANTHROPIC_BASE_URL": base_url,
         "ANTHROPIC_API_KEY": api_key,
         "ANTHROPIC_AUTH_TOKEN": api_key,
-        "ANTHROPIC_MODEL": llm_model or config.LLM_MODEL_STEP4,
+        "ANTHROPIC_MODEL": _normalize_anthropic_agent_model(server, llm_model or config.LLM_MODEL_STEP4),
     }
+    if server == "deepseek":
+        env.update(
+            {
+                "ANTHROPIC_DEFAULT_OPUS_MODEL": _normalize_anthropic_agent_model(
+                    server, llm_model or config.LLM_MODEL_STEP4
+                ),
+                "ANTHROPIC_DEFAULT_SONNET_MODEL": _normalize_anthropic_agent_model(
+                    server, llm_model or config.LLM_MODEL_STEP4
+                ),
+                "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash",
+                "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4-flash",
+                "CLAUDE_CODE_EFFORT_LEVEL": "max",
+            }
+        )
+    return env
 
 
 def _truncate_for_log(value: Any, *, max_chars: int = _MAX_LOG_FIELD_CHARS) -> Any:
@@ -507,7 +555,7 @@ async def _run_step1_agent_async(
     tools = STEP1_AGENT_TOOLS + (["Agent"] if subagents else [])
     options = ClaudeAgentOptions(
         cwd=repo_root,
-        model=config.LLM_MODEL_STEP1,
+        model=_anthropic_agent_options_model(config.LLM_SERVER_STEP1, config.LLM_MODEL_STEP1),
         tools=tools,
         allowed_tools=tools,
         agents=subagents or None,
@@ -667,9 +715,11 @@ async def _run_step1_5_segment_agent_async(
         target_segments=target_segments,
     )
     tools = list(STEP1_5_AGENT_TOOLS)
+    effective_llm_server = llm_server or config.LLM_SERVER_STEP1_5
+    effective_llm_model = llm_model or config.LLM_MODEL_STEP1_5
     options = ClaudeAgentOptions(
         cwd=repo_root,
-        model=llm_model or config.LLM_MODEL_STEP1_5,
+        model=_anthropic_agent_options_model(effective_llm_server, effective_llm_model),
         tools=tools,
         allowed_tools=tools,
         permission_mode="acceptEdits",
@@ -800,9 +850,11 @@ async def _run_step4_hyperframes_agent_async(
         target_index_html_path=str(work_path / "index.html"),
     )
     tools = list(STEP4_HYPERFRAMES_AGENT_TOOLS)
+    effective_llm_server = llm_server or config.LLM_SERVER_STEP4
+    effective_llm_model = llm_model or config.LLM_MODEL_STEP4
     options = ClaudeAgentOptions(
         cwd=str(work_path),
-        model=llm_model or config.LLM_MODEL_STEP4,
+        model=_anthropic_agent_options_model(effective_llm_server, effective_llm_model),
         tools=tools,
         allowed_tools=tools,
         permission_mode="acceptEdits",

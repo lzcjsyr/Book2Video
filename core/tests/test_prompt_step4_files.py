@@ -26,7 +26,7 @@ def test_hyperframes_agent_has_dedicated_step4_prompt_file():
     assert "durationSeconds" in prompt
     assert "data-start" in prompt
     assert "Inter" in prompt
-    assert "STEP4_HYPERFRAMES_PROMPT_VERSION: 2026-06-20-richer-motion-v5" in prompt
+    assert "STEP4_HYPERFRAMES_PROMPT_VERSION: 2026-06-21-layout-structure-v6" in prompt
     assert "visualKeywords" in prompt
     assert "禁止依赖外部 `keywords`" in prompt
     assert "禁止直接展示 `content` 原句" in prompt
@@ -41,9 +41,18 @@ def test_hyperframes_agent_has_dedicated_step4_prompt_file():
     assert "低于 `0.4` 透明度的颜色只能用于纯装饰" in prompt
     assert "npx --yes hyperframes@0.6.115 validate --json" in prompt
     assert "npx --yes hyperframes@0.6.115 inspect --json --samples 15" in prompt
+    assert "### A. 代码自检" in prompt
+    assert "### B. 视觉自检" in prompt
+    assert "先做代码层面检查，再生成截图" in prompt
+    assert "列出所有可读文字的 `文本 / font-size / opacity`" in prompt
+    assert "任一可读文字低于当前分辨率最小字号或透明度阈值" in prompt
+    assert "逐项核对根尺寸、data-duration、data-start、data-track-index" in prompt
     assert "npx --yes hyperframes@0.6.115 snapshot --frames 5" in prompt
     assert "查看 `snapshots/` 中的 PNG 关键帧" in prompt
+    assert "修复后必须重新完成代码自检、重新运行 `snapshot --frames 5` 并再次读图确认" in prompt
     assert "是否能明确看出所选结构模板" in prompt
+    assert "必须重点检查布局结构是否合理" in prompt
+    assert "主体是否过度挤在角落或单侧" in prompt
     assert "孤立数字、空半屏或无关系的信息岛" in prompt
     assert "必须加入 2-3 层非文字视觉层" in prompt
     assert "至少 2 个元素必须有持续或分阶段变化" in prompt

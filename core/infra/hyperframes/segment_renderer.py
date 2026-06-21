@@ -17,6 +17,19 @@ from core.infra.project_paths import ProjectPaths
 HYPERFRAMES_VERSION = "hyperframes@0.6.115"
 
 
+def _hyperframes_subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    path_parts = [
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        str(Path.home() / ".nvm/versions/node/v22.22.3/bin"),
+        str(Path.home() / ".nvm/versions/node/v22.22.2/bin"),
+    ]
+    current_path = env.get("PATH", "")
+    env["PATH"] = os.pathsep.join([*path_parts, current_path]) if current_path else os.pathsep.join(path_parts)
+    return env
+
+
 def _parse_size(size: str) -> tuple[int, int]:
     raw = (size or "1280x720").lower().replace(" ", "")
     width, height = raw.split("x", 1)
@@ -156,6 +169,7 @@ def _render_one_segment(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            env=_hyperframes_subprocess_env(),
             timeout=max(300, int(duration_seconds * 90)),
         )
         _write_render_log(work_dir, completed.stdout or "render ok")

@@ -75,8 +75,8 @@ def test_segment_renderer_uses_audio_duration_and_render_command(monkeypatch, tm
         work_dir.mkdir(parents=True, exist_ok=True)
         (work_dir / "index.html").write_text("<html><body>segment</body></html>", encoding="utf-8")
 
-    def fake_run(command, cwd, check, stdin, stdout, stderr, text, timeout):
-        commands.append({"command": command, "cwd": cwd, "check": check, "text": text})
+    def fake_run(command, cwd, check, stdin, stdout, stderr, text, env, timeout):
+        commands.append({"command": command, "cwd": cwd, "check": check, "text": text, "env": env})
         output_path = Path(command[command.index("--output") + 1])
         assert output_path.is_absolute()
         output_path.write_bytes(b"video")
@@ -117,6 +117,7 @@ def test_segment_renderer_uses_audio_duration_and_render_command(monkeypatch, tm
     assert agent_inputs[0]["llm_model"] == "step4-model"
     assert agent_inputs[0]["llm_base_url"] == "https://llm-gateway.example.test/anthropic"
     assert commands[0]["command"][:4] == ["npx", "--yes", "hyperframes@0.6.115", "render"]
+    assert "/opt/homebrew/bin" in commands[0]["env"]["PATH"]
     assert "--fps" in commands[0]["command"]
     assert "60" in commands[0]["command"]
     assert commands[0]["cwd"] == Path(paths.images) / "hyperframes" / "segment_1"
@@ -136,7 +137,7 @@ def test_segment_renderer_uses_absolute_render_output_when_project_path_is_relat
         work_dir.mkdir(parents=True, exist_ok=True)
         (work_dir / "index.html").write_text("<html></html>", encoding="utf-8")
 
-    def fake_run(command, cwd, check, stdin, stdout, stderr, text, timeout):
+    def fake_run(command, cwd, check, stdin, stdout, stderr, text, env, timeout):
         commands.append({"command": command, "cwd": cwd})
         output_path = Path(command[command.index("--output") + 1])
         assert output_path.is_absolute()
@@ -178,7 +179,7 @@ def test_segment_renderer_records_render_log_on_failure(monkeypatch, tmp_path):
         work_dir.mkdir(parents=True, exist_ok=True)
         (work_dir / "index.html").write_text("<html></html>", encoding="utf-8")
 
-    def fake_run(command, cwd, check, stdin, stdout, stderr, text, timeout):
+    def fake_run(command, cwd, check, stdin, stdout, stderr, text, env, timeout):
         raise subprocess.CalledProcessError(1, command, output="render failed")
 
     monkeypatch.setattr(segment_renderer, "run_step4_hyperframes_agent", fake_agent_runner)
@@ -215,7 +216,7 @@ def test_segment_renderer_records_render_log_on_timeout(monkeypatch, tmp_path):
         work_dir.mkdir(parents=True, exist_ok=True)
         (work_dir / "index.html").write_text("<html></html>", encoding="utf-8")
 
-    def fake_run(command, cwd, check, stdin, stdout, stderr, text, timeout):
+    def fake_run(command, cwd, check, stdin, stdout, stderr, text, env, timeout):
         raise subprocess.TimeoutExpired(command, timeout)
 
     monkeypatch.setattr(segment_renderer, "run_step4_hyperframes_agent", fake_agent_runner)
