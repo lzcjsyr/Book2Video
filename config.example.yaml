@@ -110,7 +110,7 @@ step4:
 
   # HyperFrames 动态画面参数，仅 visual_mode=hyperframes_agent 或 mixed 且段落 visualizer=hf 时生效。
   hyperframes_style_preset: data_driven
-  hyperframes_max_turns: 20
+  hyperframes_max_turns: 60
   hyperframes_render_fps: 30
   # HyperFrames 画面生成（Agent + 浏览器渲染）的并发数。
   # 默认值为 1。对于有 API 频率限制（Rate Limit）的通道（如 mimo 建议 1-2），调大可能触发 429 报错。

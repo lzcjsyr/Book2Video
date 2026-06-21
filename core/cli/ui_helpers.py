@@ -571,7 +571,7 @@ def _interactive_skill_selector(project_root: str) -> Optional[str]:
     if not available_skills:
         return "book-video-script"
 
-    default_skill = os.getenv("STEP1_AGENT_SKILL") or getattr(config, "STEP1_AGENT_SKILL", "book-video-script")
+    default_skill = getattr(config, "STEP1_AGENT_SKILL", "book-video-script")
     if default_skill not in available_skills:
         default_skill = "book-video-script" if "book-video-script" in available_skills else available_skills[0]
 
@@ -803,7 +803,7 @@ def _run_specific_step(
     cover_image_size, cover_image_server, cover_image_model, cover_image_style, cover_image_count, opening_quote=True,
     mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100,
     visual_mode="static_image", hyperframes_style_preset="data_driven",
-    hyperframes_max_turns=20, hyperframes_render_fps=30, hyperframes_concurrency=1,
+    hyperframes_max_turns=60, hyperframes_render_fps=30, hyperframes_concurrency=1,
 ):
     """执行指定步骤并返回结果"""
     from core.pipeline.steps import run_step_1, run_step_1_5, run_step_2, run_step_3, run_step_4, run_step_5, run_step_6
@@ -1037,7 +1037,7 @@ def _run_step_by_step_loop(
     cover_image_size, cover_image_server, cover_image_model, cover_image_style, cover_image_count, opening_quote=True,
     mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100,
     visual_mode="static_image", hyperframes_style_preset="data_driven",
-    hyperframes_max_turns=20, hyperframes_render_fps=30, hyperframes_concurrency=1,
+    hyperframes_max_turns=60, hyperframes_render_fps=30, hyperframes_concurrency=1,
 ):
     """执行指定步骤，然后进入交互模式让用户选择下一步操作"""
     from core.pipeline.scanner import detect_project_progress
@@ -1260,9 +1260,9 @@ def run_cli_main(
         visual_mode = params.get("visual_mode", "static_image")
         hyperframes_style_preset = params.get("hyperframes_style_preset", "data_driven")
         try:
-            hyperframes_max_turns = int(params.get("hyperframes_max_turns", 20))
+            hyperframes_max_turns = int(params.get("hyperframes_max_turns", 60))
         except Exception:
-            hyperframes_max_turns = 20
+            hyperframes_max_turns = 60
         try:
             hyperframes_render_fps = int(params.get("hyperframes_render_fps", 30))
         except Exception:

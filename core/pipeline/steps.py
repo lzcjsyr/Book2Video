@@ -832,7 +832,7 @@ def run_step_4(
                 keywords_data=keywords_data,
                 description_data=description_data,
                 style_preset=hyperframes_style_preset or getattr(config, "HYPERFRAMES_STYLE_PRESET", "data_driven"),
-                max_turns=int(hyperframes_max_turns or getattr(config, "HYPERFRAMES_MAX_TURNS", 20)),
+                max_turns=int(hyperframes_max_turns or getattr(config, "HYPERFRAMES_MAX_TURNS", 60)),
                 render_fps=int(hyperframes_render_fps or getattr(config, "HYPERFRAMES_RENDER_FPS", 30)),
                 concurrency=int(hyperframes_concurrency or getattr(config, "HYPERFRAMES_CONCURRENCY", 1)),
                 session_log_path=os.path.join(paths.images, "hyperframes", "_step4_hyperframes_agent_session.jsonl"),
