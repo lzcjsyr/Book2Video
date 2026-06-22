@@ -22,8 +22,8 @@ from claude_agent_sdk import (
 
 from core.config import config
 from core.infra.hyperframes.skill_loader import (
-    embedded_hyperframes_skill_dir,
-    load_embedded_hyperframes_skill_bundle,
+    build_step4_hyperframes_skill_path_context,
+    default_step4_hyperframes_skill_dir,
     step4_hyperframes_skill_dirs,
 )
 from core.prompts import (
@@ -801,13 +801,14 @@ def _build_step4_hyperframes_prompt(
     *,
     segment_payload: dict[str, Any],
     style_preset: str,
-    embedded_skill_bundle: str,
+    skill_path_context: str,
+    skills_root: str | Path | None = None,
     target_index_html_path: str = "",
 ) -> str:
     payload_json = json.dumps(segment_payload, ensure_ascii=False, indent=2)
-    style_context = build_step4_hyperframes_style_context(style_preset)
+    style_context = build_step4_hyperframes_style_context(style_preset, skills_root=skills_root)
     return STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE.format(
-        embedded_skill_bundle=embedded_skill_bundle,
+        skill_path_context=skill_path_context,
         style_preset=style_preset,
         style_context=style_context,
         payload_json=payload_json,
@@ -824,7 +825,7 @@ async def _run_step4_hyperframes_agent_async(
     style_preset: str,
     max_turns: int,
     session_log_path: str,
-    embedded_skill_dir: str | None = None,
+    step4_skill_dir: str | None = None,
     llm_server: str | None = None,
     llm_model: str | None = None,
     llm_base_url: str | None = None,
@@ -840,13 +841,14 @@ async def _run_step4_hyperframes_agent_async(
                 stale_file.unlink()
         except Exception:
             pass
-    skill_dir = Path(embedded_skill_dir) if embedded_skill_dir else embedded_hyperframes_skill_dir()
-    embedded_skill_bundle = load_embedded_hyperframes_skill_bundle(skill_dir)
+    skill_dir = Path(step4_skill_dir) if step4_skill_dir else default_step4_hyperframes_skill_dir()
+    skill_path_context = build_step4_hyperframes_skill_path_context(skill_dir)
     skill_add_dirs = [str(path) for path in step4_hyperframes_skill_dirs(skill_dir.parent)]
     prompt = _build_step4_hyperframes_prompt(
         segment_payload=segment_payload,
         style_preset=style_preset,
-        embedded_skill_bundle=embedded_skill_bundle,
+        skill_path_context=skill_path_context,
+        skills_root=skill_dir.parent,
         target_index_html_path=str(work_path / "index.html"),
     )
     tools = list(STEP4_HYPERFRAMES_AGENT_TOOLS)
@@ -877,7 +879,7 @@ async def _run_step4_hyperframes_agent_async(
             "style_preset": style_preset,
             "prompt_version": STEP4_HYPERFRAMES_PROMPT_VERSION,
             "max_turns": max_turns,
-            "embedded_skill_dir": str(skill_dir),
+            "step4_skill_dir": str(skill_dir),
             "segment_payload": segment_payload,
             "duration_seconds": duration_seconds,
             "llm_server": llm_server,
@@ -941,7 +943,7 @@ def run_step4_hyperframes_agent(
     style_preset: str,
     max_turns: int,
     session_log_path: str,
-    embedded_skill_dir: str | None = None,
+    step4_skill_dir: str | None = None,
     llm_server: str | None = None,
     llm_model: str | None = None,
     llm_base_url: str | None = None,
@@ -955,7 +957,7 @@ def run_step4_hyperframes_agent(
         style_preset=style_preset,
         max_turns=max_turns,
         session_log_path=session_log_path,
-        embedded_skill_dir=embedded_skill_dir,
+        step4_skill_dir=step4_skill_dir,
         llm_server=llm_server,
         llm_model=llm_model,
         llm_base_url=llm_base_url,

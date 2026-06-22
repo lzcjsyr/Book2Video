@@ -171,6 +171,73 @@ def test_cli_step_4_mixed_mode_prompts_both_style_choices(monkeypatch, tmp_path)
     assert captured["kwargs"]["hyperframes_style_preset"] == "dark_premium"
 
 
+def test_cli_step_4_allows_zero_for_opening_video_even_when_opening_disabled(monkeypatch, tmp_path):
+    captured_scope = {}
+    captured_run = {}
+
+    monkeypatch.setattr(ui_helpers, "prompt_visual_mode_choice", lambda *_args, **_kwargs: "static_image")
+    monkeypatch.setattr(ui_helpers, "prompt_image_style_choice", lambda *_args, **_kwargs: "style07")
+
+    def fake_scope(*args, **kwargs):
+        captured_scope["kwargs"] = kwargs
+        return {"mode": "partial", "segments": [], "regenerate_opening": True}
+
+    def fake_run_step_4(*args, **kwargs):
+        captured_run["args"] = args
+        captured_run["kwargs"] = kwargs
+        return {"success": True}
+
+    monkeypatch.setattr(ui_helpers, "_prompt_segment_generation_scope", fake_scope)
+    monkeypatch.setattr(steps, "run_step_4", fake_run_step_4)
+
+    result = ui_helpers._run_specific_step(
+        4,
+        str(tmp_path),
+        "llm2",
+        "model2",
+        "base2",
+        "llm4",
+        "model4",
+        "base4",
+        "doubao",
+        "image-model",
+        "1280x720",
+        "1280x720",
+        "style01",
+        "keywords",
+        "bytedance",
+        "voice-id",
+        "tts-model",
+        0,
+        0,
+        "neutral",
+        4,
+        2,
+        True,
+        None,
+        "1280x720",
+        "doubao",
+        "cover-model",
+        "cover01",
+        1,
+        False,
+        400,
+        200,
+        100,
+        "static_image",
+        "data_driven",
+        20,
+        30,
+        1,
+    )
+
+    assert result["success"] is True
+    assert captured_scope["kwargs"]["allow_opening"] is True
+    assert captured_run["args"][6] is True
+    assert captured_run["kwargs"]["target_segments"] == []
+    assert captured_run["kwargs"]["regenerate_opening"] is True
+
+
 def test_run_step_4_static_image_mode_keeps_existing_generator(monkeypatch, tmp_path):
     paths = _write_project(tmp_path / "project")
     captured = {}

@@ -20,12 +20,12 @@ def test_hyperframes_agent_has_dedicated_step4_prompt_file():
     assert prompt_path.exists()
     assert (PROMPTS_DIR / "step4_hyperframes_styles.yaml").exists()
     prompt = prompt_path.read_text(encoding="utf-8")
-    assert "{embedded_skill_bundle}" in prompt
+    assert "{skill_path_context}" in prompt
+    assert "{embedded_skill_bundle}" not in prompt
     assert "{style_context}" in prompt
     assert "{payload_json}" in prompt
     assert "durationSeconds" in prompt
     assert "data-start" in prompt
-    assert "Inter" in prompt
     assert "STEP4_HYPERFRAMES_PROMPT_VERSION: 2026-06-21-layout-structure-v6" in prompt
     assert "visualKeywords" in prompt
     assert "禁止依赖外部 `keywords`" in prompt
@@ -34,7 +34,7 @@ def test_hyperframes_agent_has_dedicated_step4_prompt_file():
     assert "left_list_right_verdict" in prompt
     assert "number_to_conclusion" in prompt
     assert "清晰阅读路径" in prompt
-    assert "不能一侧空着" in prompt
+    assert "空半屏" in prompt
     assert "任何可读文字不得小于 60px" in prompt
     assert "辅助短语透明度不得低于 `rgba(..., 0.68)`" in prompt
     assert "标签类文字透明度不得低于 `rgba(..., 0.55)`" in prompt
@@ -51,13 +51,11 @@ def test_hyperframes_agent_has_dedicated_step4_prompt_file():
     assert "查看 `snapshots/` 中的 PNG 关键帧" in prompt
     assert "修复后必须重新完成代码自检、重新运行 `snapshot --frames 5` 并再次读图确认" in prompt
     assert "是否能明确看出所选结构模板" in prompt
-    assert "必须重点检查布局结构是否合理" in prompt
-    assert "主体是否过度挤在角落或单侧" in prompt
+    assert "布局是否有遮挡、贴边、偏角落" in prompt
     assert "孤立数字、空半屏或无关系的信息岛" in prompt
     assert "必须加入 2-3 层非文字视觉层" in prompt
-    assert "至少 2 个元素必须有持续或分阶段变化" in prompt
-    assert "轻微镜头运动" in prompt
     assert "不要只生成静态大字 + 分隔线 + 淡入上移" in prompt
+    assert len(prompt.splitlines()) <= 170
 
 
 def test_step4_hyperframes_prompt_is_loaded_from_prompt_file(monkeypatch):
@@ -66,19 +64,63 @@ def test_step4_hyperframes_prompt_is_loaded_from_prompt_file(monkeypatch):
     monkeypatch.setattr(
         claude_agent,
         "STEP4_HYPERFRAMES_AGENT_PROMPT_TEMPLATE",
-        "PROMPT_FILE_MARKER\n{embedded_skill_bundle}\n{style_context}\n{payload_json}\n{target_index_html_path}",
+        "PROMPT_FILE_MARKER\n{skill_path_context}\n{style_context}\n{payload_json}\n{target_index_html_path}",
     )
 
     prompt = claude_agent._build_step4_hyperframes_prompt(
         segment_payload={"index": 1, "durationSeconds": 1.25},
         style_preset="data_driven",
-        embedded_skill_bundle="HyperFrames rules",
+        skill_path_context="STEP4_SKILLS_ROOT=/dynamic/project/skills/step4",
         target_index_html_path="/test/path/index.html",
     )
 
     assert prompt.startswith("PROMPT_FILE_MARKER")
-    assert "HyperFrames rules" in prompt
+    assert "HyperFrames rules" not in prompt
+    assert "STEP4_SKILLS_ROOT=/dynamic/project/skills/step4" in prompt
     assert "data_driven" in prompt
     assert "Swiss Pulse" in prompt
     assert '"durationSeconds": 1.25' in prompt
     assert "/test/path/index.html" in prompt
+
+
+def test_step4_skill_discovery_context_lists_frontmatter_and_entry_paths(tmp_path):
+    from core.infra.hyperframes.skill_loader import build_step4_hyperframes_skill_path_context
+
+    skills_root = tmp_path / "skills" / "step4"
+    (skills_root / "hyperframes").mkdir(parents=True)
+    (skills_root / "hyperframes" / "SKILL.md").write_text(
+        "---\n"
+        "name: hyperframes\n"
+        "description: >\n"
+        "  READ THIS FIRST for HyperFrames video tasks.\n"
+        "metadata: { \"tags\": \"router\" }\n"
+        "---\n"
+        "\n"
+        "# Body should not be embedded\n",
+        encoding="utf-8",
+    )
+    (skills_root / "hyperframes-cli").mkdir()
+    (skills_root / "hyperframes-cli" / "SKILL.md").write_text(
+        "---\n"
+        "name: hyperframes-cli\n"
+        "description: HyperFrames CLI dev loop.\n"
+        "---\n"
+        "\n"
+        "# CLI body should not be embedded\n",
+        encoding="utf-8",
+    )
+
+    context = build_step4_hyperframes_skill_path_context(skills_root / "hyperframes")
+
+    assert f"STEP4_SKILLS_ROOT={skills_root}" in context
+    assert "可用 Step4 Skills" in context
+    assert "name: hyperframes" in context
+    assert f"entry_path: {skills_root / 'hyperframes/SKILL.md'}" in context
+    assert "description: READ THIS FIRST for HyperFrames video tasks." in context
+    assert "metadata: {\"tags\": \"router\"}" in context
+    assert "name: hyperframes-cli" in context
+    assert f"entry_path: {skills_root / 'hyperframes-cli/SKILL.md'}" in context
+    assert "禁止跳过该 skill 的 SKILL.md 直接读取它的 references" in context
+    assert "如果读取了某个目录下的 reference/palette/adapter/rule 文件，必须已经先读取同目录对应的 SKILL.md" in context
+    assert "# Body should not be embedded" not in context
+    assert "必读入口文件绝对路径" not in context

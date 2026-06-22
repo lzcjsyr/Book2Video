@@ -44,7 +44,7 @@ def test_dependency_checker_reports_missing_runtime_and_hyperframes_dependencies
     assert "Node.js" in failed_names
     assert "npm" in failed_names
     assert "HyperFrames template" in failed_names
-    assert "HyperFrames embedded skills" in failed_names
+    assert "Step4 HyperFrames skills" in failed_names
     assert "Python packages" in failed_names
     assert "Environment file" in failed_names
     assert not report.ok

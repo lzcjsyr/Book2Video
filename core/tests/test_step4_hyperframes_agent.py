@@ -74,12 +74,6 @@ async def test_step4_hyperframes_agent_omits_explicit_model_for_deepseek(monkeyp
         )
 
     monkeypatch.setattr(claude_agent, "query", fake_query)
-    monkeypatch.setattr(
-        claude_agent,
-        "load_embedded_hyperframes_skill_bundle",
-        lambda *_args, **_kwargs: "HyperFrames embedded skill\nLayout Before Animation",
-    )
-
     await claude_agent._run_step4_hyperframes_agent_async(
         work_dir=str(tmp_path / "images" / "hyperframes" / "segment_1"),
         project_dir=str(tmp_path),
@@ -93,7 +87,7 @@ async def test_step4_hyperframes_agent_omits_explicit_model_for_deepseek(monkeyp
         style_preset="data_driven",
         max_turns=1,
         session_log_path=str(tmp_path / "text" / "_step4_hyperframes_agent_session.jsonl"),
-        embedded_skill_dir=str(tmp_path / "skills" / "step4" / "hyperframes"),
+        step4_skill_dir=str(tmp_path / "skills" / "step4" / "hyperframes"),
         llm_server="deepseek",
         llm_model="deepseek-v4-pro",
     )
@@ -102,12 +96,22 @@ async def test_step4_hyperframes_agent_omits_explicit_model_for_deepseek(monkeyp
 
 
 @pytest.mark.anyio
-async def test_step4_hyperframes_agent_uses_segment_workdir_and_embedded_skill(monkeypatch, tmp_path):
+async def test_step4_hyperframes_agent_uses_segment_workdir_and_step4_skill_context(monkeypatch, tmp_path):
     captured = {}
     work_dir = tmp_path / "images" / "hyperframes" / "segment_1"
     project_dir = tmp_path / "project"
     skill_dir = tmp_path / "skills" / "step4" / "hyperframes"
     session_log = tmp_path / "text" / "_step4_hyperframes_agent_session.jsonl"
+    skill_dir.mkdir(parents=True)
+    skill_dir.joinpath("SKILL.md").write_text(
+        "---\n"
+        "name: hyperframes\n"
+        "description: READ THIS FIRST for HyperFrames tasks.\n"
+        "---\n"
+        "\n"
+        "# Body should not be embedded\n",
+        encoding="utf-8",
+    )
 
     async def fake_query(*, prompt, options):
         captured["prompt"] = prompt
@@ -127,12 +131,6 @@ async def test_step4_hyperframes_agent_uses_segment_workdir_and_embedded_skill(m
 
     monkeypatch.setattr(claude_agent, "query", fake_query)
     monkeypatch.setattr(claude_agent, "build_step4_hyperframes_agent_env", lambda **_kwargs: {"ANTHROPIC_API_KEY": "key"})
-    monkeypatch.setattr(
-        claude_agent,
-        "load_embedded_hyperframes_skill_bundle",
-        lambda *_args, **_kwargs: "HyperFrames embedded skill\nLayout Before Animation",
-    )
-
     await claude_agent._run_step4_hyperframes_agent_async(
         work_dir=str(work_dir),
         project_dir=str(project_dir),
@@ -146,7 +144,7 @@ async def test_step4_hyperframes_agent_uses_segment_workdir_and_embedded_skill(m
         style_preset="data_driven",
         max_turns=11,
         session_log_path=str(session_log),
-        embedded_skill_dir=str(skill_dir),
+        step4_skill_dir=str(skill_dir),
     )
 
     options = captured["options"]
@@ -156,9 +154,24 @@ async def test_step4_hyperframes_agent_uses_segment_workdir_and_embedded_skill(m
     assert options.max_turns == 11
     assert str(project_dir) in options.add_dirs
     assert str(skill_dir) in options.add_dirs
-    assert "Layout Before Animation" in captured["prompt"]
+    skills_root = skill_dir.parent
+    assert f"STEP4_SKILLS_ROOT={skills_root}" in captured["prompt"]
+    assert "可用 Step4 Skills" in captured["prompt"]
+    assert "entry_path:" in captured["prompt"]
+    assert f"entry_path: {skills_root / 'hyperframes/SKILL.md'}" in captured["prompt"]
+    assert f"hyperframes-creative/references/visual-styles.md#Swiss Pulse -> {skills_root / 'hyperframes-creative/references/visual-styles.md'}" in captured["prompt"]
+    assert "先根据 name/description 判断本任务需要哪些 skill" in captured["prompt"]
+    assert "禁止跳过该 skill 的 SKILL.md 直接读取它的 references" in captured["prompt"]
+    assert "禁止读取或猜测 `skills/hyperframes-creative/" in captured["prompt"]
+    assert "必读入口文件绝对路径" not in captured["prompt"]
+    assert "官方 skill 包目录映射" not in captured["prompt"]
+    assert "常用官方文件绝对路径" not in captured["prompt"]
+    assert "HyperFrames embedded skill" not in captured["prompt"]
+    assert "Layout Before Animation" not in captured["prompt"]
     assert "不得修改 core/" in captured["prompt"]
     assert '"durationSeconds": 0.75' in captured["prompt"]
     assert session_log.exists()
     log_entry = json.loads(session_log.read_text(encoding="utf-8").splitlines()[0])
     assert log_entry["prompt_version"] == "2026-06-21-layout-structure-v6"
+    assert log_entry["step4_skill_dir"] == str(skill_dir)
+    assert "embedded_skill_dir" not in log_entry

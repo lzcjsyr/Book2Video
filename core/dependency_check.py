@@ -161,12 +161,12 @@ class DependencyChecker:
             if not (self._hyperframes_skill_dir / rel_path).exists()
         ]
         if not missing:
-            return CheckItem("HyperFrames embedded skills", True, str(self._hyperframes_skill_dir))
+            return CheckItem("Step4 HyperFrames skills", True, str(self._hyperframes_skill_dir))
         return CheckItem(
-            "HyperFrames embedded skills",
+            "Step4 HyperFrames skills",
             False,
             "缺少: " + ", ".join(missing),
-            "确认项目完整下载，包含 skills/step4/hyperframes/ 内置规范文件。",
+            "确认项目完整下载，包含 skills/step4/ 下的 HyperFrames skill 文件。",
         )
 
     def _check_python_packages(self) -> CheckItem:

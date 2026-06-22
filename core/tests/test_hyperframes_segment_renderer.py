@@ -33,23 +33,23 @@ def _write_project(project_dir: Path) -> ProjectPaths:
     return paths
 
 
-def test_embedded_hyperframes_skill_loader_uses_core_resources():
+def test_step4_hyperframes_skill_loader_uses_project_resources():
     from core.infra.hyperframes.skill_loader import (
-        embedded_hyperframes_skill_dir,
-        load_embedded_hyperframes_skill_bundle,
+        default_step4_hyperframes_skill_dir,
+        build_step4_hyperframes_skill_path_context,
         step4_hyperframes_skill_dirs,
     )
 
-    bundle = load_embedded_hyperframes_skill_bundle()
+    skill_context = build_step4_hyperframes_skill_path_context()
     skill_dirs = step4_hyperframes_skill_dirs()
 
-    assert "HyperFrames" in bundle
-    assert "Layout Before Animation" in bundle
-    assert "HyperFrames CLI" in bundle
-    assert "GSAP" in bundle
-    assert "CSS" in bundle
-    assert ".agents/skills" not in bundle
-    assert embedded_hyperframes_skill_dir().as_posix().endswith("skills/step4/hyperframes")
+    assert "可用 Step4 Skills" in skill_context
+    assert "entry_path:" in skill_context
+    assert "name: hyperframes" in skill_context
+    assert "name: hyperframes-cli" in skill_context
+    assert "Layout Before Animation" not in skill_context
+    assert ".agents/skills" not in skill_context
+    assert default_step4_hyperframes_skill_dir().as_posix().endswith("skills/step4/hyperframes")
     assert [path.name for path in skill_dirs] == [
         "hyperframes",
         "hyperframes-core",

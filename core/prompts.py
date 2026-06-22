@@ -52,12 +52,19 @@ COVER_IMAGE_STYLE_PRESETS = _load_yaml_file("step6_styles.yaml")
 # ================================================================================
 # 提示词构造函数
 # ================================================================================
-def build_step4_hyperframes_style_context(style_preset: str) -> str:
+def build_step4_hyperframes_style_context(style_preset: str, skills_root: str | os.PathLike | None = None) -> str:
     """构建第四步 HyperFrames 官方风格映射上下文。"""
     style_id = (style_preset or "data_driven").strip()
     style = STEP4_HYPERFRAMES_STYLE_PRESETS.get(style_id) or STEP4_HYPERFRAMES_STYLE_PRESETS.get("data_driven", {})
     references = style.get("references") or []
-    reference_lines = "\n".join(f"- {item}" for item in references) if references else "- 无"
+    if skills_root:
+        root = os.fspath(skills_root)
+        reference_lines = "\n".join(
+            f"- {item} -> {os.path.join(root, item.split('#', 1)[0])}"
+            for item in references
+        ) if references else "- 无"
+    else:
+        reference_lines = "\n".join(f"- {item}" for item in references) if references else "- 无"
     return "\n".join(
         [
             f"用户选择的业务风格：{style_id}",
