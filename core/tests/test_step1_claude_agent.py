@@ -167,7 +167,7 @@ def test_build_step1_agent_env_uses_mimo_gateway(monkeypatch):
         raising=False,
     )
     env = claude_agent.build_step1_agent_env()
-    assert env["ANTHROPIC_BASE_URL"] == "https://token-plan-sgp.xiaomimimo.com/anthropic"
+    assert env["ANTHROPIC_BASE_URL"] == "https://api.xiaomimimo.com/anthropic"
     assert env["ANTHROPIC_API_KEY"] == "test-mimo-key"
     assert env["ANTHROPIC_MODEL"] == "mimo-v2.5-pro"
 

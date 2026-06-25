@@ -627,7 +627,7 @@ class Config:
     LLM_SERVER_URLS = {
         "siliconflow": "https://api.siliconflow.cn/v1",
         "openrouter": "https://openrouter.ai/api/v1",
-        "mimo": "https://token-plan-sgp.xiaomimimo.com/anthropic",
+        "mimo": "https://api.xiaomimimo.com/anthropic",
         "kimi": "https://api.moonshot.cn/v1",
         "volcengine": "https://ark.cn-beijing.volces.com/api/v3",
         "deepseek": "https://api.deepseek.com/v1",

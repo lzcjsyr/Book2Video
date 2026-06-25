@@ -102,7 +102,7 @@ def _with_step1_subagent_instruction(extra_requirements: str, agents: dict[str, 
 def _get_anthropic_compatible_config(server: str, context: str) -> tuple[str, str, str]:
     server = (server or "").strip().lower()
     if server == "mimo":
-        return "https://token-plan-sgp.xiaomimimo.com/anthropic", (config.MIMO_API_KEY or "").strip(), "MIMO_API_KEY"
+        return "https://api.xiaomimimo.com/anthropic", (config.MIMO_API_KEY or "").strip(), "MIMO_API_KEY"
     elif server == "kimi":
         return "https://api.moonshot.cn/anthropic", (config.KIMI_API_KEY or "").strip(), "KIMI_API_KEY 或 MOONSHOT_API_KEY"
     elif server == "deepseek":
