@@ -138,7 +138,11 @@ def render_opening_video(
     if not clean_quote:
         return None
 
-    width, height = _parse_size(image_size)
+    # The opening template is authored on a 2560×1440 canvas.  Rendering it
+    # at a smaller image-generation size changes its fixed-pixel layout; the
+    # final composer is responsible for scaling this video to the target size.
+    _parse_size(image_size)
+    width, height = 2560, 1440
     quote_lines = _split_quote_lines(clean_quote)
     app_dir = _hyperframes_app_dir()
     output_path = Path(output_dir).resolve() / "opening.mp4"
@@ -172,7 +176,7 @@ def render_opening_video(
     command = [
         "npx",
         "--yes",
-        "hyperframes@0.6.115",
+        "hyperframes@0.7.10",
         "render",
         "--output",
         str(output_path),

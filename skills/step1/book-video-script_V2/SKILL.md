@@ -27,7 +27,7 @@ description: |
 这是本 skill 中正文成稿长度的唯一真相来源。其他 reference 不得重复写具体字数，只能引用本节。
 
 draft_min_chars: 3000
-final_target_chars: 3500
+final_target_chars: 3200
 
 - `_draft_v1.txt` 保存前必须达到 `draft_min_chars`。
 - 后续所有正文稿原则上不得低于 `draft_min_chars`。

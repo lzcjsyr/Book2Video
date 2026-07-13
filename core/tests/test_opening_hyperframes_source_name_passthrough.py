@@ -12,7 +12,7 @@ def test_render_opening_video_preserves_source_name_text(monkeypatch, tmp_path: 
     def fake_run(command, cwd, check, stdin, *args, **kwargs):
         assert command[0] == "npx"
         assert command[1] == "--yes"
-        assert command[2] == "hyperframes@0.6.115"
+        assert command[2] == "hyperframes@0.7.10"
         assert command[3] == "render"
         assert command[4] == "--output"
         assert command[6] == "--variables"
@@ -33,6 +33,8 @@ def test_render_opening_video_preserves_source_name_text(monkeypatch, tmp_path: 
 
     assert result == str((tmp_path / "opening.mp4").resolve())
     assert captured["props"]["bookTitle"] == "——《系统思维》：看见结构，而不是只看结果——"
+    assert captured["props"]["width"] == 2560
+    assert captured["props"]["height"] == 1440
 
 
 def test_render_opening_video_extracts_focus_words_from_markers(monkeypatch, tmp_path: Path):

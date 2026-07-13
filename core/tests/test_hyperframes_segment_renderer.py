@@ -116,7 +116,7 @@ def test_segment_renderer_uses_audio_duration_and_render_command(monkeypatch, tm
     assert agent_inputs[0]["llm_server"] == "siliconflow"
     assert agent_inputs[0]["llm_model"] == "step4-model"
     assert agent_inputs[0]["llm_base_url"] == "https://llm-gateway.example.test/anthropic"
-    assert commands[0]["command"][:4] == ["npx", "--yes", "hyperframes@0.6.115", "render"]
+    assert commands[0]["command"][:4] == ["npx", "--yes", "hyperframes@0.7.10", "render"]
     assert "/opt/homebrew/bin" in commands[0]["env"]["PATH"]
     assert "--fps" in commands[0]["command"]
     assert "60" in commands[0]["command"]

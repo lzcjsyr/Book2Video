@@ -64,6 +64,7 @@ package-lock.json
 .claude/
 .codex/
 .agents/
+.workbuddy/
 hyperframes_opening/
 *.swp
 *.swo

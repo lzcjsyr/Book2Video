@@ -1,4 +1,4 @@
-<!-- STEP4_HYPERFRAMES_PROMPT_VERSION: 2026-06-21-layout-structure-v6 -->
+<!-- STEP4_HYPERFRAMES_PROMPT_VERSION: 2026-06-26-phone-readable-v9 -->
 
 你必须只为当前单个段落生成 HyperFrames `index.html`，并且必须写入指定绝对路径：`{target_index_html_path}`。
 
@@ -84,10 +84,22 @@
 }}
 ```
 
-### D. 可读性门禁
+### D. 手机观看门禁
 
-- 最小字号：2560x1440 任何可读文字不得小于 60px、主关键词/结论 >=150px；1920x1080 >=45px / >=112px；1280x720 >=34px / >=75px。
-- 深色背景上，主关键词/结论必须使用 `#fff`、`#f8f9fa` 或等效高亮色；辅助短语透明度不得低于 `rgba(..., 0.68)`；标签类文字透明度不得低于 `rgba(..., 0.55)`。
+本项目默认视频会在手机中观看。即使画布是 16:9，也必须按小屏可读性设计；宁可少字、少标签，也不能让观众需要停顿辨认。
+
+- 2560x1440 下：信息性正文/短语 >=72px，图表标签 >=46px，主关键词/结论 >=200px，核心数字 >=320px。
+- 1920x1080 下：信息性正文/短语 >=54px，图表标签 >=35px，主关键词/结论 >=150px，核心数字 >=240px。
+- 1280x720 下：信息性正文/短语 >=40px，图表标签 >=26px，主关键词/结论 >=100px，核心数字 >=160px。
+- 低于上述阈值的文字只能是非必要装饰；不得承载段落信息、标签、单位、来源、角标或阅读路径。
+- 主内容不得集中在画面左侧 45% 区域；除非右侧有更大的核心数字、图形或结论形成视觉平衡。
+- 优先使用居中、全宽、强对比结构：超大标题、超大数字、粗条形图、前后对比、结论压轴。
+- 图表必须为视频尺度：条形/进度条高度在 2560x1440 下 >=76px；避免网页式小 dashboard、细网格、小图例。
+- 深色背景上，主关键词/结论必须使用 `#fff`、`#f8f9fa` 或高饱和强调色；辅助短语透明度不得低于 `rgba(..., 0.78)`；标签类文字透明度不得低于 `rgba(..., 0.62)`。
+- 浅色背景上，主关键词/结论必须使用接近黑色或高饱和深色，禁止浅灰正文；强调色必须以实色块、粗线、描边、光扫或大面积色面出现，不能只作为低透明装饰。
+- 必须形成强视觉对比：主焦点与背景亮度/色相明显分离；同一画面至少有 1 个全饱和或近全饱和焦点色；禁止整屏只用灰、蓝灰、低饱和同色系。
+- 字体设计必须有明显性格：优先使用确定性内置字体中的 `Archivo Black`、`League Gothic`、`Oswald`、`Montserrat`、`Space Mono`、`IBM Plex Mono`、`JetBrains Mono`；中文可用系统 sans，但必须通过超大字号、900/700 字重、压缩行高或宽窄对比制造标题感。
+- 字体层级差必须明显：主关键词字号至少是辅助短语的 1.8 倍；主关键词字重 >=700，辅助短语 <=500 或使用 mono/condensed 形成对比；数据必须启用 `font-variant-numeric: tabular-nums`。
 - 低于 `0.4` 透明度的颜色只能用于纯装饰线条、纹理、光效，不能用于任何汉字、数字、英文、单位或可读标签。
 - 不使用负 letter-spacing；核心字号不要用 viewport units。
 
@@ -99,15 +111,21 @@
 
 结构必须形成清晰阅读路径；只允许 1 个主焦点，最多 1 个副焦点；禁止信息岛、孤立数字、空半屏；相关元素必须靠近、对齐或用线/箭头连接。
 
+手机观看优先级：优先选择 `hero_verdict`、`number_to_conclusion`、`before_after`。`left_list_right_verdict` 不是默认选择；只有当主焦点不偏左、右侧视觉重量明显充足时才允许使用。
+
 ---
 
 ## 五、视觉与动画要求
 
 - 视觉风格优先遵循读取到的官方 HyperFrames skills 和下方官方风格映射；项目层面的字数、字号、透明度、字幕避让和禁用小字规则优先级更高。
-- 每段只表达一个核心 insight，最多三个主数据点。
-- 必须加入 2-3 层非文字视觉层，并且每层服务当前结构模板和阅读路径。
+- 写 HTML 前必须声明 `visualStyle`：包含 `background`、`foreground`、`accent`、`typePairing`、`contrastStrategy`；颜色必须来自官方风格映射或其高对比扩展，不得临时堆叠随机色。
+- 每段只表达一个核心 insight，最多三个主数据点；但画面不能像静态幻灯片，必须有可命名的动态视觉主意。
+- 写 HTML 前必须声明 `motionMotif`，从 `counter_burst`、`split_reveal`、`cause_flow`、`camera_push`、`card_morph`、`radial_orbit`、`marker_trace` 中选 1 个；动效必须服务所选结构模板。
+- 必须构建背景/中景/前景 3 层：背景纹理或光场持续轻微运动；中景承载结构化图形关系；前景用少量线、标记、框选、箭头或进度条强化阅读路径。
 - 至少要有一个结构化图形关系，或一个随时间建立的视觉因果/对比过程；不要只生成静态大字 + 分隔线 + 淡入上移。
-- 核心文字在可读时刻必须稳定、清楚；轻微镜头运动只能作用于背景层、图形层或整体舞台。
+- 每段至少组合 2 种不同运动类型：入场/建立、关系变化、镜头/舞台运动、强调脉冲、干净退出中任选；不能所有元素都用同一种 `y + opacity`。
+- 允许使用 SVG 线条、环形、进度条、分区面板、粒子点阵、光扫、遮罩、clip-path、transform 形成视觉丰富度；禁止使用不可 seek 的随机、计时器、滚动或网络资源。
+- 核心文字在可读时刻必须稳定、清楚；镜头运动只能作用于背景层、结构图形层或整体舞台，不得让主关键词持续漂移导致难读。
 
 ---
 
@@ -117,15 +135,15 @@
 
 ### A. 代码自检
 
-1. 运行 `npx --yes hyperframes@0.6.115 validate --json` 和 `npx --yes hyperframes@0.6.115 inspect --json --samples 15`。
-3. 列出所有可读文字的 `文本 / font-size / opacity`；任一可读文字低于当前分辨率最小字号或透明度阈值，必须修复。
+1. 运行 `npx --yes hyperframes@0.7.10 validate --json` 和 `npx --yes hyperframes@0.7.10 inspect --json --samples 15`。
+3. 列出所有可读文字的 `文本 / font-size / font-weight / color / opacity / 是否信息性文字`；任一信息性文字低于手机观看字号阈值，必须修复。
 4. 逐项核对根尺寸、data-duration、data-start、data-track-index、禁止原句长文本、禁止小字角标；复核不存在 `Math.random`、`Date.now`、`fetch`、`setTimeout`、`repeat: -1`、真实 `<template>`、`data-end`、`data-layer`。
-5. 确认所有可读文字在 `#content-wrapper` 内。
+5. 确认所有可读文字在 `#content-wrapper` 内，并检查主内容没有集中在画面左侧 45% 区域。
 
 ### B. 视觉自检
 
-6. 代码自检通过后，运行 `npx --yes hyperframes@0.6.115 snapshot --frames 5`。
-7. 查看 `snapshots/` 中的 PNG 关键帧，并复核：是否能明确看出所选结构模板；阅读路径是否一眼清楚，主焦点和副焦点是否明确；布局是否有遮挡、贴边、偏角落、孤立数字、空半屏或无关系的信息岛；可读文字是否足够大、足够亮；是否有 2-3 层非文字视觉层；底部 20% 字幕区是否保持干净；最后一帧是否保留稳定停留或干净退出，不能是意外黑场。
+6. 代码自检通过后，运行 `npx --yes hyperframes@0.7.10 snapshot --frames 5`。
+7. 查看 `snapshots/` 中的 PNG 关键帧，并复核：是否像手机上能一眼读懂的视频；是否能明确看出所选结构模板；阅读路径是否一眼清楚，主焦点和副焦点是否明确；布局是否有遮挡、贴边、偏角落、偏左堆叠、孤立数字、空半屏或无关系的信息岛；可读文字是否足够大、足够亮、字体层级是否显眼；是否有高饱和焦点色和 3 层视觉层；底部 20% 字幕区是否保持干净；最后一帧是否保留稳定停留或干净退出，不能是意外黑场。
 8. 如果任一检查不合格，必须修改 HTML，修复后必须重新完成代码自检、重新运行 `snapshot --frames 5` 并再次读图确认。
 
 ### C. 最终回复
@@ -141,12 +159,17 @@
     "contrast": []
   }},
   "readableText": [],
+  "visualStyle": {{"background": "", "foreground": "", "accent": "", "typePairing": "", "contrastStrategy": ""}},
+  "motionMotif": "counter_burst | split_reveal | cause_flow | camera_push | card_morph | radial_orbit | marker_trace",
+  "visualLayers": ["background", "midground", "foreground"],
   "readableChineseCharCount": 0,
   "durationMatched": true,
   "sizeMatched": true,
   "validateOk": true,
   "inspectOk": true,
   "snapshotReviewed": true,
+  "phoneViewingOk": true,
+  "layoutBalance": "centered | full_width | balanced_split",
   "staticAuditPassed": true,
   "knownIssues": []
 }}

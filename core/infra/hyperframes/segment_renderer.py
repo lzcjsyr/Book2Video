@@ -14,7 +14,7 @@ from core.infra.ai.claude_agent import run_step4_hyperframes_agent
 from core.infra.project_paths import ProjectPaths
 
 
-HYPERFRAMES_VERSION = "hyperframes@0.6.115"
+HYPERFRAMES_VERSION = "hyperframes@0.7.10"
 
 
 def _hyperframes_subprocess_env() -> dict[str, str]:

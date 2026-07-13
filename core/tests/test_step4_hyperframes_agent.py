@@ -172,6 +172,6 @@ async def test_step4_hyperframes_agent_uses_segment_workdir_and_step4_skill_cont
     assert '"durationSeconds": 0.75' in captured["prompt"]
     assert session_log.exists()
     log_entry = json.loads(session_log.read_text(encoding="utf-8").splitlines()[0])
-    assert log_entry["prompt_version"] == "2026-06-21-layout-structure-v6"
+    assert log_entry["prompt_version"] == "2026-06-26-phone-readable-v9"
     assert log_entry["step4_skill_dir"] == str(skill_dir)
     assert "embedded_skill_dir" not in log_entry

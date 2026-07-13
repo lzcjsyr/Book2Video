@@ -26,7 +26,7 @@ def test_hyperframes_agent_has_dedicated_step4_prompt_file():
     assert "{payload_json}" in prompt
     assert "durationSeconds" in prompt
     assert "data-start" in prompt
-    assert "STEP4_HYPERFRAMES_PROMPT_VERSION: 2026-06-21-layout-structure-v6" in prompt
+    assert "STEP4_HYPERFRAMES_PROMPT_VERSION: 2026-06-26-phone-readable-v9" in prompt
     assert "visualKeywords" in prompt
     assert "禁止依赖外部 `keywords`" in prompt
     assert "禁止直接展示 `content` 原句" in prompt
@@ -35,27 +35,44 @@ def test_hyperframes_agent_has_dedicated_step4_prompt_file():
     assert "number_to_conclusion" in prompt
     assert "清晰阅读路径" in prompt
     assert "空半屏" in prompt
-    assert "任何可读文字不得小于 60px" in prompt
-    assert "辅助短语透明度不得低于 `rgba(..., 0.68)`" in prompt
-    assert "标签类文字透明度不得低于 `rgba(..., 0.55)`" in prompt
+    assert "本项目默认视频会在手机中观看" in prompt
+    assert "信息性正文/短语 >=72px" in prompt
+    assert "主关键词/结论 >=200px" in prompt
+    assert "核心数字 >=320px" in prompt
+    assert "主内容不得集中在画面左侧 45% 区域" in prompt
+    assert "图表必须为视频尺度" in prompt
+    assert "辅助短语透明度不得低于 `rgba(..., 0.78)`" in prompt
+    assert "标签类文字透明度不得低于 `rgba(..., 0.62)`" in prompt
+    assert "至少有 1 个全饱和或近全饱和焦点色" in prompt
+    assert "字体设计必须有明显性格" in prompt
+    assert "Archivo Black" in prompt
+    assert "主关键词字号至少是辅助短语的 1.8 倍" in prompt
     assert "低于 `0.4` 透明度的颜色只能用于纯装饰" in prompt
-    assert "npx --yes hyperframes@0.6.115 validate --json" in prompt
-    assert "npx --yes hyperframes@0.6.115 inspect --json --samples 15" in prompt
+    assert "npx --yes hyperframes@0.7.10 validate --json" in prompt
+    assert "npx --yes hyperframes@0.7.10 inspect --json --samples 15" in prompt
     assert "### A. 代码自检" in prompt
     assert "### B. 视觉自检" in prompt
     assert "先做代码层面检查，再生成截图" in prompt
-    assert "列出所有可读文字的 `文本 / font-size / opacity`" in prompt
-    assert "任一可读文字低于当前分辨率最小字号或透明度阈值" in prompt
+    assert "列出所有可读文字的 `文本 / font-size / font-weight / color / opacity / 是否信息性文字`" in prompt
+    assert "任一信息性文字低于手机观看字号阈值" in prompt
     assert "逐项核对根尺寸、data-duration、data-start、data-track-index" in prompt
-    assert "npx --yes hyperframes@0.6.115 snapshot --frames 5" in prompt
+    assert "npx --yes hyperframes@0.7.10 snapshot --frames 5" in prompt
     assert "查看 `snapshots/` 中的 PNG 关键帧" in prompt
     assert "修复后必须重新完成代码自检、重新运行 `snapshot --frames 5` 并再次读图确认" in prompt
     assert "是否能明确看出所选结构模板" in prompt
-    assert "布局是否有遮挡、贴边、偏角落" in prompt
+    assert "布局是否有遮挡、贴边、偏角落、偏左堆叠" in prompt
     assert "孤立数字、空半屏或无关系的信息岛" in prompt
-    assert "必须加入 2-3 层非文字视觉层" in prompt
+    assert "写 HTML 前必须声明 `motionMotif`" in prompt
+    assert "写 HTML 前必须声明 `visualStyle`" in prompt
+    assert '"visualStyle": {{"background": "", "foreground": "", "accent": "", "typePairing": "", "contrastStrategy": ""}}' in prompt
+    assert "背景/中景/前景 3 层" in prompt
+    assert "每段至少组合 2 种不同运动类型" in prompt
+    assert "radial_orbit" in prompt
+    assert '"visualLayers": ["background", "midground", "foreground"]' in prompt
+    assert '"phoneViewingOk": true' in prompt
+    assert '"layoutBalance": "centered | full_width | balanced_split"' in prompt
     assert "不要只生成静态大字 + 分隔线 + 淡入上移" in prompt
-    assert len(prompt.splitlines()) <= 170
+    assert len(prompt.splitlines()) <= 205
 
 
 def test_step4_hyperframes_prompt_is_loaded_from_prompt_file(monkeypatch):
