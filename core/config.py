@@ -338,6 +338,8 @@ def _coerce_yaml_value(constant_name: str, value: object) -> object:
     if constant_name in {"SUBTITLE_POSITION", "SUBTITLE_SHADOW_OFFSET", "SUBTITLE_BACKGROUND_COLOR"}:
         if isinstance(value, list):
             return tuple(value)
+    if constant_name in {"IMAGE_SIZE", "VIDEO_SIZE"} and isinstance(value, str):
+        return value.lower().replace("×", "x").replace("*", "x").replace(" ", "")
     return value
 
 
@@ -762,6 +764,14 @@ class VideoGenerationConfig:
     
     def __post_init__(self):
         """初始化后的验证和默认值设置"""
+        # 规格化尺寸字符串中的分隔符
+        if self.image_size:
+            self.image_size = str(self.image_size).lower().replace("×", "x").replace("*", "x").replace(" ", "")
+        if self.video_size:
+            self.video_size = str(self.video_size).lower().replace("×", "x").replace("*", "x").replace(" ", "")
+        if self.cover_image_size:
+            self.cover_image_size = str(self.cover_image_size).lower().replace("×", "x").replace("*", "x").replace(" ", "")
+
         # 设置默认值
         if self.video_size is None:
             self.video_size = self.image_size

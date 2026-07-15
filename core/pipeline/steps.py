@@ -31,6 +31,7 @@ from core.infra.ai.image_client import (
     generate_cover_images,
     generate_images_for_segments,
     synthesize_voice_for_segments,
+    _generate_single_image,
 )
 from core.infra.ai.claude_agent import (
     STEP1_COVERAGE_LEDGER_NAME,
@@ -47,6 +48,7 @@ from core.domain.summarizer import (
 )
 from core.infra.ai import text_to_audio_bytedance
 from core.infra.project_paths import ProjectPaths
+from core.prompts import OPENING_BG_PROMPT_TEMPLATE
 from core.infra.hyperframes import render_opening_video
 from core.infra.hyperframes.segment_renderer import render_hyperframes_segments_with_agent
 from core.shared import load_json_file, logger
@@ -778,74 +780,172 @@ def run_step_4(
     opening_image_file = paths.opening_image()
     opening_previously_exists = os.path.exists(opening_image_file)
     opening_regenerated = False
-    if opening_quote:
-        need_refresh = regenerate_opening or not opening_previously_exists
-        if need_refresh:
-            opening_image_path = render_opening_video(
-                image_size=image_size,
-                output_dir=paths.images,
-                script_data=script_data,
-                opening_quote=opening_quote,
-            )
-            opening_regenerated = bool(opening_image_path)
-        elif opening_previously_exists:
-            opening_image_path = opening_image_file
-            print(f"保持现有开场视频: {opening_image_path}")
 
+    # 1. 尝试生成/刷新开场背景图 (opening_bg.png)
+    opening_bg_file = os.path.join(paths.images, "opening_bg.png")
+    if opening_quote:
+        need_bg_refresh = regenerate_opening or not os.path.exists(opening_bg_file)
+        if need_bg_refresh:
+            # 1.1 获取或生成描述小结
+            summary_text = ""
+            desc_data = load_json_file(paths.mini_summary_json())
+            if desc_data and desc_data.get("summary"):
+                summary_text = desc_data["summary"].strip()
+            else:
+                # 动态生成描述小结
+                raw_data = load_json_file(paths.raw_json()) if os.path.exists(paths.raw_json()) else None
+                description_source = _resolve_description_source_text(
+                    project_output_dir, raw_data=raw_data, script_data=script_data
+                )
+                if description_source:
+                    try:
+                        logger.info("🎬 开场背景图所需描述小结未找到，正在生成...")
+                        generated_desc = generate_description_summary(
+                            llm_server or config.llm_server_step2,
+                            llm_model or config.llm_model_step2,
+                            llm_base_url or config.llm_base_url_step2,
+                            description_source,
+                            max_chars=200
+                        )
+                        summary_text = generated_desc.get("summary", "").strip()
+                        with open(paths.mini_summary_json(), "w", encoding="utf-8") as handle:
+                            json.dump(generated_desc, handle, ensure_ascii=False, indent=2)
+                    except Exception as e:
+                        logger.warning(f"生成开场背景图描述小结失败: {e}")
+
+            if not summary_text:
+                summary_text = get_primary_video_title(script_data or {}, "视频开场")
+
+            # 1.2 解析风格设置
+            from core.infra.ai.image_client import IMAGE_STYLE_PRESETS
+            try:
+                image_style = IMAGE_STYLE_PRESETS.get(
+                    image_style_preset,
+                    next(iter(IMAGE_STYLE_PRESETS.values()))
+                )
+                import re
+                image_style = re.sub(r'[；，]?字体为[^；。，]*[；。，]?', '', image_style).strip()
+            except Exception:
+                image_style = ""
+            style_block = image_style or "画面需保持信息清晰、构图稳定、色彩和谐。"
+
+            # 1.3 组合提示词并调用 API 生成
+            bg_prompt = OPENING_BG_PROMPT_TEMPLATE.format(
+                summary=summary_text,
+                style_block=style_block
+            )
+
+            safety_options = None
+            if llm_model and llm_server and llm_base_url:
+                safety_options = {
+                    "llm_model": llm_model,
+                    "llm_server": llm_server,
+                    "llm_base_url": llm_base_url,
+                    "max_attempts": 3,
+                    "max_tokens": 800,
+                    "temperature": 0.2,
+                }
+
+            logger.info("🎨 正在生成开场背景图 (opening_bg.png)...")
+            bg_args = (
+                "opening_bg",
+                bg_prompt,
+                image_model,
+                image_size,
+                paths.images,
+                image_server,
+                safety_options or {}
+            )
+            bg_res = _generate_single_image(bg_args)
+            if bg_res.get("success") and bg_res.get("image_path"):
+                temp_path = bg_res["image_path"]
+                if os.path.exists(temp_path):
+                    if os.path.exists(opening_bg_file):
+                        try:
+                            os.remove(opening_bg_file)
+                        except Exception:
+                            pass
+                    try:
+                        os.rename(temp_path, opening_bg_file)
+                        logger.info(f"开场背景图生成并保存至: {opening_bg_file}")
+                    except Exception as e:
+                        logger.warning(f"重命名开场背景图失败: {e}")
+            else:
+                logger.warning("开场背景图生成失败")
+
+    # 2. 并行调度任务：开场视频渲染与段落画面生成
     mode = (visual_mode or getattr(config, "VISUAL_MODE", "static_image") or "static_image").strip().lower()
     if mode not in {"static_image", "hyperframes_agent", "mixed"}:
         return {"success": False, "message": f"不支持的画面生成模式: {visual_mode}"}
 
-    should_generate_segments = selected_segments is None or len(selected_segments) > 0
-    generation_targets = None if selected_segments is None else selected_segments
-    if not should_generate_segments:
-        image_paths = []
-        for idx in range(1, total_segments + 1):
-            media_path = _resolve_segment_media_path(paths, idx)
-            image_paths.append(media_path or "")
-        image_result = {"image_paths": image_paths, "failed_segments": [], "processed_segments": []}
-    else:
-        def run_static(targets: Optional[List[int]]) -> Dict[str, Any]:
-            return generate_images_for_segments(
-                image_server,
-                image_model,
-                script_data,
-                image_style_preset,
-                image_size,
-                paths.images,
-                images_method=images_method,
-                keywords_data=keywords_data,
-                description_data=description_data,
-                target_segments=targets,
-                llm_model=llm_model,
-                llm_server=llm_server,
-                llm_base_url=llm_base_url,
-            )
-
-        def run_hyper(targets: Optional[List[int]]) -> Dict[str, Any]:
-            return render_hyperframes_segments_with_agent(
-                project_output_dir=project_output_dir,
-                script_data=script_data,
+    def render_opening_task() -> Optional[str]:
+        if not opening_quote:
+            return None
+        need_refresh = regenerate_opening or not opening_previously_exists
+        if need_refresh:
+            bg_path_for_render = opening_bg_file if os.path.exists(opening_bg_file) else None
+            return render_opening_video(
                 image_size=image_size,
                 output_dir=paths.images,
-                target_segments=targets,
-                keywords_data=keywords_data,
-                description_data=description_data,
-                style_preset=hyperframes_style_preset or getattr(config, "HYPERFRAMES_STYLE_PRESET", "data_driven"),
-                max_turns=int(hyperframes_max_turns or getattr(config, "HYPERFRAMES_MAX_TURNS", 60)),
-                render_fps=int(hyperframes_render_fps or getattr(config, "HYPERFRAMES_RENDER_FPS", 30)),
-                concurrency=int(hyperframes_concurrency or getattr(config, "HYPERFRAMES_CONCURRENCY", 1)),
-                session_log_path=os.path.join(paths.images, "hyperframes", "_step4_hyperframes_agent_session.jsonl"),
-                repo_root=_get_project_root(),
-                llm_server=llm_server,
-                llm_model=llm_model,
-                llm_base_url=llm_base_url,
+                script_data=script_data,
+                opening_quote=opening_quote,
+                opening_bg_path=bg_path_for_render,
             )
+        elif opening_previously_exists:
+            return opening_image_file
+        return None
+
+    def run_static(targets: Optional[List[int]]) -> Dict[str, Any]:
+        return generate_images_for_segments(
+            image_server,
+            image_model,
+            script_data,
+            image_style_preset,
+            image_size,
+            paths.images,
+            images_method=images_method,
+            keywords_data=keywords_data,
+            description_data=description_data,
+            target_segments=targets,
+            llm_model=llm_model,
+            llm_server=llm_server,
+            llm_base_url=llm_base_url,
+        )
+
+    def run_hyper(targets: Optional[List[int]]) -> Dict[str, Any]:
+        return render_hyperframes_segments_with_agent(
+            project_output_dir=project_output_dir,
+            script_data=script_data,
+            image_size=image_size,
+            output_dir=paths.images,
+            target_segments=targets,
+            keywords_data=keywords_data,
+            description_data=description_data,
+            style_preset=hyperframes_style_preset or getattr(config, "HYPERFRAMES_STYLE_PRESET", "data_driven"),
+            max_turns=int(hyperframes_max_turns or getattr(config, "HYPERFRAMES_MAX_TURNS", 60)),
+            render_fps=int(hyperframes_render_fps or getattr(config, "HYPERFRAMES_RENDER_FPS", 30)),
+            concurrency=int(hyperframes_concurrency or getattr(config, "HYPERFRAMES_CONCURRENCY", 1)),
+            session_log_path=os.path.join(paths.images, "hyperframes", "_step4_hyperframes_agent_session.jsonl"),
+            repo_root=_get_project_root(),
+            llm_server=llm_server,
+            llm_model=llm_model,
+            llm_base_url=llm_base_url,
+        )
+
+    def generate_segments_task() -> Dict[str, Any]:
+        should_generate_segments = selected_segments is None or len(selected_segments) > 0
+        generation_targets = None if selected_segments is None else selected_segments
+        if not should_generate_segments:
+            image_paths = []
+            for idx in range(1, total_segments + 1):
+                media_path = _resolve_segment_media_path(paths, idx)
+                image_paths.append(media_path or "")
+            return {"image_paths": image_paths, "failed_segments": [], "processed_segments": []}
 
         if mode == "static_image":
-            image_result = run_static(generation_targets)
+            return run_static(generation_targets)
         elif mode == "hyperframes_agent":
-            image_result = run_hyper(generation_targets)
+            return run_hyper(generation_targets)
         else:
             try:
                 mixed_targets = _split_mixed_visual_targets(segments, selected_segments)
@@ -867,7 +967,25 @@ def run_step_4(
                 for future in as_completed(futures):
                     results.append(future.result())
 
-            image_result = _merge_visual_generation_results(paths, total_segments, results)
+            return _merge_visual_generation_results(paths, total_segments, results)
+
+    # 提交到外层线程池并行执行
+    logger.info("🎬 开始并行执行开场视频渲染与段落画面生成...")
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        opening_future = executor.submit(render_opening_task)
+        segments_future = executor.submit(generate_segments_task)
+
+        # 等待完成并收集结果
+        image_result = segments_future.result()
+        opening_image_path = opening_future.result()
+
+    # 处理开场重新生成状态标记
+    if opening_quote:
+        need_refresh = regenerate_opening or not opening_previously_exists
+        if need_refresh and opening_image_path:
+            opening_regenerated = True
+        elif opening_previously_exists and not need_refresh:
+            print(f"保持现有开场视频: {opening_image_path}")
 
     failed_segments = image_result.get("failed_segments", [])
     if failed_segments:

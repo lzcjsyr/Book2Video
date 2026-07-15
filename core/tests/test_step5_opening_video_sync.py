@@ -66,9 +66,10 @@ def test_compose_video_uses_configured_output_fps(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(composer, "_create_main_segments", lambda *args, **kwargs: None)
     monkeypatch.setattr(composer, "_adjust_narration_volume", lambda clip, _volume: clip)
     monkeypatch.setattr(composer, "_add_visual_effects", lambda clip, _paths, _size: clip)
-    monkeypatch.setattr(composer, "_add_background_music", lambda clip, _bgm, _volume, _root: clip)
+    monkeypatch.setattr(composer, "_add_background_music", lambda clip, _bgm, _volume, _root, *args, **kwargs: clip)
     monkeypatch.setattr(composer, "_cleanup_resources", lambda *args, **kwargs: None)
     monkeypatch.setattr(composer, "_has_video_materials", lambda _paths: False)
+    monkeypatch.setattr(composer, "resolve_subtitle_font", lambda *_args: ("/fonts/cjk.ttc", 2))
 
     class _FakeFinalVideo:
         duration = 1.0
@@ -84,7 +85,18 @@ def test_compose_video_uses_configured_output_fps(monkeypatch, tmp_path: Path):
         captured["fps"] = fps
         Path(output_path).write_bytes(b"final-video")
 
+    def fake_export_three_by_four(source_path, output_path, script_data, **kwargs):
+        captured["three_by_four"] = {
+            "source_path": source_path,
+            "output_path": output_path,
+            "script_data": script_data,
+            "kwargs": kwargs,
+        }
+        Path(output_path).write_bytes(b"three-by-four-video")
+        return Path(output_path)
+
     monkeypatch.setattr(composer, "_export_video", fake_export)
+    monkeypatch.setattr("core.domain.composer.export_three_by_four_video", fake_export_three_by_four)
     monkeypatch.setattr(config, "VIDEO_OUTPUT_FPS", 30)
 
     output_path = tmp_path / "final_video.mp4"
@@ -92,12 +104,18 @@ def test_compose_video_uses_configured_output_fps(monkeypatch, tmp_path: Path):
         image_paths=["segment_1.png"],
         audio_paths=["voice_1.mp3"],
         output_path=str(output_path),
+        script_data={"cover_titles": ["主标题"], "cover_subtitles": ["副标题"]},
         image_size="1280x720",
         opening_quote=False,
     )
 
     assert result == str(output_path)
     assert captured["fps"] == 30
+    assert captured["three_by_four"]["source_path"] == str(output_path)
+    assert captured["three_by_four"]["output_path"] == tmp_path / "final_video_3x4.mp4"
+    assert captured["three_by_four"]["script_data"]["cover_titles"] == ["主标题"]
+    assert captured["three_by_four"]["kwargs"]["font_path"] == "/fonts/cjk.ttc"
+    assert captured["three_by_four"]["kwargs"]["font_ttc_index"] == 2
 
 
 def test_apply_audio_effects_respects_ducking_enabled_switch(monkeypatch):

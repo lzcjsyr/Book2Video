@@ -138,3 +138,58 @@ def test_run_step_4_forwards_llm_config_to_image_prompt_safety(monkeypatch, proj
     assert captured["llm_model"] == "some-llm"
     assert captured["llm_server"] == "siliconflow"
     assert captured["llm_base_url"] == "https://api.siliconflow.cn/v1"
+
+
+def test_run_step_4_generates_opening_background_and_renders_opening(monkeypatch, project_dir: Path):
+    called = {"renderer": 0, "bg_generator": 0, "segment_generator": 0}
+
+    def fake_load_json_file(path):
+        candidate = Path(path)
+        if not candidate.exists():
+            return None
+        return json.loads(candidate.read_text(encoding="utf-8"))
+
+    def fake_segment_images(*args, **kwargs):
+        called["segment_generator"] += 1
+        segment_path = project_dir / "images" / "segment_1.png"
+        segment_path.write_bytes(b"segment-image")
+        return {"image_paths": [str(segment_path)], "failed_segments": [], "processed_segments": [1]}
+
+    def fake_generate_single_image(args):
+        called["bg_generator"] += 1
+        segment_index, prompt, model, size, output_dir, server, safety = args
+        assert segment_index == "opening_bg"
+        bg_path = Path(output_dir) / f"segment_{segment_index}.png"
+        bg_path.write_bytes(b"bg-image-content")
+        return {"success": True, "segment_index": segment_index, "image_path": str(bg_path)}
+
+    def fake_render_opening_video(*args, **kwargs):
+        called["renderer"] += 1
+        assert kwargs.get("opening_bg_path") is not None
+        assert Path(kwargs.get("opening_bg_path")).name == "opening_bg.png"
+        output_path = project_dir / "images" / "opening.mp4"
+        output_path.write_bytes(b"opening-video")
+        return str(output_path)
+
+    monkeypatch.setattr(steps, "load_json_file", fake_load_json_file)
+    monkeypatch.setattr(steps, "generate_images_for_segments", fake_segment_images)
+    monkeypatch.setattr(steps, "render_opening_video", fake_render_opening_video)
+    monkeypatch.setattr("core.pipeline.steps._generate_single_image", fake_generate_single_image)
+
+    result = steps.run_step_4(
+        image_server="doubao",
+        image_model="model",
+        image_size="1280x720",
+        image_style_preset="style01",
+        project_output_dir=str(project_dir),
+        images_method="keywords",
+        opening_quote=True,
+        regenerate_opening=True,
+    )
+
+    assert result["success"] is True
+    assert called["bg_generator"] == 1
+    assert called["renderer"] == 1
+    assert called["segment_generator"] == 1
+    assert (project_dir / "images" / "opening_bg.png").exists()
+    assert (project_dir / "images" / "opening.mp4").exists()

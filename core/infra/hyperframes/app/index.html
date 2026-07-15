@@ -7,7 +7,8 @@
     {"id":"quoteLines","type":"string","label":"Quote Lines","default":"[]"},
     {"id":"focusWords","type":"string","label":"Focus Words","default":"[]"},
     {"id":"ipName","type":"string","label":"IP Name","default":"Cody叩底"},
-    {"id":"lineAppearTimes","type":"string","label":"Line Appear Times","default":"[]"}
+    {"id":"lineAppearTimes","type":"string","label":"Line Appear Times","default":"[]"},
+    {"id":"backgroundImage","type":"string","label":"Background Image","default":""}
   ]'>
 
 <head>
@@ -62,7 +63,7 @@
       position: absolute;
       inset: 0;
       z-index: 0;
-      opacity: 0.18;
+      opacity: 0.08;
       background-image:
         linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
@@ -74,19 +75,18 @@
       content: "";
       position: absolute;
       inset: 0;
-      z-index: 4;
+      z-index: 2;
       pointer-events: none;
       background:
-        radial-gradient(circle at 50% 48%, transparent 0 48%, rgba(0, 0, 0, 0.26) 78%, rgba(0, 0, 0, 0.72) 100%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 18%, transparent 78%, rgba(0, 0, 0, 0.28));
-      mix-blend-mode: multiply;
+        radial-gradient(ellipse at 50% 47%, rgba(5, 10, 12, 0.52) 0 24%, rgba(5, 10, 12, 0.18) 58%, rgba(0, 0, 0, 0.46) 100%),
+        linear-gradient(180deg, rgba(4, 8, 10, 0.1), transparent 20%, transparent 76%, rgba(0, 0, 0, 0.16));
     }
 
     .grain {
       position: absolute;
       inset: 0;
       z-index: 1;
-      opacity: 0.075;
+      opacity: 0.035;
       pointer-events: none;
       background-image:
         radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.55) 0 1px, transparent 1.5px),
@@ -100,7 +100,7 @@
       z-index: 1;
       pointer-events: none;
       filter: blur(2px);
-      opacity: 0.82;
+      opacity: 0.58;
     }
 
     .ambient-light.left {
@@ -116,7 +116,7 @@
       bottom: 8%;
       width: 42%;
       height: 58%;
-      background: radial-gradient(ellipse at center, rgba(118, 167, 174, 0.12), transparent 72%);
+      display: none;
     }
 
     .editorial-frame {
@@ -328,6 +328,10 @@
       data-composition-id="main": 对应主视频 composition
     -->
   <div id="root" data-composition-id="main" data-start="0" data-width="2560" data-height="1440" data-duration="4">
+    <!-- 动态背景图 -->
+    <div id="bg-image-container" style="position: absolute; inset: 0; z-index: 0; opacity: 0.42; overflow: hidden; pointer-events: none;">
+      <img id="bg-image" src="" style="width: 100%; height: 100%; object-fit: cover; filter: blur(10px) brightness(0.72) saturate(0.82);">
+    </div>
     <div class="grain"></div>
     <div class="ambient-light left"></div>
     <div class="ambient-light right"></div>
@@ -384,6 +388,7 @@
     ]);
     const focusWords = parseArrayVariable(vars.focusWords, ["系统", "规则"]);
     const lineAppearTimes = parseArrayVariable(vars.lineAppearTimes, [0.5, 1.25]).map(Number);
+    const backgroundImage = vars.backgroundImage || "";
     const width = parseInt(vars.width || 2560);
     const height = parseInt(vars.height || 1440);
     const durationSeconds = parseFloat(vars.durationSeconds || 4);
@@ -404,6 +409,15 @@
 
     // 3. 应用自适应布局样式与文字填充
     const root = document.getElementById("root");
+
+    // 填充背景图
+    const bgImageContainer = document.getElementById("bg-image-container");
+    const bgImageEl = document.getElementById("bg-image");
+    if (backgroundImage && bgImageEl) {
+      bgImageEl.src = backgroundImage;
+    } else if (bgImageContainer) {
+      bgImageContainer.style.display = "none";
+    }
     root.setAttribute("data-width", width);
     root.setAttribute("data-height", height);
     root.setAttribute("data-duration", durationSeconds);
@@ -474,18 +488,22 @@
     window.__timelines = window.__timelines || {};
     const tl = gsap.timeline({ paused: true });
 
-    // 5.1. 摄像机缓慢镜头推进
-    tl.to("#camera-rig", {
-      scale: 1.055,
-      duration: durationSeconds,
-      ease: "none"
-    }, 0);
+    // 5.1. 背景保留一次克制推进，前景文字保持稳定
+    if (backgroundImage && bgImageEl) {
+      tl.fromTo(bgImageEl, {
+        scale: 1.045
+      }, {
+        scale: 1.075,
+        duration: durationSeconds,
+        ease: "sine.inOut"
+      }, 0);
+    }
 
     tl.from(".quote-container", {
       opacity: 0,
-      scale: 1.035,
-      filter: "blur(10px)",
-      duration: 0.72,
+      scale: 1.018,
+      filter: "blur(6px)",
+      duration: 0.58,
       ease: "power3.out"
     }, 0.02);
 

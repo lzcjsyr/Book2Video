@@ -14,7 +14,7 @@ _QUOTE_BREAK_PUNCTUATION = {"。", "！", "？", "!", "?", "；", ";", "，", ",
 
 
 def _parse_size(size: str) -> tuple[int, int]:
-    raw = (size or "1280x720").lower().replace(" ", "")
+    raw = (size or "1280x720").lower().replace(" ", "").replace("×", "x").replace("*", "x")
     width, height = raw.split("x", 1)
     return int(width), int(height)
 
@@ -126,6 +126,7 @@ def render_opening_video(
     output_dir: str,
     script_data: Optional[Dict[str, Any]],
     opening_quote: bool = True,
+    opening_bg_path: Optional[str] = None,
 ) -> Optional[str]:
     if not opening_quote:
         return None
@@ -169,6 +170,16 @@ def render_opening_video(
         "height": height,
         "durationSeconds": duration_seconds,
     }
+    temp_bg_file = None
+    if opening_bg_path and os.path.exists(opening_bg_path):
+        import shutil
+        temp_bg_file = app_dir / "opening_bg.png"
+        try:
+            shutil.copy2(opening_bg_path, temp_bg_file)
+            props["backgroundImage"] = "opening_bg.png"
+            logger.info("Copied opening background image to template app dir: %s", temp_bg_file)
+        except Exception as e:
+            logger.warning(f"Failed to copy opening background to app dir: {e}")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -203,3 +214,10 @@ def render_opening_video(
         if exc.output:
             print(f"❌ 渲染日志:\n{exc.output}")
         return None
+    finally:
+        if temp_bg_file and temp_bg_file.exists():
+            try:
+                temp_bg_file.unlink()
+                logger.info("Cleaned up temp opening background image: %s", temp_bg_file)
+            except Exception as e:
+                logger.warning(f"Failed to delete temp opening background: {e}")

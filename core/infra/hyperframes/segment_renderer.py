@@ -31,7 +31,7 @@ def _hyperframes_subprocess_env() -> dict[str, str]:
 
 
 def _parse_size(size: str) -> tuple[int, int]:
-    raw = (size or "1280x720").lower().replace(" ", "")
+    raw = (size or "1280x720").lower().replace(" ", "").replace("×", "x").replace("*", "x")
     width, height = raw.split("x", 1)
     return int(width), int(height)
 

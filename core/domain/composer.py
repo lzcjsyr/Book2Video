@@ -35,6 +35,7 @@ from core.media_gateway import (
     export_video,
     normalize_bgm_loudness,
 )
+from core.infra.media.three_by_four import derive_output_path, export_three_by_four_video
 from core.shared import logger, handle_video_operation
 
 # ==================== 系统常量 ====================
@@ -157,10 +158,30 @@ class VideoComposer:
             final_video = self._add_visual_effects(final_video, image_paths, target_size)
 
             # 添加背景音乐
-            final_video = self._add_background_music(final_video, bgm_audio_path, bgm_volume, project_root)
+            final_video = self._add_background_music(
+                final_video, bgm_audio_path, bgm_volume, project_root,
+                temp_audio_paths=temp_audio_paths, audio_clips=audio_clips
+            )
             
             # 输出视频
             self._export_video(final_video, output_path, target_fps)
+
+            # 基于已完成的横屏母版向外扩展画布；不重复合成动态画面和字幕。
+            panel_font, panel_ttc_index = self.resolve_subtitle_font(
+                getattr(config, "SUBTITLE_FONT_FAMILY", "auto"),
+                int(getattr(config, "SUBTITLE_FONT_TTC_INDEX", 0) or 0),
+            )
+            three_by_four_path = derive_output_path(output_path)
+            export_three_by_four_video(
+                output_path,
+                three_by_four_path,
+                script_data,
+                font_path=panel_font,
+                font_ttc_index=panel_ttc_index,
+                video_codec=getattr(config, "VIDEO_CODEC", "h264"),
+                quality_level=int(getattr(config, "VIDEO_QUALITY_LEVEL", 70) or 70),
+            )
+            print(f"3:4贴片版已保存: {three_by_four_path}")
             
             print(f"最终视频已保存: {output_path}")
             return output_path
@@ -896,7 +917,10 @@ class VideoComposer:
         return final_video
     
     @handle_video_operation("背景音乐添加", critical=False, fallback_value=lambda self, final_video, *args: final_video)
-    def _add_background_music(self, final_video, bgm_audio_path: Optional[str], bgm_volume: float, project_root: Optional[str] = None):
+    def _add_background_music(self, final_video, bgm_audio_path: Optional[str], bgm_volume: float,
+                              project_root: Optional[str] = None,
+                              temp_audio_paths: Optional[List[str]] = None,
+                              audio_clips: Optional[List] = None):
         """添加背景音乐"""
         if not bgm_audio_path or not os.path.exists(bgm_audio_path):
             if bgm_audio_path:
@@ -909,9 +933,14 @@ class VideoComposer:
 
         # 如果启用了响度标准化且提供了project_root，先进行标准化处理
         if project_root and getattr(config, "BGM_NORMALIZE_LOUDNESS", False):
+            orig_path = bgm_audio_path
             bgm_audio_path = self._normalize_bgm_loudness(bgm_audio_path, project_root)
+            if temp_audio_paths is not None and bgm_audio_path != orig_path:
+                temp_audio_paths.append(bgm_audio_path)
 
         bgm_clip = AudioFileClip(bgm_audio_path)
+        if audio_clips is not None:
+            audio_clips.append(bgm_clip)
         print(f"🎵 BGM加载成功，时长: {bgm_clip.duration:.2f}秒")
         
         # 调整BGM音量
@@ -1454,7 +1483,8 @@ class VideoComposer:
     def _parse_image_size(self, image_size: str) -> Tuple[int, int]:
         """解析图像尺寸字符串，如 "1024x1024" -> (1024, 1024)"""
         try:
-            width_str, height_str = image_size.lower().split('x')
+            normalized_size = str(image_size or "1280x720").lower().replace("×", "x").replace("*", "x").replace(" ", "")
+            width_str, height_str = normalized_size.split('x')
             width = int(width_str.strip())
             height = int(height_str.strip())
             return (width, height)
