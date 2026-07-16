@@ -151,7 +151,7 @@ def display_project_progress_and_select_step(progress) -> Optional[float]:
 
     current_step = progress.get('current_step', 0)
 
-    print(f"\n📊 项目进度状态")
+    print("\n📊 项目进度状态")
     print("=" * 60)
 
     # 显示步骤状态 - 基于实际状态而非简单的数字比较
@@ -479,7 +479,7 @@ def interactive_music_selector(project_root: str = None):
                 })
 
     if not music_files:
-        print(f"⚠️ music文件夹中未找到音乐文件")
+        print("⚠️ music文件夹中未找到音乐文件")
         return ""
 
     # 按文件名排序
@@ -487,7 +487,7 @@ def interactive_music_selector(project_root: str = None):
 
     # 显示菜单
     print_section("请选择背景音乐", "🎵", "=")
-    print(f" 0. 无背景音乐")
+    print(" 0. 无背景音乐")
     for i, music in enumerate(music_files, 1):
         print(f"{i:2}. {music['name']}")
         print(f"     大小: {music['size_mb']:.1f}MB")
@@ -803,7 +803,7 @@ def _run_specific_step(
     mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100,
     visual_mode="static_image", hyperframes_style_preset="data_driven",
     hyperframes_max_turns=60, hyperframes_render_fps=30, hyperframes_concurrency=1,
-    image_prompt_template="current",
+    image_prompt_template="descriptions",
 ):
     """执行指定步骤并返回结果"""
     from core.pipeline.steps import run_step_1, run_step_1_5, run_step_2, run_step_3, run_step_4, run_step_5, run_step_6
@@ -1037,7 +1037,7 @@ def _run_step_by_step_loop(
     mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100,
     visual_mode="static_image", hyperframes_style_preset="data_driven",
     hyperframes_max_turns=60, hyperframes_render_fps=30, hyperframes_concurrency=1,
-    image_prompt_template="current",
+    image_prompt_template="descriptions",
 ):
     """执行指定步骤，然后进入交互模式让用户选择下一步操作"""
     from core.pipeline.scanner import detect_project_progress
@@ -1110,7 +1110,7 @@ def _run_step_by_step_loop(
             if isinstance(msg, str) and msg.strip():
                 print(msg)
             if selected_step == 5:
-                print(f"\n🎉 视频制作完成！")
+                print("\n🎉 视频制作完成！")
                 if result.get("final_video"):
                     print(f"最终视频: {result.get('final_video')}")
         else:
@@ -1403,10 +1403,6 @@ def run_cli_main(
         project_output_dir = result.get("project_output_dir")
         
         # 步骤1完成后，进入分步处理循环
-        from core.pipeline.scanner import detect_project_progress
-        
-        progress = detect_project_progress(project_output_dir)
-
         return _run_step_by_step_loop(
             project_output_dir, 0,  # 不执行初始步骤，直接进入交互模式
             llm_server_step1_5, llm_model_step1_5,

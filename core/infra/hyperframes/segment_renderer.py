@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import wave
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -11,29 +10,8 @@ from typing import Any, Dict, Iterable, Optional
 from moviepy import AudioFileClip
 
 from core.infra.ai.claude_agent import run_step4_hyperframes_agent
+from core.infra.hyperframes.runtime import HYPERFRAMES_VERSION, parse_size, subprocess_env
 from core.infra.project_paths import ProjectPaths
-
-
-HYPERFRAMES_VERSION = "hyperframes@0.7.10"
-
-
-def _hyperframes_subprocess_env() -> dict[str, str]:
-    env = os.environ.copy()
-    path_parts = [
-        "/opt/homebrew/bin",
-        "/usr/local/bin",
-        str(Path.home() / ".nvm/versions/node/v22.22.3/bin"),
-        str(Path.home() / ".nvm/versions/node/v22.22.2/bin"),
-    ]
-    current_path = env.get("PATH", "")
-    env["PATH"] = os.pathsep.join([*path_parts, current_path]) if current_path else os.pathsep.join(path_parts)
-    return env
-
-
-def _parse_size(size: str) -> tuple[int, int]:
-    raw = (size or "1280x720").lower().replace(" ", "").replace("×", "x").replace("*", "x")
-    width, height = raw.split("x", 1)
-    return int(width), int(height)
 
 
 def _audio_duration_seconds(audio_path: str) -> float:
@@ -115,7 +93,7 @@ def _render_one_segment(
     if not audio_path:
         return {"success": False, "segment_index": segment_index, "missing_audio": True}
 
-    width, height = _parse_size(image_size)
+    width, height = parse_size(image_size)
     segments = script_data.get("segments") or []
     segment = segments[segment_index - 1] if 0 <= segment_index - 1 < len(segments) else {}
     duration_seconds = _audio_duration_seconds(audio_path)
@@ -165,7 +143,7 @@ def _render_one_segment(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            env=_hyperframes_subprocess_env(),
+            env=subprocess_env(),
             timeout=max(300, int(duration_seconds * 90)),
         )
         _write_render_log(work_dir, completed.stdout or "render ok")

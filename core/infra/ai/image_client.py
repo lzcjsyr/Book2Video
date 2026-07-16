@@ -17,7 +17,7 @@ from core.prompts import (
     IMAGE_PROMPT_SAFETY_TEMPLATE,
     get_step4_image_description_prompt_template,
 )
-from core.shared import logger, ensure_directory_exists, APIError
+from core.shared import logger, ensure_directory_exists
 from core.infra.ai.image_providers import IMAGE_PROVIDERS
 from core.infra.ai.llm_client import text_to_text
 from core.infra.ai.tts_client import text_to_audio_bytedance
@@ -306,7 +306,7 @@ def generate_images_for_segments(
             image_style = ""
         logger.info(
             f"使用图像服务: {image_server}，风格: {image_style_preset} -> {image_style}，"
-            f"提示词模板: {image_prompt_template or 'current'}"
+            f"提示词模板: {image_prompt_template or 'descriptions'}"
         )
         segments = script_data.get("segments", [])
         if not segments:

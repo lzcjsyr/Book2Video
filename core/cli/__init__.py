@@ -1,10 +1,14 @@
-"""Core CLI sub-package marker."""
+"""Lazy public exports for the CLI adapter."""
 
-from core.cli.main import main
-from core.cli.ui_helpers import run_cli_main, setup_cli_logging
+from core._lazy import lazy_dir, lazy_getattr
 
-__all__ = [
-    "main",
-    "run_cli_main",
-    "setup_cli_logging",
-]
+_EXPORTS = {
+    "main": ("core.cli.main", "main"),
+    "run_cli_main": ("core.cli.ui_helpers", "run_cli_main"),
+    "setup_cli_logging": ("core.cli.ui_helpers", "setup_cli_logging"),
+}
+
+__all__ = list(_EXPORTS)
+
+__getattr__ = lazy_getattr(__name__, globals(), _EXPORTS)
+__dir__ = lazy_dir(globals(), __all__)

@@ -14,10 +14,6 @@ from typing import Dict, Any, List
 
 from core.domain.metadata import (
     get_source_name,
-    get_video_titles,
-    get_cover_titles,
-    get_cover_subtitles,
-    get_golden_quotes,
     get_primary_video_title,
 )
 from core.shared import logger, ensure_directory_exists, FileProcessingError

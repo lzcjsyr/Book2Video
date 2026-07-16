@@ -27,7 +27,7 @@ def test_static_image_generation_uses_selected_prompt_template(monkeypatch, tmp_
         image_size="1280x720",
         output_dir=str(tmp_path),
         description_data={"summary": "关于个人成长与选择的故事"},
-        image_prompt_template="cinematic",
+        image_prompt_template="pure_images",
     )
 
     assert result["failed_segments"] == []

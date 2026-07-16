@@ -65,15 +65,6 @@ class ProjectPaths:
         """
         return os.path.join(self.images, f"segment_{index}.png")
     
-    def cover_image(self, suffix: str) -> str:
-        """
-        封面图片路径
-        
-        Args:
-            suffix: 文件名后缀（如时间戳）
-        """
-        return os.path.join(self.root, f"cover_{suffix}.png")
-    
     # ==================== Voice 目录相关路径 ====================
     
     def opening_audio(self) -> str:
@@ -96,12 +87,6 @@ class ProjectPaths:
         """
         return os.path.join(self.voice, f"voice_{index}.{extension}")
     
-    def srt_subtitles(self) -> str:
-        """
-        SRT字幕文件路径
-        """
-        return os.path.join(self.voice, "字幕.srt")
-    
     # ==================== 其他文件路径 ====================
     
     def final_video(self) -> str:
@@ -115,10 +100,6 @@ class ProjectPaths:
         os.makedirs(self.text, exist_ok=True)
         os.makedirs(self.images, exist_ok=True)
         os.makedirs(self.voice, exist_ok=True)
-    
-    def segment_image_exists(self, index: int) -> bool:
-        """检查指定段落的图片是否存在"""
-        return os.path.exists(self.segment_image(index))
     
     def segment_audio_exists(self, index: int) -> Optional[str]:
         """

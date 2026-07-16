@@ -79,14 +79,14 @@ step4:
   # visual_mode: hyperframes_agent # 动态：生成 images/segment_i.mp4
   # visual_mode: mixed             # 混合：按每段 visualizer 选择图片或 HyperFrames
   hyperframes_style_preset: data_driven
-  image_prompt_template: current  # current / cinematic / editorial
+  image_prompt_template: descriptions  # descriptions / pure_images / editorial
 ```
 
 选择 `hyperframes_agent` 时，系统会先使用步骤 3 已生成的真实音频时长，再调用 Claude Agent 按项目内置 HyperFrames 规范生成动态 HTML 并渲染为分段视频。
 
 选择 `mixed` 时，系统读取 `text/script.json` 中每段的 `visualizer` 字段：`image` 生成 `segment_i.png`，`hf` 生成 `segment_i.mp4`。步骤 1.5 的默认规则模式会把每段 `visualizer` 写为 `image`；带 `【hf】` 标记或 Agent 判定为动态配图的段落会写为 `hf`。混合模式下两类段落会分组并行生成。
 
-静态图片使用的提示词模板集中定义在 `prompts/step4_image_templates.yaml`。每个模板都包含便于人类辨识的 `label`、`description` 和原样多行的 `template`；只有 `template` 正文会发送给生图模型。`current` 完整保留原有图示加中文关键词模板；`cinematic` 生成无文字的电影感叙事画面；`editorial` 生成现代编辑设计和知识信息图。通过 `step4.image_prompt_template` 选择，配置不存在的模板名称时会直接报错并列出可选项。
+静态图片使用的提示词模板集中定义在 `prompts/step4_image_templates.yaml`。每个模板都包含便于人类辨识的 `label`、`description` 和原样多行的 `template`；只有 `template` 正文会发送给生图模型。`descriptions` 完整保留原有图示加中文关键词模板；`pure_images` 生成无文字的电影感叙事画面；`editorial` 生成现代编辑设计和知识信息图。通过 `step4.image_prompt_template` 选择，配置不存在的模板名称时会直接报错并列出可选项。
 
 ---
 

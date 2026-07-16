@@ -7,33 +7,15 @@ from typing import Any, Dict, List, Optional
 from core.config import config
 from core.domain.composer import VideoComposer
 from core.domain.metadata import get_primary_golden_quote, parse_marked_focus_text
+from core.infra.hyperframes.runtime import parse_size, subprocess_env
 from core.shared import logger
 
 
 _QUOTE_BREAK_PUNCTUATION = {"。", "！", "？", "!", "?", "；", ";", "，", ",", "：", ":"}
 
 
-def _parse_size(size: str) -> tuple[int, int]:
-    raw = (size or "1280x720").lower().replace(" ", "").replace("×", "x").replace("*", "x")
-    width, height = raw.split("x", 1)
-    return int(width), int(height)
-
-
 def _hyperframes_app_dir() -> Path:
     return Path(__file__).resolve().parent / "app"
-
-
-def _hyperframes_subprocess_env() -> dict[str, str]:
-    env = os.environ.copy()
-    path_parts = [
-        "/opt/homebrew/bin",
-        "/usr/local/bin",
-        str(Path.home() / ".nvm/versions/node/v22.22.3/bin"),
-        str(Path.home() / ".nvm/versions/node/v22.22.2/bin"),
-    ]
-    current_path = env.get("PATH", "")
-    env["PATH"] = os.pathsep.join([*path_parts, current_path]) if current_path else os.pathsep.join(path_parts)
-    return env
 
 
 def _split_quote_fragments(quote: str) -> List[str]:
@@ -142,7 +124,7 @@ def render_opening_video(
     # The opening template is authored on a 2560×1440 canvas.  Rendering it
     # at a smaller image-generation size changes its fixed-pixel layout; the
     # final composer is responsible for scaling this video to the target size.
-    _parse_size(image_size)
+    parse_size(image_size)
     width, height = 2560, 1440
     quote_lines = _split_quote_lines(clean_quote)
     app_dir = _hyperframes_app_dir()
@@ -205,7 +187,7 @@ def render_opening_video(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            env=_hyperframes_subprocess_env(),
+            env=subprocess_env(),
         )
         logger.info("Opening HyperFrames video rendered: %s", output_path)
         return str(output_path)

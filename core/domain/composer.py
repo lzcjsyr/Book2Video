@@ -25,14 +25,12 @@ from moviepy import (
 
 from core.config import config
 from core.domain.subtitles import (
-    calculate_mixed_length,
     calculate_subtitle_durations,
     format_subtitle_display_text,
     split_text_for_subtitle,
 )
 from core.media_gateway import (
     adjust_audio_speed,
-    build_atempo_filter_chain,
     export_video,
     normalize_bgm_loudness,
 )
@@ -46,10 +44,6 @@ SUPPORTED_VIDEO_FORMATS = [".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".m4
 
 class VideoComposer:
     """统一的视频合成器"""
-    
-    def __init__(self):
-        """初始化视频合成器"""
-        pass
     
     def compose_video(self, image_paths: List[str], audio_paths: List[str], output_path: str,
                      script_data: Dict[str, Any] = None, enable_subtitles: bool = False,
@@ -255,10 +249,6 @@ class VideoComposer:
                                      temp_audio_paths: List[str]) -> str:
         """使用FFmpeg执行变速并保持音高，返回处理后的音频路径"""
         return adjust_audio_speed(audio_path, speed_factor, temp_audio_paths)
-
-    def _build_atempo_filter_chain(self, speed_factor: float) -> str:
-        """根据目标变速系数生成FFmpeg atempo滤镜链"""
-        return build_atempo_filter_chain(speed_factor)
 
     def _create_text_image_pil(self, text: str, font_size: int, font_path: str,
                                text_color: str, stroke_color: str, stroke_width: int,
@@ -493,8 +483,6 @@ class VideoComposer:
         Returns:
             带过渡效果的组合片段
         """
-        import numpy as np
-
         # 获取片段尺寸
         width, height = clip1.size
 
@@ -544,8 +532,6 @@ class VideoComposer:
         Returns:
             带过渡效果的组合片段
         """
-        import numpy as np
-
         # 获取片段尺寸
         width, height = clip1.size
 
@@ -1096,24 +1082,6 @@ class VideoComposer:
         
         return bgm_clip
     
-    def _create_linear_fade_out_gain(self, total: float, tail: float):
-        """创建线性淡出增益函数"""
-        cutoff = max(0.0, total - tail)
-        
-        def linear_fade_gain(t_any):
-            def calc_single_gain(ts: float) -> float:
-                if ts <= cutoff:
-                    return 1.0
-                if ts >= total:
-                    return 0.0
-                return max(0.0, 1.0 - (ts - cutoff) / tail)
-            
-            if hasattr(t_any, "__len__"):
-                return np.array([calc_single_gain(float(ts)) for ts in t_any])
-            return calc_single_gain(float(t_any))
-        
-        return linear_fade_gain
-    
     def _export_video(self, final_video, output_path: str, fps: int = 15):
         """导出视频"""
         export_video(
@@ -1282,10 +1250,6 @@ class VideoComposer:
         if isinstance(shadow_offset, (tuple, list)) and len(shadow_offset) == 2:
             scaled["shadow_offset"] = tuple(int(round(float(value) * scale)) for value in shadow_offset)
         return scaled
-    
-    def _calculate_mixed_length(self, text: str) -> float:
-        """计算混合中英文本的等效长度"""
-        return calculate_mixed_length(text)
     
     def _calculate_subtitle_durations(self, subtitle_texts: List[str], total_duration: float) -> List[float]:
         """计算每行字幕的显示时长"""

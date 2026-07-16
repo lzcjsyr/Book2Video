@@ -104,3 +104,15 @@ def test_dependency_checker_can_require_configured_api_keys(tmp_path: Path, monk
     report = checker.check(require_api_keys=True)
 
     assert any(item.name == "API keys" and not item.ok for item in report.items)
+
+
+def test_dependency_checker_accepts_current_volcengine_key_name(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / ".env").write_text("VOLCENGINE_API_KEY=configured\n", encoding="utf-8")
+    checker = DependencyChecker(repo_root=tmp_path)
+    monkeypatch.setattr(
+        checker,
+        "_required_key_groups",
+        lambda: [("步骤4画面生成", ("VOLCENGINE_API_KEY", "SEEDREAM_API_KEY"))],
+    )
+
+    assert checker._check_api_keys().ok

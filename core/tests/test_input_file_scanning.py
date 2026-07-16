@@ -1,7 +1,20 @@
 from pathlib import Path
 
 from core.cli.project_io import scan_input_files as scan_cli_input_files
+from core.pipeline import scanner
 from core.pipeline.scanner import scan_input_files as scan_pipeline_input_files
+
+
+def test_relative_input_path_is_anchored_to_project_root(monkeypatch, tmp_path: Path):
+    project_root = tmp_path / "project"
+    input_dir = project_root / "input"
+    input_dir.mkdir(parents=True)
+    (input_dir / "notes.txt").write_text("content", encoding="utf-8")
+
+    monkeypatch.setattr(scanner, "__file__", str(project_root / "core" / "pipeline" / "scanner.py"))
+    monkeypatch.chdir(tmp_path)
+
+    assert [item["name"] for item in scanner.scan_input_files()] == ["notes.txt"]
 
 
 def test_input_scanners_include_agent_readable_text_and_office_formats(tmp_path: Path):
@@ -32,14 +45,11 @@ def test_input_scanners_include_agent_readable_text_and_office_formats(tmp_path:
         ".doc",
     }
 
-    cli_extensions = {item["extension"] for item in scan_cli_input_files(str(input_dir))}
-    pipeline_extensions = {item["extension"] for item in scan_pipeline_input_files(str(input_dir))}
-    cli_directories = {item["name"] for item in scan_cli_input_files(str(input_dir)) if item.get("is_directory")}
-    pipeline_directories = {item["name"] for item in scan_pipeline_input_files(str(input_dir)) if item.get("is_directory")}
+    assert scan_cli_input_files is scan_pipeline_input_files
+    discovered = scan_pipeline_input_files(str(input_dir))
+    extensions = {item["extension"] for item in discovered}
+    directories = {item["name"] for item in discovered if item.get("is_directory")}
 
-    assert expected <= cli_extensions
-    assert ".png" not in cli_extensions
-    assert "source_folder" in cli_directories
-    assert expected <= pipeline_extensions
-    assert ".png" not in pipeline_extensions
-    assert "source_folder" in pipeline_directories
+    assert expected <= extensions
+    assert ".png" not in extensions
+    assert "source_folder" in directories

@@ -26,7 +26,6 @@ from core.domain.metadata import (
     parse_marked_focus_text,
 )
 from core.domain.docx_transform import export_raw_to_docx
-from core.domain.reader import DocumentReader
 from core.infra.ai.image_client import (
     generate_cover_images,
     generate_images_for_segments,

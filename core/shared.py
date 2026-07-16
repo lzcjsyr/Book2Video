@@ -24,7 +24,7 @@ import logging
 import datetime
 import re
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 # 只定义logger对象，由具体的CLI或Web模块来配置
 logger = logging.getLogger('AIGC_Video')
@@ -52,19 +52,6 @@ class FileProcessingError(Exception):
     """文件处理异常类"""
     pass
 
-def log_function_call(func):
-    """装饰器：记录函数调用"""
-    def wrapper(*args, **kwargs):
-        logger.info(f"调用函数: {func.__name__}")
-        try:
-            result = func(*args, **kwargs)
-            logger.info(f"函数 {func.__name__} 执行成功")
-            return result
-        except Exception as e:
-            logger.debug(f"函数 {func.__name__} 执行失败: {str(e)}")
-            raise
-    return wrapper
-
 def ensure_directory_exists(directory: str) -> None:
     """确保目录存在，如不存在则创建"""
     Path(directory).mkdir(parents=True, exist_ok=True)
@@ -73,10 +60,6 @@ def ensure_directory_exists(directory: str) -> None:
 def safe_file_operation(operation: str, file_path: str, operation_func, *args, **kwargs):
     """安全的文件操作包装器，统一错误处理"""
     try:
-        # 确保目录存在
-        if operation in ['save', 'write', 'create']:
-            ensure_directory_exists(os.path.dirname(file_path))
-        
         # 执行操作
         return operation_func(*args, **kwargs)
         
@@ -94,28 +77,6 @@ def safe_file_operation(operation: str, file_path: str, operation_func, *args, *
         raise FileProcessingError(error_msg)
 
 
-def validate_file_format(file_path: str, supported_formats: List[str]) -> bool:
-    """验证文件格式"""
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"文件不存在: {file_path}")
-    
-    file_extension = Path(file_path).suffix.lower()
-    if file_extension not in supported_formats:
-        raise FileProcessingError(f"不支持的文件格式: {file_extension}，支持的格式: {supported_formats}")
-    
-    return True
-
-
-
-def save_json_file(data: Dict[str, Any], file_path: str) -> None:
-    """安全地保存JSON文件"""
-    def _save():
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        logger.info(f"JSON文件已保存: {file_path}")
-    
-    safe_file_operation("保存JSON", file_path, _save)
-
 def load_json_file(file_path: str) -> Dict[str, Any]:
     """安全地加载JSON文件"""
     def _load():
@@ -125,12 +86,6 @@ def load_json_file(file_path: str) -> Dict[str, Any]:
         return data
     
     return safe_file_operation("加载JSON", file_path, _load)
-
-def calculate_duration(text_length: int, speech_speed_wpm: int = 300) -> float:
-    """计算文本播放时长（秒）"""
-    # 中文按每分钟300字计算
-    duration_seconds = (text_length / speech_speed_wpm) * 60
-    return round(duration_seconds, 1)
 
 def format_file_size(size_bytes: int) -> str:
     """格式化文件大小显示"""
@@ -226,22 +181,9 @@ def handle_video_operation(operation_name: str, critical: bool = False, fallback
         return wrapper
     return decorator
 
-def validate_required_fields(data: Dict[str, Any], required_fields: List[str]) -> None:
-    """验证必需字段"""
-    missing_fields = []
-    for field in required_fields:
-        if field not in data or data[field] is None:
-            missing_fields.append(field)
-    
-    if missing_fields:
-        raise ValueError(f"缺少必需字段: {', '.join(missing_fields)}")
-
-
 # 导出主要函数和类
 __all__ = [
     'VideoProcessingError', 'APIError', 'FileProcessingError',
-    'log_function_call', 'ensure_directory_exists',
-    'validate_file_format', 'save_json_file', 'load_json_file',
-    'calculate_duration', 'format_file_size', 'get_file_info',
-    'retry_on_failure', 'validate_required_fields', 'handle_video_operation', 'logger',
+    'ensure_directory_exists', 'load_json_file', 'format_file_size',
+    'get_file_info', 'retry_on_failure', 'handle_video_operation', 'logger',
 ]

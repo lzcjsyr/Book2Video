@@ -138,7 +138,7 @@ def test_from_cli_params_maps_tts_aliases():
     assert gen.emotion == params["tts_emotion"]
     assert gen.input_file == "input/book.pdf"
     assert gen.num_segments == params["num_segments"]
-    assert gen.image_prompt_template == params["image_prompt_template"] == "current"
+    assert gen.image_prompt_template == params["image_prompt_template"] == "descriptions"
 
 
 def test_video_generation_config_rejects_unknown_image_prompt_template():

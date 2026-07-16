@@ -1,8 +1,6 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from core.cli import ui_helpers
 from core.infra.project_paths import ProjectPaths
 from core.pipeline import scanner

@@ -1,84 +1,9 @@
-"""CLI-owned input/output directory scanning and selection helpers."""
+"""CLI exports for project and input discovery.
 
-import datetime
-import os
-from pathlib import Path
-from typing import Any, Dict, List
+Discovery belongs to the pipeline scanner; these aliases preserve the public
+CLI import paths without maintaining a second implementation.
+"""
 
-from core.shared import (
-    FileProcessingError,
-    SUPPORTED_INPUT_EXTENSIONS,
-    get_file_info,
-    logger,
-    project_name_sort_key,
-)
-
-
-def _resolve_cli_path(path: str) -> str:
-    if os.path.isabs(path):
-        return path
-    # Since this file is located in core/cli/project_io.py, its parent is core/cli, and its parent's parent is core.
-    # The project root is three levels up.
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    return os.path.join(project_root, path)
-
-
-def scan_input_files(input_dir: str = "input") -> List[Dict[str, Any]]:
-    """Scan CLI input directory for supported document files."""
-    input_dir = _resolve_cli_path(input_dir)
-    if not os.path.exists(input_dir):
-        logger.warning(f"输入目录不存在: {input_dir}")
-        return []
-
-    files: List[Dict[str, Any]] = []
-    logger.info(f"CLI 正在扫描输入目录: {input_dir}")
-
-    try:
-        for file_name in os.listdir(input_dir):
-            file_path = os.path.join(input_dir, file_name)
-            if os.path.isdir(file_path):
-                files.append(get_file_info(file_path))
-                continue
-            extension = Path(file_path).suffix.lower()
-            if extension in SUPPORTED_INPUT_EXTENSIONS:
-                files.append(get_file_info(file_path))
-    except Exception as exc:
-        logger.error(f"扫描输入目录失败: {exc}")
-        raise FileProcessingError(f"扫描输入目录失败: {exc}")
-
-    files.sort(key=lambda item: item["modified_time"], reverse=True)
-    return files
-
-
-def scan_output_projects(output_dir: str = "output") -> List[Dict[str, Any]]:
-    """Scan CLI output directory for existing projects."""
-    output_dir = _resolve_cli_path(output_dir)
-    projects: List[Dict[str, Any]] = []
-
-    if not os.path.exists(output_dir):
-        return projects
-
-    try:
-        for entry in os.listdir(output_dir):
-            path = os.path.join(output_dir, entry)
-            if not os.path.isdir(path):
-                continue
-            text_dir = os.path.join(path, "text")
-            if os.path.isdir(text_dir):
-                stat = os.stat(path)
-                projects.append(
-                     {
-                        "path": path,
-                        "name": entry,
-                        "modified_time": datetime.datetime.fromtimestamp(stat.st_mtime),
-                     }
-                )
-    except Exception as exc:
-        logger.warning(f"扫描输出目录失败: {exc}")
-        return []
-
-    projects.sort(key=project_name_sort_key)
-    return projects
-
+from core.pipeline.scanner import scan_input_files, scan_output_projects
 
 __all__ = ["scan_input_files", "scan_output_projects"]

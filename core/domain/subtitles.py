@@ -456,8 +456,6 @@ def _line_penalty(
     left_text = tokens[end - 1].text.rstrip()
     right_text = tokens[end].text.lstrip()
     left_char = left_text[-1:] if left_text else ""
-    right_char = right_text[:1] if right_text else ""
-
     if left_char in _STRONG_END:
         penalty -= 50
     elif left_char in _MEDIUM_END:
@@ -492,18 +490,6 @@ def _splits_number_measure_phrase(tokens: list[_Token], boundary: int) -> bool:
 
 def _is_cjk(char: str) -> bool:
     return bool(char) and "\u3400" <= char <= "\u9fff"
-
-
-def _find_protected_pair_ranges(text: str, pair_markers: dict, max_chars: int) -> List[tuple]:
-    """兼容旧的私有辅助函数，并修复直引号无法闭合的问题。"""
-    pairs, _ = _find_pair_ranges_and_roles(text)
-    return [
-        (start, end)
-        for start, end in pairs
-        if text[start] in pair_markers
-        and pair_markers[text[start]] == text[end]
-        and end - start + 1 <= max_chars
-    ]
 
 
 def _split_text_evenly(text: str, max_chars_per_line: int) -> List[str]:

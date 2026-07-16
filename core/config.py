@@ -8,7 +8,7 @@ config.example.yaml as the built-in defaults.
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Mapping
+from typing import Dict, List, Optional, Mapping
 from dotenv import load_dotenv
 import yaml
 
@@ -64,7 +64,7 @@ IMAGE_SERVER: str = ""
 IMAGE_SIZE: str = ""
 IMAGE_MODEL: str = ""
 IMAGE_STYLE_PRESET: str = ""
-IMAGE_PROMPT_TEMPLATE: str = "current"
+IMAGE_PROMPT_TEMPLATE: str = "descriptions"
 MAX_CONCURRENT_IMAGE_GENERATION: int = 1
 LLM_SERVER_STEP4: str = ""
 LLM_MODEL_STEP4: str = ""
@@ -437,7 +437,6 @@ class Config:
     KIMI_API_KEY = os.getenv("KIMI_API_KEY") or os.getenv("MOONSHOT_API_KEY")
     DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
     VOLCENGINE_API_KEY = os.getenv("VOLCENGINE_API_KEY") or os.getenv("SEEDREAM_API_KEY")
-    SEEDREAM_API_KEY = VOLCENGINE_API_KEY
     SILICONFLOW_KEY = os.getenv("SILICONFLOW_KEY")
     GOOGLE_CLOUD_API_KEY = os.getenv("GOOGLE_CLOUD_API_KEY")
     GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GOOGLE_PROJECT_ID")
@@ -473,60 +472,10 @@ class Config:
             "zh_female_daimengchuanmei_moon_bigtts",
         ],
     }
-    SUPPORTED_VIDEO_SIZES = {
-        "横屏16:9": ["1280x720", "1664x928", "1920x1080", "2560x1440"],
-        "竖屏9:16": ["720x1280", "1080x1920"],
-        "方形1:1": ["1024x1024", "1664x1664"],
-        "竖屏3:4": ["864x1152", "1536x2048", "2250x3000"],
-    }
-    SEEDREAM_V4_MIN_SIZE = (1280, 720)
-    SEEDREAM_V4_MAX_SIZE = (4096, 4096)
     SEEDREAM_V5_MIN_PIXELS = 3686400
-    SEEDREAM_V5_MAX_SIZE = (4096, 4096)
-    SEEDREAM_V3_MIN_SIZE = (512, 512)
-    SEEDREAM_V3_MAX_SIZE = (2048, 2048)
-    SERVER_TYPE_MAP = {"image_server": "image", "tts_server": "voice", "text": "text"}
     MIN_NUM_SEGMENTS = 5
     MAX_NUM_SEGMENTS = 100
     SPEECH_SPEED_WPM = 250
-
-    @classmethod
-    def validate_api_keys(cls) -> Dict[str, bool]:
-        """验证API密钥配置"""
-        return {
-            "openrouter": bool(cls.OPENROUTER_API_KEY),
-            "mimo": bool(cls.MIMO_API_KEY),
-            "kimi": bool(cls.KIMI_API_KEY),
-            "deepseek": bool(cls.DEEPSEEK_API_KEY),
-            "siliconflow": bool(cls.SILICONFLOW_KEY),
-            "seedream": bool(cls.SEEDREAM_API_KEY),
-            "google": bool(cls.GOOGLE_CLOUD_API_KEY or cls.GOOGLE_CLOUD_PROJECT),
-            "bytedance_tts": bool(cls.BYTEDANCE_TTS_API_KEY),
-        }
-
-    @classmethod
-    def get_missing_keys(cls) -> List[str]:
-        """获取缺失的必需API密钥"""
-        missing = []
-        key_status = cls.validate_api_keys()
-        llm_servers = {cls.LLM_SERVER_STEP2, cls.LLM_SERVER_STEP4}
-        if "siliconflow" in llm_servers and not key_status["siliconflow"]:
-            missing.append("SILICONFLOW_KEY")
-        if "openrouter" in llm_servers and not key_status["openrouter"]:
-            missing.append("OPENROUTER_API_KEY")
-        if "mimo" in llm_servers and not key_status["mimo"]:
-            missing.append("MIMO_API_KEY")
-        if "kimi" in llm_servers and not key_status["kimi"]:
-            missing.append("KIMI_API_KEY 或 MOONSHOT_API_KEY")
-        if "deepseek" in llm_servers and not key_status["deepseek"]:
-            missing.append("DEEPSEEK_API_KEY")
-        if "volcengine" in llm_servers and not key_status["seedream"]:
-            missing.append("VOLCENGINE_API_KEY")
-        if not (key_status["seedream"] or key_status["google"]):
-            missing.append("VOLCENGINE_API_KEY 或 GOOGLE_CLOUD_API_KEY / GOOGLE_CLOUD_PROJECT")
-        if not key_status["bytedance_tts"]:
-            missing.append("BYTEDANCE_TTS_API_KEY")
-        return missing
 
     @classmethod
     def get_required_keys_for_config(cls, image_server: str, tts_server: str, *llm_key_names: str) -> List[str]:

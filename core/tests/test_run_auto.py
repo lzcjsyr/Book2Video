@@ -101,7 +101,7 @@ def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tm
         image_server="google",
         image_model="gemini-3.1-flash-image-preview",
         image_size="1280x720",
-        image_prompt_template="cinematic",
+        image_prompt_template="pure_images",
         visual_mode="hyperframes_agent",
         hyperframes_style_preset="light_corporate",
         hyperframes_max_turns=9,
@@ -132,4 +132,4 @@ def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tm
     assert captured["step4_kwargs"]["hyperframes_max_turns"] == 9
     assert captured["step4_kwargs"]["hyperframes_render_fps"] == 60
     assert captured["step4_kwargs"]["hyperframes_concurrency"] == 2
-    assert captured["step4_kwargs"]["image_prompt_template"] == "cinematic"
+    assert captured["step4_kwargs"]["image_prompt_template"] == "pure_images"

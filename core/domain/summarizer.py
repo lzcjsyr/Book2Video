@@ -1,6 +1,6 @@
 """Text-related logic: summarization and script segmentation."""
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 import re
 import json
 import datetime
@@ -11,8 +11,6 @@ from core.domain.metadata import (
     get_cover_titles,
     get_golden_quotes,
     get_video_titles,
-    normalize_text_list,
-    strip_book_title_marks,
 )
 from core.prompts import description_summary_system_prompt
 from core.shared import logger
@@ -63,7 +61,7 @@ def parse_json_robust(raw_text: str) -> Dict[str, Any]:
                 end = text_to_parse.rfind('}')
             
     if end == -1 or end < start:
-        logger.error(f"修复失败，无法找到有效JSON结构")
+        logger.error("修复失败，无法找到有效JSON结构")
         raise ValueError("未在输出中找到有效的JSON对象")
     
     snippet = text_to_parse[start:end+1]

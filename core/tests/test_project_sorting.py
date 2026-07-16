@@ -26,5 +26,5 @@ def test_output_projects_sort_by_folder_numeric_prefix(tmp_path: Path) -> None:
         "template_project",
     ]
 
-    assert [p["name"] for p in scan_cli_output_projects(str(tmp_path))] == expected
+    assert scan_cli_output_projects is scan_core_output_projects
     assert [p["name"] for p in scan_core_output_projects(str(tmp_path))] == expected

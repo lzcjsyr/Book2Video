@@ -135,10 +135,10 @@ step4:
   # 段落图像风格预设，见 core/prompts.py 的 IMAGE_STYLE_PRESETS。
   image_style_preset: style02
   # 静态生图提示词模板，定义在 prompts/step4_image_templates.yaml：
-  # - current：原有图示+中文关键词模板（默认）
-  # - cinematic：无文字的电影感叙事画面
+  # - descriptions：原有图示+中文关键词模板（默认）
+  # - pure_images：无文字的电影感叙事画面
   # - editorial：现代编辑设计/知识信息图
-  image_prompt_template: current
+  image_prompt_template: descriptions
   # 图像生成并发。Google/高成本模型建议 1，稳定后再提高。
   max_concurrent_image_generation: 1
 

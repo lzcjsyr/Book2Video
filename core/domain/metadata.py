@@ -4,17 +4,6 @@ import re
 from typing import Any, Dict, List, Tuple
 
 
-def ensure_book_title_format(source_name: str, fallback: str = "") -> str:
-    title = (source_name or "").strip()
-    if not title:
-        title = (fallback or "").strip()
-    if not title:
-        return "《未命名作品》"
-    if not (title.startswith("《") and title.endswith("》")):
-        title = f"《{title.strip('《》')}》"
-    return title
-
-
 def strip_book_title_marks(text: str) -> str:
     return (text or "").strip().strip("《》").strip()
 
@@ -92,8 +81,3 @@ def get_golden_quotes(data: Dict[str, Any]) -> List[str]:
 def get_primary_golden_quote(data: Dict[str, Any], fallback: str = "") -> str:
     quotes = get_golden_quotes(data)
     return quotes[0] if quotes else fallback
-
-
-def get_content_title(data: Dict[str, Any], fallback: str = "") -> str:
-    source_name = get_source_name(data, fallback)
-    return ensure_book_title_format(source_name, fallback)

@@ -5,17 +5,15 @@
 
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import warnings
+from contextlib import suppress
 from importlib import import_module
 from pathlib import Path
 from typing import Tuple
 
-# 文档处理库
-import ebooklib
-from ebooklib import epub
-import pdfplumber
 from docx import Document
 
 from core.shared import logger, FileProcessingError
@@ -108,10 +106,6 @@ class DocumentReader:
     # 支持的文件格式
     SUPPORTED_FORMATS = ['.epub', '.pdf', '.mobi', '.azw3', '.docx', '.doc']
     
-    def __init__(self):
-        """初始化文档读取器"""
-        pass
-    
     def read(self, file_path: str) -> Tuple[str, int]:
         """
         读取文档内容
@@ -172,11 +166,13 @@ class DocumentReader:
         logger.info(f"读取EPUB文件: {os.path.basename(file_path)}")
         
         try:
+            from ebooklib import ITEM_DOCUMENT, epub
+
             book = epub.read_epub(file_path)
             content_parts = []
             
             for item in book.get_items():
-                if item.get_type() == ebooklib.ITEM_DOCUMENT:
+                if item.get_type() == ITEM_DOCUMENT:
                     content = item.get_content().decode('utf-8', errors='ignore')
                     cleaned = clean_text(content)
                     if cleaned:
@@ -218,6 +214,8 @@ class DocumentReader:
         # 备用pdfplumber
         if not content_parts:
             try:
+                import pdfplumber
+
                 with pdfplumber.open(file_path) as pdf:
                     for page in pdf.pages:
                         text = page.extract_text()
@@ -300,61 +298,47 @@ class DocumentReader:
     def _extract_mobi_text(self, raw_content: bytes) -> str:
         """从MOBI原始内容中提取文本"""
         logger.info(f"开始提取MOBI文本，文件大小: {len(raw_content)} bytes")
-        
+
+        temp_file_path = None
+        tempdir = None
         try:
-            # 尝试使用mobi库解析
             import mobi
-            import tempfile
-            import os
-            
-            # 创建临时文件
+
             with tempfile.NamedTemporaryFile(suffix='.mobi', delete=False) as temp_file:
                 temp_file.write(raw_content)
                 temp_file_path = temp_file.name
-            
-            try:
-                # 使用mobi库提取
-                tempdir, filepath = mobi.extract(temp_file_path)
-                
-                # 读取提取的HTML文件
-                text_content = ""
-                for root, dirs, files in os.walk(tempdir):
-                    for file in files:
-                        if file.endswith(('.html', '.htm')):
-                            file_path = os.path.join(root, file)
-                            try:
-                                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                                    html_content = f.read()
-                                    # 简单去除HTML标签
-                                    import re
-                                    clean_content = re.sub(r'<[^>]+>', ' ', html_content)
-                                    clean_content = re.sub(r'\s+', ' ', clean_content)
-                                    text_content += clean_content + " "
-                            except:
-                                continue
-                
-                # 清理临时文件
-                import shutil
-                shutil.rmtree(tempdir, ignore_errors=True)
-                os.unlink(temp_file_path)
-                
-                if text_content.strip():
-                    logger.info(f"使用mobi库提取完成，文本长度: {len(text_content)} 字符")
-                    return text_content.strip()
-                    
-            except Exception as e:
-                logger.warning(f"mobi库提取失败: {e}")
-                os.unlink(temp_file_path)
-                
+
+            tempdir, _ = mobi.extract(temp_file_path)
+            text_parts = []
+            for root, _, files in os.walk(tempdir):
+                for file in files:
+                    if not file.endswith(('.html', '.htm')):
+                        continue
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as handle:
+                            clean_content = re.sub(r'<[^>]+>', ' ', handle.read())
+                        text_parts.append(re.sub(r'\s+', ' ', clean_content))
+                    except (OSError, UnicodeError):
+                        continue
+
+            text_content = " ".join(text_parts).strip()
+            if text_content:
+                logger.info(f"使用mobi库提取完成，文本长度: {len(text_content)} 字符")
+                return text_content
         except ImportError:
             logger.info("mobi库未安装，使用备用方法")
         except Exception as e:
-            logger.warning(f"mobi库方法失败: {e}")
+            logger.warning(f"mobi库提取失败: {e}")
+        finally:
+            if tempdir:
+                shutil.rmtree(tempdir, ignore_errors=True)
+            if temp_file_path:
+                with suppress(OSError):
+                    os.unlink(temp_file_path)
         
         # 备用方法：改进的分块提取
         logger.info("使用备用文本提取方法")
-        text_parts = []
-        
         # 寻找可能的文本区域
         content_str = raw_content.decode('utf-8', errors='ignore')
         
@@ -402,7 +386,6 @@ class DocumentReader:
         try:
             # 尝试使用mobi库
             import mobi
-            import shutil
             
             tempdir, filepath = mobi.extract(file_path)
             
@@ -423,9 +406,6 @@ class DocumentReader:
                         text = f.read()
                     content = clean_text(text)
                     word_count = len(content)
-                
-                # 清理临时文件
-                shutil.rmtree(tempdir, ignore_errors=True)
                 
                 if word_count < 100:
                     raise FileProcessingError("AZW3内容过少")
@@ -551,4 +531,3 @@ def read_document(file_path: str) -> Tuple[str, int]:
     """
     reader = DocumentReader()
     return reader.read(file_path)
-

@@ -187,7 +187,7 @@
 {
   "source_name": "作品本身标题，需带书名号《》；不用文件名后缀",
   "video_titles": ["3条发布标题候选，互不重复，信息完整"],
-  "cover_titles": ["3条封面主标题，4到10字，短、强、易扫读"],
+  "cover_titles": ["3条封面主标题，10字以内，短、强、易扫读"],
   "cover_subtitles": ["3条封面副标题，15字以内"],
   "golden_quotes": ["3条开场金句，观点鲜明，像一句能让人停下来的真话"],
   "content": "完整口播终稿，按入口 SKILL.md 的 final_target_chars 控制长度，保留自然段落换行，不写Markdown或小标题",

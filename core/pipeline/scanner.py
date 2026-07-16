@@ -30,7 +30,7 @@ SEGMENT_MEDIA_EXTENSIONS = ("png", "jpg", "jpeg", "mp4", "mov", "avi", "mkv", "w
 
 
 def _project_root() -> str:
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    return str(Path(__file__).resolve().parents[2])
 
 
 def scan_input_files(input_dir: str = "input") -> List[Dict[str, Any]]:

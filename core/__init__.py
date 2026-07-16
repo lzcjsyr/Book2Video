@@ -1,27 +1,18 @@
-"""Core package marker."""
+"""Public core API with lazy imports to keep package loading side-effect free."""
 
-from core.config import VideoGenerationConfig
-from core.infra.project_paths import ProjectPaths
-from core.pipeline import run_auto
-from core.pipeline.steps import (
-    run_step_1,
-    run_step_1_5,
-    run_step_2,
-    run_step_3,
-    run_step_4,
-    run_step_5,
-    run_step_6,
-)
+from core._lazy import lazy_dir, lazy_getattr
 
-__all__ = [
-    "ProjectPaths",
-    "VideoGenerationConfig",
-    "run_auto",
-    "run_step_1",
-    "run_step_1_5",
-    "run_step_2",
-    "run_step_3",
-    "run_step_4",
-    "run_step_5",
-    "run_step_6",
-]
+_EXPORTS = {
+    "ProjectPaths": ("core.infra.project_paths", "ProjectPaths"),
+    "VideoGenerationConfig": ("core.config", "VideoGenerationConfig"),
+    "run_auto": ("core.pipeline", "run_auto"),
+    **{
+        f"run_step_{step}": ("core.pipeline", f"run_step_{step}")
+        for step in (1, "1_5", 2, 3, 4, 5, 6)
+    },
+}
+
+__all__ = list(_EXPORTS)
+
+__getattr__ = lazy_getattr(__name__, globals(), _EXPORTS)
+__dir__ = lazy_dir(globals(), __all__)
