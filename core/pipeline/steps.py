@@ -1,8 +1,8 @@
 """流水线分步执行实现模块。
 
 本文件承载步骤 1~6 的核心实现与跨步骤辅助函数，主要包括：
-1. 项目初始化与目录/文件落盘（raw/script/keywords/音视频资源）。
-2. 文本处理链路（摘要、分段脚本、关键词与描述摘要生成）。
+1. 项目初始化与目录/文件落盘（raw/script/音视频资源）。
+2. 文本处理链路（摘要、分段脚本与描述小结生成）。
 3. 多媒体生成链路（语音合成、开场视频、分段画面、最终视频合成、封面图生成）。
 4. 运行时工具函数（路径解析、开场旁白生成、BGM 定位、HyperFrames开场渲染、失败兜底处理）。
 
@@ -42,7 +42,6 @@ from core.infra.ai.claude_agent import (
 )
 from core.domain.summarizer import (
     export_plain_text_segments,
-    extract_keywords,
     generate_description_summary,
     process_raw_to_script,
 )
@@ -296,7 +295,7 @@ def _resolve_description_source_text(
     raw_data: Optional[Dict[str, Any]] = None,
     script_data: Optional[Dict[str, Any]] = None,
 ) -> str:
-    """Prefer raw.docx edits when building description-mode summary input."""
+    """Prefer raw.docx edits when building the step-2 summary input."""
     docx_path = os.path.join(project_output_dir, "text", "raw.docx")
     if os.path.exists(docx_path):
         try:
@@ -585,33 +584,23 @@ def run_step_2(
     llm_base_url: str,
     project_output_dir: str,
     script_path: Optional[str] = None,
-    images_method: str = "keywords",
 ) -> Dict[str, Any]:
     paths = ProjectPaths(project_output_dir)
     script_data = load_json_file(script_path) if script_path else load_json_file(paths.script_json())
     if script_data is None:
         return {"success": False, "message": "未找到脚本数据，请先完成步骤1.5"}
 
-    images_method = images_method or getattr(config, "SUPPORTED_IMAGE_METHODS", ["keywords"])[0]
-
-    if images_method == "description":
-        raw_data = load_json_file(paths.raw_json()) if os.path.exists(paths.raw_json()) else None
-        description_source = _resolve_description_source_text(
-            project_output_dir, raw_data=raw_data, script_data=script_data
-        )
-        description_data = generate_description_summary(
-            llm_server, llm_model, llm_base_url, description_source or "", max_chars=200
-        )
-        description_path = paths.mini_summary_json()
-        with open(description_path, "w", encoding="utf-8") as handle:
-            json.dump(description_data, handle, ensure_ascii=False, indent=2)
-        return {"success": True, "mini_summary_path": description_path}
-
-    keywords_data = extract_keywords(llm_server, llm_model, llm_base_url, script_data)
-    keywords_path = paths.keywords_json()
-    with open(keywords_path, "w", encoding="utf-8") as handle:
-        json.dump(keywords_data, handle, ensure_ascii=False, indent=2)
-    return {"success": True, "keywords_path": keywords_path}
+    raw_data = load_json_file(paths.raw_json()) if os.path.exists(paths.raw_json()) else None
+    description_source = _resolve_description_source_text(
+        project_output_dir, raw_data=raw_data, script_data=script_data
+    )
+    description_data = generate_description_summary(
+        llm_server, llm_model, llm_base_url, description_source or "", max_chars=200
+    )
+    description_path = paths.mini_summary_json()
+    with open(description_path, "w", encoding="utf-8") as handle:
+        json.dump(description_data, handle, ensure_ascii=False, indent=2)
+    return {"success": True, "mini_summary_path": description_path}
 
 
 def run_step_3(
@@ -725,7 +714,6 @@ def run_step_4(
     image_size: str,
     image_style_preset: str,
     project_output_dir: str,
-    images_method: str = "keywords",
     opening_quote: bool = True,
     target_segments: Optional[List[int]] = None,
     regenerate_opening: bool = True,
@@ -737,6 +725,7 @@ def run_step_4(
     hyperframes_max_turns: Optional[int] = None,
     hyperframes_render_fps: Optional[int] = None,
     hyperframes_concurrency: Optional[int] = None,
+    image_prompt_template: Optional[str] = None,
 ) -> Dict[str, Any]:
     paths = ProjectPaths(project_output_dir)
     paths.ensure_dirs_exist()
@@ -763,18 +752,9 @@ def run_step_4(
         if raw_targets and not selected_segments:
             return {"success": False, "message": f"段落选择无效，请输入 1-{total_segments} 之间的数字"}
 
-    images_method = images_method or getattr(config, "SUPPORTED_IMAGE_METHODS", ["keywords"])[0]
-
-    keywords_data = None
-    description_data = None
-    if images_method == "description":
-        description_data = load_json_file(paths.mini_summary_json())
-        if description_data is None:
-            return {"success": False, "message": "未找到描述小结，请先执行步骤2生成描述"}
-    else:
-        keywords_data = load_json_file(paths.keywords_json())
-        if keywords_data is None:
-            return {"success": False, "message": "未找到关键词数据，请先执行步骤2生成关键词"}
+    description_data = load_json_file(paths.mini_summary_json())
+    if description_data is None:
+        return {"success": False, "message": "未找到描述小结，请先执行步骤2生成描述"}
 
     opening_image_path = None
     opening_image_file = paths.opening_image()
@@ -903,13 +883,12 @@ def run_step_4(
             image_style_preset,
             image_size,
             paths.images,
-            images_method=images_method,
-            keywords_data=keywords_data,
             description_data=description_data,
             target_segments=targets,
             llm_model=llm_model,
             llm_server=llm_server,
             llm_base_url=llm_base_url,
+            image_prompt_template=image_prompt_template,
         )
 
     def run_hyper(targets: Optional[List[int]]) -> Dict[str, Any]:
@@ -919,7 +898,6 @@ def run_step_4(
             image_size=image_size,
             output_dir=paths.images,
             target_segments=targets,
-            keywords_data=keywords_data,
             description_data=description_data,
             style_preset=hyperframes_style_preset or getattr(config, "HYPERFRAMES_STYLE_PRESET", "data_driven"),
             max_turns=int(hyperframes_max_turns or getattr(config, "HYPERFRAMES_MAX_TURNS", 60)),

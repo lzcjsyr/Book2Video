@@ -14,8 +14,8 @@ from core.prompts import (
     COVER_IMAGE_STYLE_PRESETS,
     COVER_IMAGE_PROMPT_TEMPLATE,
     IMAGE_STYLE_PRESETS,
-    IMAGE_DESCRIPTION_PROMPT_TEMPLATE,
     IMAGE_PROMPT_SAFETY_TEMPLATE,
+    get_step4_image_description_prompt_template,
 )
 from core.shared import logger, ensure_directory_exists, APIError
 from core.infra.ai.image_providers import IMAGE_PROVIDERS
@@ -285,13 +285,12 @@ def generate_images_for_segments(
     image_style_preset: str,
     image_size: str,
     output_dir: str,
-    images_method: str = "keywords",
-    keywords_data: Optional[Dict[str, Any]] = None,
     description_data: Optional[Dict[str, Any]] = None,
     target_segments: Optional[Iterable[int]] = None,
     llm_model: Optional[str] = None,
     llm_server: Optional[str] = None,
     llm_base_url: Optional[str] = None,
+    image_prompt_template: Optional[str] = None,
 ) -> Dict[str, Any]:
     """为每个段落生成图像（支持多线程并发）"""
     try:
@@ -306,10 +305,9 @@ def generate_images_for_segments(
         except Exception:
             image_style = ""
         logger.info(
-            f"使用图像服务: {image_server}，风格: {image_style_preset} -> {image_style}，模式: {images_method}"
+            f"使用图像服务: {image_server}，风格: {image_style_preset} -> {image_style}，"
+            f"提示词模板: {image_prompt_template or 'current'}"
         )
-
-        images_method = images_method or getattr(config, "SUPPORTED_IMAGE_METHODS", ["keywords"])[0]
         segments = script_data.get("segments", [])
         if not segments:
             raise ValueError("脚本数据为空，无法生成图像")
@@ -331,59 +329,30 @@ def generate_images_for_segments(
 
         prompt_payload: List[tuple[int, str]] = []
 
-        if images_method == "description":
-            summary_text = (description_data or {}).get("summary", "").strip()
-            if not summary_text:
-                raise ValueError("缺少描述模式所需的小结内容")
-            template = IMAGE_DESCRIPTION_PROMPT_TEMPLATE
-            default_style = getattr(
-                config,
-                "DESCRIPTION_DEFAULT_STYLE_GUIDANCE",
-                "画面需保持信息清晰、构图稳定、色彩和谐。"
+        summary_text = (description_data or {}).get("summary", "").strip()
+        if not summary_text:
+            raise ValueError("缺少步骤2生成的小结内容")
+        template = get_step4_image_description_prompt_template(image_prompt_template)
+        default_style = getattr(
+            config,
+            "DESCRIPTION_DEFAULT_STYLE_GUIDANCE",
+            "画面需保持信息清晰、构图稳定、色彩和谐。"
+        )
+        for segment in segments:
+            segment_index = int(segment.get("index") or len(prompt_payload) + 1)
+            if target_set:
+                if segment_index not in target_set:
+                    continue
+            elif has_specific_selection:
+                continue
+            segment_content = segment.get("content", "")
+            style_block = image_style or default_style
+            final_prompt = template.format(
+                summary=summary_text,
+                segment=segment_content,
+                style_block=style_block
             )
-            for segment in segments:
-                segment_index = int(segment.get("index") or len(prompt_payload) + 1)
-                if target_set:
-                    if segment_index not in target_set:
-                        continue
-                elif has_specific_selection:
-                    continue
-                segment_content = segment.get("content", "")
-                style_block = image_style or default_style
-                final_prompt = template.format(
-                    summary=summary_text,
-                    segment=segment_content,
-                    style_block=style_block
-                )
-                prompt_payload.append((segment_index, final_prompt))
-        else:
-            if not keywords_data:
-                raise ValueError("缺少关键词数据")
-            keyword_segments = list(keywords_data.get("segments", []))
-            if len(keyword_segments) < len(segments):
-                keyword_segments.extend(
-                    [{"keywords": [], "atmosphere": []}] * (len(segments) - len(keyword_segments))
-                )
-            for idx, segment in enumerate(segments, 1):
-                segment_keywords = keyword_segments[idx - 1] if idx - 1 < len(keyword_segments) else {}
-                keywords = segment_keywords.get("keywords", [])
-                atmosphere = segment_keywords.get("atmosphere", [])
-                style_part = f"[风格] {image_style}" if image_style else ""
-                content_parts: List[str] = []
-                content_parts.extend(keywords)
-                content_parts.extend(atmosphere)
-                content_part = f"[内容] {' | '.join(content_parts)}" if content_parts else ""
-                sections = [part for part in [style_part, content_part] if part]
-                final_prompt = "\n".join(sections) if sections else image_style
-                if not final_prompt:
-                    final_prompt = f"[内容] {segment.get('content', '')}".strip()
-                segment_index = segment.get('index') or idx
-                if target_set:
-                    if segment_index not in target_set:
-                        continue
-                elif has_specific_selection:
-                    continue
-                prompt_payload.append((segment_index, final_prompt))
+            prompt_payload.append((segment_index, final_prompt))
 
         if not prompt_payload:
             raise ValueError("未生成有效的提示词")

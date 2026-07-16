@@ -62,18 +62,14 @@ step1_5:
   split_mode: auto
 
 # =============================================================================
-# 步骤2：要点提取 / 描述小结
+# 步骤2：描述小结
 # =============================================================================
 step2:
   # 可选：mimo / kimi / deepseek / siliconflow / openrouter / volcengine
   llm_server: volcengine
   llm_model: doubao-seed-2-0-lite-260428
-  # 配图方式：
-  # - description：先生成整体描述，再结合每段文案出图，画面连贯性更好
-  # - keywords：为每段提关键词和氛围词，画面变化更明显
-  images_method: description
-  # 提取随机性，范围通常为 0-1。越大越发散。
-  llm_temperature_keywords: 0.5
+  # 小结生成随机性，范围通常为 0-1。越大越发散。
+  llm_temperature_description: 0.5
 
 # =============================================================================
 # 步骤3：语音合成
@@ -138,6 +134,11 @@ step4:
   image_size: 2560x1440
   # 段落图像风格预设，见 core/prompts.py 的 IMAGE_STYLE_PRESETS。
   image_style_preset: style02
+  # 静态生图提示词模板，定义在 prompts/step4_image_templates.yaml：
+  # - current：原有图示+中文关键词模板（默认）
+  # - cinematic：无文字的电影感叙事画面
+  # - editorial：现代编辑设计/知识信息图
+  image_prompt_template: current
   # 图像生成并发。Google/高成本模型建议 1，稳定后再提高。
   max_concurrent_image_generation: 1
 
@@ -168,6 +169,8 @@ step5:
   video_bitrate_mode: quality
   # quality 模式下生效，建议 60-75。
   video_quality_level: 70
+  # 3:4版会从已压缩母版再次编码；提高硬件编码质量以避免可见代际损失。
+  three_by_four_quality_level: 86
 
   enable_subtitles: true
   # 背景音乐文件名，位于 music/ 目录；设为 null 表示不加 BGM。
@@ -211,7 +214,10 @@ step5:
 # 字幕样式
 # =============================================================================
 subtitles:
-  font_size: 48
+  # editorial：电影编辑部风格；classic：旧版白字黑描边。
+  style: editorial
+  # 以 1280x720 为基准，步骤5会随最终视频分辨率等比缩放。
+  font_size: 66
   # 可填 auto，或字体文件绝对路径。
   # macOS 示例：/System/Library/Fonts/PingFang.ttc
   # Windows 示例：C:/Windows/Fonts/msyh.ttc
@@ -223,11 +229,11 @@ subtitles:
   stroke_width: 6
   # [水平, 垂直]，常用：[center, bottom]
   position: [center, bottom]
-  margin_bottom: 60
-  max_chars_per_line: 20
+  margin_bottom: 70
+  max_chars_per_line: 18
   max_lines: 1
   line_spacing: 15
-  letter_spacing: 2
+  letter_spacing: 1
   # 背景色 RGB；background_opacity 为 0 时透明。
   background_color: [0, 0, 0]
   background_opacity: 0.0
@@ -235,7 +241,7 @@ subtitles:
   background_v_padding: 10
   shadow_enabled: true
   shadow_color: black
-  shadow_offset: [0, 0]
+  shadow_offset: [0, 3]
 
 # =============================================================================
 # 步骤6：封面生成

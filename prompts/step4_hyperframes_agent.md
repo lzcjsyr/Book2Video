@@ -28,7 +28,7 @@
 - 当前段落 JSON 包含并必须使用：`segmentIndex`、`title`、`content`、`durationSeconds`、`width`、`height`、`stylePreset`、`descriptionSummary`。
 - composition 必须严格匹配 `width` x `height`；`data-duration` 必须使用传入的 `durationSeconds`。
 - 画面主题必须来自当前段落 `content`；`title` 和 `descriptionSummary` 只能用于理解上下文，不能把摘要里的新句子直接搬上画面。
-- 禁止依赖外部 `keywords`、`atmosphere`、`keywords.json` 或其他段落文件生成屏幕文案。
+- 禁止依赖其他段落文件生成屏幕文案。
 
 ---
 

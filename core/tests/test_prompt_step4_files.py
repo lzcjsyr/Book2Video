@@ -5,13 +5,52 @@ PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
 
 
 def test_static_visual_prompts_are_named_for_step4():
-    assert (PROMPTS_DIR / "step4_description.md").exists()
+    assert (PROMPTS_DIR / "step4_image_templates.yaml").exists()
     assert (PROMPTS_DIR / "step4_safety.md").exists()
     assert (PROMPTS_DIR / "step4_styles.yaml").exists()
 
     assert not (PROMPTS_DIR / "step3_description.md").exists()
     assert not (PROMPTS_DIR / "step3_safety.md").exists()
     assert not (PROMPTS_DIR / "step3_styles.yaml").exists()
+
+
+def test_step4_image_yaml_keeps_original_template_and_offers_multiple_choices():
+    from core.prompts import (
+        DEFAULT_STEP4_IMAGE_PROMPT_TEMPLATE,
+        STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATES,
+        STEP4_IMAGE_PROMPT_TEMPLATE_DEFINITIONS,
+    )
+
+    original_template = """为视频文案的每一段生成一张配图，用图示为主、文字为辅，帮助读者更好地理解内容。
+文字规范：只需要2到4个突出段落主旨的关键词。每个词都以极度简短为第一原则。关键词与背景颜色形成鲜明反差，确保可读性。
+配图规范：文字必须为中文，位置只能出现在图片的上半部分。整体画面应匹配内容主题，简约美观，不得出现诡异、恐怖的元素。
+
+以下是全文概述，不是展示的重点：
+{{
+{summary}
+}}
+
+以下是需要生成配图的文案内容，信息的核心：
+{{
+{segment}
+}}
+
+请严格遵循以下画面风格设定：
+{{
+{style_block}
+}}
+"""
+
+    assert DEFAULT_STEP4_IMAGE_PROMPT_TEMPLATE == "current"
+    assert STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATES["current"] == original_template
+    assert set(STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATES) == {"current", "cinematic", "editorial"}
+    assert STEP4_IMAGE_PROMPT_TEMPLATE_DEFINITIONS["current"]["label"] == "原有图示关键词模板"
+    assert STEP4_IMAGE_PROMPT_TEMPLATE_DEFINITIONS["cinematic"]["description"]
+    for template in STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATES.values():
+        rendered = template.format(summary="全文", segment="本段", style_block="风格")
+        assert "全文" in rendered
+        assert "本段" in rendered
+        assert "风格" in rendered
 
 
 def test_hyperframes_agent_has_dedicated_step4_prompt_file():
@@ -28,7 +67,7 @@ def test_hyperframes_agent_has_dedicated_step4_prompt_file():
     assert "data-start" in prompt
     assert "STEP4_HYPERFRAMES_PROMPT_VERSION: 2026-06-26-phone-readable-v9" in prompt
     assert "visualKeywords" in prompt
-    assert "禁止依赖外部 `keywords`" in prompt
+    assert "禁止依赖其他段落文件" in prompt
     assert "禁止直接展示 `content` 原句" in prompt
     assert "版式结构选择" in prompt
     assert "left_list_right_verdict" in prompt

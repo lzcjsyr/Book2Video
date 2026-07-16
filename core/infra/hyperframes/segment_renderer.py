@@ -73,10 +73,8 @@ def _build_payload(
     width: int,
     height: int,
     style_preset: str,
-    keywords_data: Optional[Dict[str, Any]],
     description_data: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    _ = keywords_data
     return {
         "segmentIndex": segment_index,
         "index": segment_index,
@@ -103,7 +101,6 @@ def _render_one_segment(
     segment_index: int,
     image_size: str,
     output_dir: str,
-    keywords_data: Optional[Dict[str, Any]],
     description_data: Optional[Dict[str, Any]],
     style_preset: str,
     max_turns: int,
@@ -132,7 +129,6 @@ def _render_one_segment(
         width=width,
         height=height,
         style_preset=style_preset,
-        keywords_data=keywords_data,
         description_data=description_data,
     )
 
@@ -192,7 +188,6 @@ def render_hyperframes_segments_with_agent(
     image_size: str,
     output_dir: str,
     target_segments: Optional[Iterable[int]],
-    keywords_data: Optional[Dict[str, Any]],
     description_data: Optional[Dict[str, Any]],
     style_preset: str,
     max_turns: int,
@@ -236,7 +231,6 @@ def render_hyperframes_segments_with_agent(
             "segment_index": idx,
             "image_size": image_size,
             "output_dir": output_dir,
-            "keywords_data": keywords_data,
             "description_data": description_data,
             "style_preset": style_preset,
             "max_turns": max_turns,

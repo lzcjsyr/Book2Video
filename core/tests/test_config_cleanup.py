@@ -17,6 +17,7 @@ def test_builtin_defaults_are_loaded_from_yaml_template():
 
     assert defaults == template_defaults
     assert config.SUBTITLE_FONT_FAMILY == "auto"
+    assert config.SUBTITLE_STYLE == "editorial"
 
 
 def test_generation_params_can_be_loaded_from_nested_yaml(tmp_path):
@@ -32,7 +33,6 @@ step1_5:
 step2:
   llm_server: siliconflow
   llm_model: Pro/moonshotai/Kimi-K2.6
-  images_method: keywords
 step3:
   voice: S_TEST
   tts_model: seed-tts-2.0-expressive
@@ -42,8 +42,10 @@ step4:
   image_model: gemini-3.1-flash-image-preview
   image_size: 1920x1080
   image_style_preset: style08
+  image_prompt_template: editorial
 step5:
   video_size: 1280x720
+  three_by_four_quality_level: 82
   enable_subtitles: false
   bgm_filename: null
 step6:
@@ -59,13 +61,14 @@ step6:
     assert params["num_segments"] == 12
     assert params["llm_server_step1_5"] == "kimi"
     assert params["llm_model_step1_5"] == "kimi-k2.6"
-    assert params["images_method"] == "keywords"
     assert params["image_server"] == "google_adc"
     assert params["image_style_preset"] == "style08"
+    assert params["image_prompt_template"] == "editorial"
     assert params["voice"] == "S_TEST"
     assert params["tts_speech_rate"] == 15
     assert params["enable_subtitles"] is False
     assert params["bgm_filename"] is None
+    assert config.THREE_BY_FOUR_QUALITY_LEVEL == 86
     assert params["cover_image_count"] == 2
 
 
@@ -78,6 +81,7 @@ def test_yaml_runtime_overrides_update_global_config_for_legacy_readers(tmp_path
         "OPENING_HYPERFRAMES_IP_NAME": config.OPENING_HYPERFRAMES_IP_NAME,
         "MAX_CONCURRENT_IMAGE_GENERATION": config.MAX_CONCURRENT_IMAGE_GENERATION,
         "BGM_DEFAULT_VOLUME": config.BGM_DEFAULT_VOLUME,
+        "THREE_BY_FOUR_QUALITY_LEVEL": config.THREE_BY_FOUR_QUALITY_LEVEL,
     }
     config_path = tmp_path / "video.yaml"
     config_path.write_text(
@@ -90,6 +94,7 @@ step4:
   max_concurrent_image_generation: 4
 step5:
   bgm_default_volume: 0.25
+  three_by_four_quality_level: 82
 """,
         encoding="utf-8",
     )
@@ -101,6 +106,7 @@ step5:
         assert config.OPENING_HYPERFRAMES_IP_NAME == "测试刊头"
         assert config.MAX_CONCURRENT_IMAGE_GENERATION == 4
         assert config.BGM_DEFAULT_VOLUME == 0.25
+        assert config.THREE_BY_FOUR_QUALITY_LEVEL == 82
     finally:
         for key, value in original.items():
             setattr(Config, key, value)
@@ -132,3 +138,15 @@ def test_from_cli_params_maps_tts_aliases():
     assert gen.emotion == params["tts_emotion"]
     assert gen.input_file == "input/book.pdf"
     assert gen.num_segments == params["num_segments"]
+    assert gen.image_prompt_template == params["image_prompt_template"] == "current"
+
+
+def test_video_generation_config_rejects_unknown_image_prompt_template():
+    import pytest
+
+    with pytest.raises(ValueError, match="不支持的步骤4生图提示词模板"):
+        VideoGenerationConfig(
+            input_file="input/book.pdf",
+            output_dir="output",
+            image_prompt_template="missing-template",
+        )

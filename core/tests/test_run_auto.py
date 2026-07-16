@@ -101,12 +101,12 @@ def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tm
         image_server="google",
         image_model="gemini-3.1-flash-image-preview",
         image_size="1280x720",
+        image_prompt_template="cinematic",
         visual_mode="hyperframes_agent",
         hyperframes_style_preset="light_corporate",
         hyperframes_max_turns=9,
         hyperframes_render_fps=60,
         hyperframes_concurrency=2,
-        images_method="description",
         step1_5_split_mode="agent",
         llm_server_step1_5="kimi",
         llm_model_step1_5="kimi-k2.6",
@@ -132,3 +132,4 @@ def test_run_auto_success_uses_raw_data_for_cover_and_statistics(monkeypatch, tm
     assert captured["step4_kwargs"]["hyperframes_max_turns"] == 9
     assert captured["step4_kwargs"]["hyperframes_render_fps"] == 60
     assert captured["step4_kwargs"]["hyperframes_concurrency"] == 2
+    assert captured["step4_kwargs"]["image_prompt_template"] == "cinematic"

@@ -2,7 +2,7 @@
 
 本文件实现“从原始文档到最终视频”的全链路自动执行逻辑，核心职责包括：
 1. 参数与模型配置校验，提前拦截不合法输入。
-2. 依次编排步骤 1.5/2/3/4/5（脚本、关键词/摘要、图片、配音、合成视频）。
+2. 依次编排步骤 1.5/2/3/4/5（脚本、描述小结、图片、配音、合成视频）。
 3. 在主流程失败或部分失败时进行必要兜底（如视频合成兜底）。
 4. 补充封面图生成，并汇总统计信息与产物路径作为统一结果返回。
 
@@ -47,7 +47,7 @@ def _validate_auto_mode_config(config: VideoGenerationConfig) -> None:
         tts_server=config.tts_server,
         image_model=config.image_model,
         image_size=config.image_size,
-        images_method=config.images_method,
+        image_prompt_template=config.image_prompt_template,
         llm_model=config.llm_model_step2,
     )
     Config.validate_model_provider_pair("image", config.get_effective_cover_server(), config.get_effective_cover_model())
@@ -108,18 +108,13 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         config.llm_base_url_step2,
         project_output_dir,
         script_path=script_path if script_path and os.path.exists(script_path) else None,
-        images_method=config.images_method,
     )
     if not step2.get("success"):
         return {"success": False, "message": step2.get("message", "步骤2处理失败")}
 
-    keywords_data: Optional[Dict[str, Any]] = None
-    keywords_path: Optional[str] = step2.get("keywords_path")
     description_data: Optional[Dict[str, Any]] = None
     description_path: Optional[str] = step2.get("mini_summary_path")
 
-    if keywords_path and os.path.exists(keywords_path):
-        keywords_data = load_json_file(keywords_path)
     if description_path and os.path.exists(description_path):
         description_data = load_json_file(description_path)
 
@@ -146,7 +141,6 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         image_size=config.image_size,
         image_style_preset=config.image_style_preset,
         project_output_dir=project_output_dir,
-        images_method=config.images_method,
         opening_quote=config.opening_quote,
         llm_model=config.llm_model_step4,
         llm_server=config.llm_server_step4,
@@ -156,6 +150,7 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         hyperframes_max_turns=config.hyperframes_max_turns,
         hyperframes_render_fps=config.hyperframes_render_fps,
         hyperframes_concurrency=config.hyperframes_concurrency,
+        image_prompt_template=config.image_prompt_template,
     )
     if not step4.get("success"):
         failed_image_segments = step4.get("failed_segments") or step4.get("failed_image_segments") or []
@@ -251,7 +246,6 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
             "total_length": script_data["total_length"],
             "segments_count": script_data["actual_segments"],
         },
-        "images_method": config.images_method,
         "images": image_paths,
         "audio_files": audio_paths,
         "final_video": final_video_path,
@@ -264,18 +258,6 @@ def run_auto(config: VideoGenerationConfig) -> Dict[str, Any]:
         "project_output_dir": project_output_dir,
         "failed_image_segments": failed_image_segments,
     }
-
-    if keywords_data and keywords_path:
-        total_kw = sum(
-            len(seg.get("keywords", [])) + len(seg.get("atmosphere", []))
-            for seg in keywords_data.get("segments", [])
-        )
-        result["keywords"] = {
-            "file_path": keywords_path,
-            "total_keywords": total_kw,
-            "avg_per_segment": total_kw / max(1, len(keywords_data.get("segments", [])))
-            if keywords_data.get("segments") else 0,
-        }
 
     if description_data and description_path:
         result["mini_summary"] = {

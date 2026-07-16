@@ -34,3 +34,14 @@ def test_resolve_subtitle_font_auto_uses_common_system_font(monkeypatch) -> None
 
     assert font_path == "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
     assert ttc_index == 0
+
+
+def test_resolve_subtitle_font_editorial_prefers_serif_family(monkeypatch) -> None:
+    composer = VideoComposer()
+    songti = "/System/Library/Fonts/Supplemental/Songti.ttc"
+    monkeypatch.setattr("core.domain.composer.os.path.exists", lambda path: path == songti)
+
+    font_path, ttc_index = composer.resolve_subtitle_font("auto", style="editorial")
+
+    assert font_path == songti
+    assert ttc_index == 1

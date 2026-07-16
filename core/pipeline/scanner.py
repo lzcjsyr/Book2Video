@@ -156,15 +156,10 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
     script = _read_json_if_exists(paths.script_json())
     has_script = script is not None and isinstance(script, dict) and 'segments' in script
 
-    keywords = _read_json_if_exists(paths.keywords_json())
     image_description = _read_json_if_exists(paths.mini_summary_json())
 
-    has_keywords = False
     has_description = False
     if has_script:
-        if keywords is not None and 'segments' in keywords and \
-                len(keywords.get('segments', [])) == len(script.get('segments', [])):
-            has_keywords = True
         if image_description is not None and image_description.get('summary'):
             has_description = True
 
@@ -241,7 +236,7 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
     if has_script:
         current_step = 1.5
         current_step_name = "1.5"
-    if has_keywords or has_description:
+    if has_description:
         current_step = 2
         current_step_name = "2"
 
@@ -271,14 +266,14 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
 
     # 向前推导逻辑：支持步骤3语音和步骤4画面独立重跑
     if has_final_video:
-        has_raw = has_script = has_keywords = has_description = images_ok = audio_ok = True
+        has_raw = has_script = has_description = images_ok = audio_ok = True
     elif images_ok and audio_ok:
-        has_raw = has_script = has_keywords = True
+        has_raw = has_script = has_description = True
     elif images_ok:
-        has_raw = has_script = has_keywords = True
+        has_raw = has_script = has_description = True
     elif audio_ok:
         has_raw = has_script = True
-    elif has_keywords or has_description:
+    elif has_description:
         has_raw = has_script = True
     elif has_script:
         has_raw = True
@@ -286,7 +281,6 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
     return {
         'has_raw': has_raw,
         'has_script': has_script,
-        'has_keywords': has_keywords,
         'has_description': has_description,
         'images_ok': images_ok,
         'audio_ok': audio_ok,
@@ -303,14 +297,12 @@ def detect_project_progress(project_dir: str) -> Dict[str, Any]:
         'current_step_display': max(1, min(6, int(current_step))),
         'raw_json': raw_json,
         'script': script,
-        'keywords': keywords,
         'mini_summary': image_description,
         'final_video_path': paths.final_video(),
         'cover_images': cover_images,
         'images_dir': paths.images,
         'voice_dir': paths.voice,
         'text_dir': paths.text,
-        'image_method': 'description' if has_description else ('keywords' if has_keywords else None),
     }
 
 
@@ -374,14 +366,14 @@ def clear_downstream_outputs(project_dir: str, from_step) -> None:
 
     try:
         if from_step <= 1:
-            # 删除 script 和 keywords
-            for filepath in [paths.script_json(), paths.script_docx(), paths.keywords_json()]:
+            # 删除脚本和描述小结
+            for filepath in [paths.script_json(), paths.script_docx(), paths.mini_summary_json()]:
                 if os.path.exists(filepath):
                     os.remove(filepath)
         elif from_step <= 1.5:
-            # 删除 keywords，保留 script
-            if os.path.exists(paths.keywords_json()):
-                os.remove(paths.keywords_json())
+            # 删除描述小结，保留脚本
+            if os.path.exists(paths.mini_summary_json()):
+                os.remove(paths.mini_summary_json())
                     
         if from_step <= 3:
             # 清空 voice（步骤3语音）及其下游画面/成片

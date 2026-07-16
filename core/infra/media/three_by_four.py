@@ -17,7 +17,7 @@ import sys
 import tempfile
 from typing import Any, Mapping, Sequence, TextIO
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 _EDITORIAL_TITLE_FONTS = (
@@ -154,7 +154,6 @@ def build_export_command(
         "-progress",
         "pipe:1",
         "-nostats",
-        "-shortest",
         str(output_path),
     ]
 
@@ -167,7 +166,7 @@ def export_three_by_four_video(
     font_path: str | os.PathLike[str] | None = None,
     font_ttc_index: int = 0,
     video_codec: str = "h264",
-    quality_level: int = 70,
+    quality_level: int = 86,
 ) -> Path:
     """Add static 3:4 panels to an already-rendered landscape master."""
     source = Path(source_path)
@@ -198,7 +197,7 @@ def export_three_by_four_video(
             font_path=Path(font_path) if font_path else None,
             font_ttc_index=int(font_ttc_index or 0),
         )
-        software_command = build_export_command(
+        hardware_command = build_export_command(
             ffmpeg_path=ffmpeg_path,
             source_path=source,
             background_path=background_path,
@@ -206,19 +205,19 @@ def export_three_by_four_video(
             layout=layout,
             video_codec=video_codec,
             quality_level=quality_level,
-            hardware=False,
+            hardware=True,
         )
         try:
             try:
                 _run_export_command(
-                    software_command,
+                    hardware_command,
                     metadata.duration,
-                    label="生成3:4贴片版（高质量编码）",
+                    label="生成3:4贴片版（硬件高质量编码）",
                 )
-            except subprocess.CalledProcessError as software_error:
+            except subprocess.CalledProcessError as hardware_error:
                 temporary_output.unlink(missing_ok=True)
-                print("⚠️ 高质量编码不可用，切换硬件编码…")
-                hardware_command = build_export_command(
+                print("⚠️ 硬件编码不可用，切换软件高质量编码…")
+                software_command = build_export_command(
                     ffmpeg_path=ffmpeg_path,
                     source_path=source,
                     background_path=background_path,
@@ -226,21 +225,21 @@ def export_three_by_four_video(
                     layout=layout,
                     video_codec=video_codec,
                     quality_level=quality_level,
-                    hardware=True,
+                    hardware=False,
                 )
                 try:
                     _run_export_command(
-                        hardware_command,
+                        software_command,
                         metadata.duration,
-                        label="生成3:4贴片版（硬件编码）",
+                        label="生成3:4贴片版（软件高质量编码）",
                     )
-                except subprocess.CalledProcessError as hardware_error:
-                    software_detail = _process_error_detail(software_error)
+                except subprocess.CalledProcessError as software_error:
                     hardware_detail = _process_error_detail(hardware_error)
+                    software_detail = _process_error_detail(software_error)
                     raise RuntimeError(
-                        "3:4贴片版软件编码和硬件编码均失败: "
-                        f"软件编码: {software_detail}; 硬件编码: {hardware_detail}"
-                    ) from hardware_error
+                        "3:4贴片版硬件编码和软件编码均失败: "
+                        f"硬件编码: {hardware_detail}; 软件编码: {software_detail}"
+                    ) from software_error
 
             if not temporary_output.is_file():
                 raise RuntimeError("3:4贴片版编码完成但未生成输出文件")
@@ -327,16 +326,16 @@ def _render_static_background(
         _draw_fitted_tracking_text(
             draw,
             title,
-            centre=(layout.canvas_width // 2, int(layout.top_panel_height * 0.48)),
+            centre=(layout.canvas_width // 2, int(layout.top_panel_height * 0.31)),
             max_width=max_text_width,
-            max_height=max(1, int(layout.top_panel_height * 0.42)),
-            preferred_size=max(18, int(layout.canvas_width * 0.082)),
+            max_height=max(1, int(layout.top_panel_height * 0.29)),
+            preferred_size=max(18, int(layout.canvas_width * 0.074)),
             tracking_ratio=0.035,
             fill=_TITLE_COLOR,
             font_path=title_font_path,
             font_ttc_index=title_font_index,
         )
-        ornament_y = int(layout.top_panel_height * 0.72)
+        ornament_y = int(layout.top_panel_height * 0.55)
         ornament_half_width = max(28, int(layout.canvas_width * 0.065))
         ornament_gap = max(10, int(layout.canvas_width * 0.008))
         centre_x = layout.canvas_width // 2
@@ -361,33 +360,84 @@ def _render_static_background(
             fill=_ACCENT_COLOR,
         )
     if subtitle:
-        rule_half_width = int(layout.canvas_width * 0.28)
-        bottom_centre_x = layout.canvas_width // 2
-        for rule_y in (
-            bottom_y + int(layout.bottom_panel_height * 0.25),
-            bottom_y + int(layout.bottom_panel_height * 0.73),
-        ):
-            draw.line(
-                (bottom_centre_x - rule_half_width, rule_y, bottom_centre_x + rule_half_width, rule_y),
-                fill=_SEPARATOR_COLOR,
-                width=max(1, layout.canvas_width // 1200),
-            )
         _draw_fitted_tracking_text(
             draw,
             subtitle,
             centre=(
                 layout.canvas_width // 2,
-                bottom_y + int(layout.bottom_panel_height * 0.49),
+                int(layout.top_panel_height * 0.76),
             ),
             max_width=max_text_width,
-            max_height=max(1, int(layout.bottom_panel_height * 0.30)),
-            preferred_size=max(16, int(layout.canvas_width * 0.047)),
-            tracking_ratio=0.12,
+            max_height=max(1, int(layout.top_panel_height * 0.18)),
+            preferred_size=max(16, int(layout.canvas_width * 0.036)),
+            tracking_ratio=0.075,
             fill=_SUBTITLE_COLOR,
             font_path=subtitle_font_path,
             font_ttc_index=subtitle_font_index,
         )
+    _draw_bottom_panel_glow(image, layout)
     image.save(output_path, format="PNG", optimize=True)
+
+
+def _draw_bottom_panel_glow(image: Image.Image, layout: ThreeByFourLayout) -> None:
+    """用无文字的柔和光晕填补下贴片，并保持可压缩的局部色彩变化。"""
+    bottom_y = layout.main_y + layout.main_height
+    centre_x = layout.canvas_width // 2
+    centre_y = bottom_y + int(layout.bottom_panel_height * 0.50)
+
+    glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow)
+    radius_x = max(24, int(layout.canvas_width * 0.18))
+    radius_y = max(18, int(layout.bottom_panel_height * 0.28))
+    glow_draw.ellipse(
+        (
+            centre_x - radius_x,
+            centre_y - radius_y,
+            centre_x + radius_x,
+            centre_y + radius_y,
+        ),
+        fill=(*_ACCENT_COLOR, 78),
+    )
+    blur_radius = max(12, int(layout.bottom_panel_height * 0.16))
+    image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(blur_radius)))
+
+    ambient = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    ambient_draw = ImageDraw.Draw(ambient)
+    ambient_draw.ellipse(
+        (
+            centre_x - int(radius_x * 1.75),
+            centre_y - int(radius_y * 1.25),
+            centre_x + int(radius_x * 1.75),
+            centre_y + int(radius_y * 1.25),
+        ),
+        fill=(*_SUBTITLE_COLOR, 22),
+    )
+    image.alpha_composite(ambient.filter(ImageFilter.GaussianBlur(blur_radius * 2)))
+
+    draw = ImageDraw.Draw(image)
+    half_rule = max(34, int(layout.canvas_width * 0.12))
+    inner_gap = max(12, int(layout.canvas_width * 0.012))
+    line_width = max(1, layout.canvas_width // 1200)
+    draw.line(
+        (centre_x - half_rule, centre_y, centre_x - inner_gap, centre_y),
+        fill=_SEPARATOR_COLOR,
+        width=line_width,
+    )
+    draw.line(
+        (centre_x + inner_gap, centre_y, centre_x + half_rule, centre_y),
+        fill=_SEPARATOR_COLOR,
+        width=line_width,
+    )
+    diamond = max(3, int(layout.canvas_width * 0.0035))
+    draw.polygon(
+        (
+            (centre_x, centre_y - diamond),
+            (centre_x + diamond, centre_y),
+            (centre_x, centre_y + diamond),
+            (centre_x - diamond, centre_y),
+        ),
+        fill=_ACCENT_COLOR,
+    )
 
 
 def _draw_fitted_tracking_text(

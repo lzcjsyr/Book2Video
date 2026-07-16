@@ -111,6 +111,7 @@ def test_ffmpeg_command_overlays_source_at_native_size_and_copies_audio(tmp_path
     assert "-crf 16" in command_text
     assert "-progress pipe:1" in command_text
     assert "-nostats" in command_text
+    assert "-shortest" not in command
 
 
 @pytest.mark.parametrize(
@@ -147,6 +148,51 @@ def test_editorial_palette_uses_neutral_ink_and_restrained_vermilion():
     assert three_by_four._ACCENT_COLOR == (196, 90, 71)
 
 
+def test_both_copy_lines_are_drawn_in_top_panel_and_bottom_has_no_text(monkeypatch, tmp_path):
+    layout = calculate_layout(1280, 720)
+    calls = []
+
+    def capture_text(_draw, text, **kwargs):
+        calls.append((text, kwargs["centre"]))
+
+    monkeypatch.setattr(three_by_four, "_draw_fitted_tracking_text", capture_text)
+    output = tmp_path / "panels.png"
+    three_by_four._render_static_background(
+        output,
+        layout,
+        "主标题",
+        "原本位于下贴片的副标题",
+        font_path=None,
+        font_ttc_index=0,
+    )
+
+    assert [text for text, _centre in calls] == ["主标题", "原本位于下贴片的副标题"]
+    assert all(centre[1] < layout.top_panel_height for _text, centre in calls)
+
+
+def test_bottom_panel_uses_local_glow_instead_of_flat_empty_fill(tmp_path):
+    layout = calculate_layout(1280, 720)
+    output = tmp_path / "panels.png"
+    three_by_four._render_static_background(
+        output,
+        layout,
+        "主标题",
+        "副标题",
+        font_path=None,
+        font_ttc_index=0,
+    )
+
+    bottom_y = layout.main_y + layout.main_height
+    centre_y = bottom_y + int(layout.bottom_panel_height * 0.50)
+    with Image.open(output).convert("RGB") as image:
+        corner = image.getpixel((20, bottom_y + 20))
+        glow = image.getpixel((layout.canvas_width // 2, centre_y + 35))
+
+    assert corner == three_by_four._PANEL_COLOR
+    assert glow != three_by_four._PANEL_COLOR
+    assert glow[0] > corner[0]
+
+
 def test_hardware_command_reuses_existing_codec_and_quality_setting(tmp_path: Path):
     command = build_export_command(
         ffmpeg_path="/usr/bin/ffmpeg",
@@ -165,7 +211,7 @@ def test_hardware_command_reuses_existing_codec_and_quality_setting(tmp_path: Pa
     assert "-tag:v hvc1" in command_text
 
 
-def test_export_falls_back_to_hardware_encoder_without_touching_the_master(
+def test_export_prefers_hardware_encoder_and_falls_back_to_software_without_touching_the_master(
     monkeypatch, tmp_path: Path
 ):
     source = tmp_path / "final_video.mp4"
@@ -199,8 +245,9 @@ def test_export_falls_back_to_hardware_encoder_without_touching_the_master(
     assert result == destination
     assert source.read_bytes() == b"landscape-master"
     assert destination.read_bytes() == b"framed-video"
-    assert "libx264" in commands[0]
-    assert "h264_videotoolbox" in commands[1]
+    assert "h264_videotoolbox" in commands[0]
+    assert commands[0][commands[0].index("-q:v") + 1] == "86"
+    assert "libx264" in commands[1]
 
 
 def test_failed_export_is_atomic_and_preserves_an_existing_variant(monkeypatch, tmp_path: Path):
@@ -227,7 +274,7 @@ def test_failed_export_is_atomic_and_preserves_an_existing_variant(monkeypatch, 
 
     monkeypatch.setattr(three_by_four, "_run_export_command", always_fail)
 
-    with pytest.raises(RuntimeError, match="软件编码.*硬件编码"):
+    with pytest.raises(RuntimeError, match="硬件编码.*软件编码"):
         export_three_by_four_video(source, destination, {})
 
     assert source.read_bytes() == b"landscape-master"

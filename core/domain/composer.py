@@ -8,7 +8,7 @@ import re
 import math
 from contextlib import suppress
 import numpy as np
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Callable, List, Dict, Any, Optional, Tuple
 from PIL import Image, ImageDraw, ImageFont
 
 # MoviePy 2.x imports (no editor module)
@@ -27,6 +27,7 @@ from core.config import config
 from core.domain.subtitles import (
     calculate_mixed_length,
     calculate_subtitle_durations,
+    format_subtitle_display_text,
     split_text_for_subtitle,
 )
 from core.media_gateway import (
@@ -179,7 +180,7 @@ class VideoComposer:
                 font_path=panel_font,
                 font_ttc_index=panel_ttc_index,
                 video_codec=getattr(config, "VIDEO_CODEC", "h264"),
-                quality_level=int(getattr(config, "VIDEO_QUALITY_LEVEL", 70) or 70),
+                quality_level=int(getattr(config, "THREE_BY_FOUR_QUALITY_LEVEL", 86) or 86),
             )
             print(f"3:4贴片版已保存: {three_by_four_path}")
             
@@ -843,6 +844,7 @@ class VideoComposer:
             print("正在添加字幕...")
             # 从独立变量构建字幕配置字典
             subtitle_config = {
+                "style": getattr(config, "SUBTITLE_STYLE", "classic"),
                 "font_size": config.SUBTITLE_FONT_SIZE,
                 "font_family": config.SUBTITLE_FONT_FAMILY,
                 "ttc_index": config.SUBTITLE_FONT_TTC_INDEX,
@@ -1149,6 +1151,7 @@ class VideoComposer:
         if subtitle_config is None:
             # 从独立变量构建默认字幕配置
             subtitle_config = {
+                "style": getattr(config, "SUBTITLE_STYLE", "classic"),
                 "font_size": config.SUBTITLE_FONT_SIZE,
                 "font_family": config.SUBTITLE_FONT_FAMILY,
                 "ttc_index": config.SUBTITLE_FONT_TTC_INDEX,
@@ -1176,9 +1179,11 @@ class VideoComposer:
         logger.info("开始创建字幕剪辑...")
         
         # 解析字体
+        subtitle_style = str(subtitle_config.get("style", "classic") or "classic").strip().lower()
         resolved_font, resolved_ttc_index = self.resolve_subtitle_font(
             subtitle_config.get("font_family"),
             int(subtitle_config.get("ttc_index", 0)),
+            subtitle_style,
         )
         subtitle_config["ttc_index"] = resolved_ttc_index
         if not resolved_font:
@@ -1187,6 +1192,11 @@ class VideoComposer:
         # 读取视频尺寸
         video_size = subtitle_config["video_size"]
         video_width, video_height = video_size
+        subtitle_config = self._scale_subtitle_config_for_video(
+            subtitle_config,
+            video_width,
+            video_height,
+        )
         
         segment_durations = subtitle_config.get("segment_durations", [])
         
@@ -1207,7 +1217,8 @@ class VideoComposer:
             subtitle_texts = self.split_text_for_subtitle(
                 content,
                 subtitle_config["max_chars_per_line"],
-                subtitle_config["max_lines"]
+                subtitle_config["max_lines"],
+                display_formatter=format_subtitle_display_text if subtitle_style == "editorial" else None,
             )
             
             # 计算每行字幕时长
@@ -1217,8 +1228,11 @@ class VideoComposer:
             for subtitle_text, subtitle_duration in zip(subtitle_texts, line_durations):
                 try:
                     # 处理标点
-                    display_text = re.sub(punctuation_pattern, "  ", subtitle_text)
-                    display_text = re.sub(r" {3,}", "  ", display_text).rstrip()
+                    if subtitle_style == "editorial":
+                        display_text = format_subtitle_display_text(subtitle_text)
+                    else:
+                        display_text = re.sub(punctuation_pattern, "  ", subtitle_text)
+                        display_text = re.sub(r" {3,}", "  ", display_text).rstrip()
                     
                     # 创建字幕剪辑
                     clips_to_add = self._create_subtitle_clips_internal(
@@ -1238,6 +1252,36 @@ class VideoComposer:
         
         logger.info(f"字幕创建完成，共创建 {len(subtitle_clips)} 个字幕剪辑")
         return subtitle_clips
+
+    def _scale_subtitle_config_for_video(
+        self,
+        subtitle_config: Dict[str, Any],
+        video_width: int,
+        video_height: int,
+    ) -> Dict[str, Any]:
+        """将字幕视觉参数从 1280x720 基准等比缩放到实际母版尺寸。"""
+        scaled = dict(subtitle_config)
+        width_scale = max(0.01, float(video_width) / 1280.0)
+        height_scale = max(0.01, float(video_height) / 720.0)
+        scale = max(0.75, min(2.0, min(width_scale, height_scale)))
+
+        for key, minimum in (
+            ("font_size", 18),
+            ("stroke_width", 1),
+            ("margin_bottom", 0),
+            ("line_spacing", 0),
+            ("letter_spacing", 0),
+            ("background_horizontal_padding", 0),
+            ("background_vertical_padding", 0),
+            ("baseline_safe_padding", 2),
+        ):
+            if key in scaled:
+                scaled[key] = max(minimum, int(round(float(scaled[key] or 0) * scale)))
+
+        shadow_offset = scaled.get("shadow_offset")
+        if isinstance(shadow_offset, (tuple, list)) and len(shadow_offset) == 2:
+            scaled["shadow_offset"] = tuple(int(round(float(value) * scale)) for value in shadow_offset)
+        return scaled
     
     def _calculate_mixed_length(self, text: str) -> float:
         """计算混合中英文本的等效长度"""
@@ -1258,6 +1302,24 @@ class VideoComposer:
         font_path = resolved_font or subtitle_config["font_family"]
         ttc_index = int(subtitle_config.get("ttc_index", 0))
         letter_spacing = int(subtitle_config.get("letter_spacing", 0) or 0)
+
+        if str(subtitle_config.get("style", "classic") or "classic").strip().lower() == "editorial":
+            editorial_card = self._create_editorial_subtitle_card(
+                text=display_text,
+                subtitle_config=subtitle_config,
+                font_path=font_path,
+                ttc_index=ttc_index,
+                video_width=video_width,
+            )
+            card_clip = ImageClip(np.array(editorial_card))
+            y_card = max(0, video_height - margin_bottom - card_clip.h)
+            card_clip = (
+                card_clip
+                .with_start(start_time)
+                .with_duration(duration)
+                .with_position(("center", y_card))
+            )
+            return [card_clip]
         
         # 使用 PIL 渲染主要文字（解决 MoviePy TextClip 底部裁切问题）
         text_img = self._create_text_image_pil(
@@ -1339,12 +1401,79 @@ class VideoComposer:
             clips_to_add.append(main_clip)
         
         return clips_to_add
+
+    def _create_editorial_subtitle_card(
+        self,
+        text: str,
+        subtitle_config: Dict[str, Any],
+        font_path: str,
+        ttc_index: int,
+        video_width: int,
+    ) -> Image.Image:
+        """渲染电影编辑部风格的自适应圆角字幕卡。"""
+        preferred_size = int(subtitle_config.get("font_size", 66) or 66)
+        minimum_size = max(32, int(round(preferred_size * 0.72)))
+        letter_spacing = int(subtitle_config.get("letter_spacing", 0) or 0)
+        horizontal_padding = max(24, int(round(preferred_size * 0.58)))
+        top_padding = max(16, int(round(preferred_size * 0.34)))
+        bottom_padding = max(16, int(round(preferred_size * 0.34)))
+        max_card_width = max(240, int(video_width * 0.90))
+        max_text_width = max(120, max_card_width - horizontal_padding * 2)
+
+        text_image = None
+        for size in range(preferred_size, minimum_size - 1, -2):
+            candidate = self._create_text_image_pil(
+                text=text,
+                font_size=size,
+                font_path=font_path,
+                text_color=(246, 240, 226, 255),
+                stroke_color=(35, 30, 28, 255),
+                stroke_width=max(1, int(round(size / 64))),
+                ttc_index=ttc_index,
+                letter_spacing=letter_spacing,
+            )
+            text_image = candidate
+            if candidate.width <= max_text_width:
+                break
+
+        if text_image is None:
+            return Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+
+        card_width = min(max_card_width, text_image.width + horizontal_padding * 2)
+        card_height = text_image.height + top_padding + bottom_padding
+        card = Image.new("RGBA", (card_width, card_height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(card)
+        radius = max(12, int(round(preferred_size * 0.27)))
+        border_width = max(1, int(round(preferred_size / 34)))
+        draw.rounded_rectangle(
+            (0, 0, card_width - 1, card_height - 1),
+            radius=radius,
+            fill=(13, 18, 25, 218),
+            outline=(92, 86, 80, 190),
+            width=border_width,
+        )
+
+        text_x = max(0, (card_width - text_image.width) // 2)
+        text_y = top_padding
+        card.alpha_composite(text_image, (text_x, text_y))
+        return card
     
-    def split_text_for_subtitle(self, text: str, max_chars_per_line: int = 20, max_lines: int = 2) -> List[str]:
+    def split_text_for_subtitle(
+        self,
+        text: str,
+        max_chars_per_line: int = 20,
+        max_lines: int = 2,
+        display_formatter: Callable[[str], str] | None = None,
+    ) -> List[str]:
         """将长文本分割为适合字幕显示的短句，同时保护成对符号（书名号、引号）"""
-        return split_text_for_subtitle(text, max_chars_per_line, max_lines)
+        return split_text_for_subtitle(text, max_chars_per_line, max_lines, display_formatter)
     
-    def resolve_subtitle_font(self, preferred: Optional[str], preferred_ttc_index: int = 0) -> Tuple[Optional[str], int]:
+    def resolve_subtitle_font(
+        self,
+        preferred: Optional[str],
+        preferred_ttc_index: int = 0,
+        style: str = "classic",
+    ) -> Tuple[Optional[str], int]:
         """解析字幕字体路径和 TTC index。"""
         preferred_text = (preferred or "").strip()
         if preferred_text and preferred_text.lower() != "auto":
@@ -1352,6 +1481,17 @@ class VideoComposer:
                 return preferred_text, int(preferred_ttc_index or 0)
             logger.warning("配置的字幕字体不存在，自动回退到系统字体: %s", preferred_text)
 
+        editorial_fonts = [
+            # macOS
+            ("/System/Library/Fonts/Supplemental/Songti.ttc", 1),
+            # Windows
+            ("C:/Windows/Fonts/simsun.ttc", 0),
+            ("C:/Windows/Fonts/simkai.ttf", 0),
+            # Linux
+            ("/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc", 0),
+            ("/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc", 0),
+            ("/usr/share/fonts/opentype/adobe-source-han-serif/SourceHanSerifSC-Bold.otf", 0),
+        ]
         common_fonts = [
             # macOS
             ("/System/Library/Fonts/PingFang.ttc", 0),
@@ -1368,7 +1508,8 @@ class VideoComposer:
             ("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc", 0),
         ]
 
-        for font_path, ttc_index in common_fonts:
+        candidates = editorial_fonts + common_fonts if str(style).lower() == "editorial" else common_fonts
+        for font_path, ttc_index in candidates:
             if os.path.exists(font_path):
                 return font_path, ttc_index
 

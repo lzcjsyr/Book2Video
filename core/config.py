@@ -33,8 +33,7 @@ LLM_MODEL_STEP1_5: str = ""
 
 LLM_SERVER_STEP2: str = ""
 LLM_MODEL_STEP2: str = ""
-IMAGES_METHOD: str = ""
-LLM_TEMPERATURE_KEYWORDS: float = 0.5
+LLM_TEMPERATURE_DESCRIPTION: float = 0.5
 
 VOICE: str = ""
 RESOURCE_ID: str = ""
@@ -65,6 +64,7 @@ IMAGE_SERVER: str = ""
 IMAGE_SIZE: str = ""
 IMAGE_MODEL: str = ""
 IMAGE_STYLE_PRESET: str = ""
+IMAGE_PROMPT_TEMPLATE: str = "current"
 MAX_CONCURRENT_IMAGE_GENERATION: int = 1
 LLM_SERVER_STEP4: str = ""
 LLM_MODEL_STEP4: str = ""
@@ -74,6 +74,7 @@ VIDEO_OUTPUT_FPS: int = 0
 VIDEO_CODEC: str = ""
 VIDEO_BITRATE_MODE: str = ""
 VIDEO_QUALITY_LEVEL: int = 0
+THREE_BY_FOUR_QUALITY_LEVEL: int = 86
 ENABLE_SUBTITLES: bool = True
 DEFAULT_BGM_FILENAME: str = ""
 BGM_DEFAULT_VOLUME: float = 0.0
@@ -97,6 +98,7 @@ VIDEO_MATERIAL_DURATION_ADJUST: str = ""
 VIDEO_MATERIAL_RESIZE_METHOD: str = ""
 
 SUBTITLE_FONT_SIZE: int = 0
+SUBTITLE_STYLE: str = "classic"
 SUBTITLE_FONT_FAMILY: str = ""
 SUBTITLE_FONT_TTC_INDEX: int = 0
 SUBTITLE_COLOR: str = ""
@@ -142,8 +144,7 @@ _YAML_SCHEMA: Dict[str, Dict[str, str]] = {
     "step2": {
         "llm_server": "LLM_SERVER_STEP2",
         "llm_model": "LLM_MODEL_STEP2",
-        "images_method": "IMAGES_METHOD",
-        "llm_temperature_keywords": "LLM_TEMPERATURE_KEYWORDS",
+        "llm_temperature_description": "LLM_TEMPERATURE_DESCRIPTION",
     },
     "step3": {
         "voice": "VOICE",
@@ -177,6 +178,7 @@ _YAML_SCHEMA: Dict[str, Dict[str, str]] = {
         "image_size": "IMAGE_SIZE",
         "image_model": "IMAGE_MODEL",
         "image_style_preset": "IMAGE_STYLE_PRESET",
+        "image_prompt_template": "IMAGE_PROMPT_TEMPLATE",
         "max_concurrent_image_generation": "MAX_CONCURRENT_IMAGE_GENERATION",
         "llm_server": "LLM_SERVER_STEP4",
         "llm_base_url": "LLM_BASE_URL_STEP4_OVERRIDE",
@@ -188,6 +190,7 @@ _YAML_SCHEMA: Dict[str, Dict[str, str]] = {
         "video_codec": "VIDEO_CODEC",
         "video_bitrate_mode": "VIDEO_BITRATE_MODE",
         "video_quality_level": "VIDEO_QUALITY_LEVEL",
+        "three_by_four_quality_level": "THREE_BY_FOUR_QUALITY_LEVEL",
         "enable_subtitles": "ENABLE_SUBTITLES",
         "bgm_filename": "DEFAULT_BGM_FILENAME",
         "bgm_default_volume": "BGM_DEFAULT_VOLUME",
@@ -211,6 +214,7 @@ _YAML_SCHEMA: Dict[str, Dict[str, str]] = {
         "video_material_resize_method": "VIDEO_MATERIAL_RESIZE_METHOD",
     },
     "subtitles": {
+        "style": "SUBTITLE_STYLE",
         "font_size": "SUBTITLE_FONT_SIZE",
         "font_family": "SUBTITLE_FONT_FAMILY",
         "font_ttc_index": "SUBTITLE_FONT_TTC_INDEX",
@@ -277,7 +281,7 @@ _PARAM_CONSTANTS = {
     "mute_cut_min_silence_ms": "MUTE_CUT_MIN_SILENCE_MS",
     "mute_cut_remain_ms": "MUTE_CUT_REMAIN_MS",
     "image_style_preset": "IMAGE_STYLE_PRESET",
-    "images_method": "IMAGES_METHOD",
+    "image_prompt_template": "IMAGE_PROMPT_TEMPLATE",
     "enable_subtitles": "ENABLE_SUBTITLES",
     "bgm_filename": "DEFAULT_BGM_FILENAME",
     "opening_quote": "OPENING_QUOTE",
@@ -448,7 +452,6 @@ class Config:
     SUPPORTED_LLM_SERVERS = ["openrouter", "siliconflow", "mimo", "kimi", "deepseek", "volcengine"]
     SUPPORTED_IMAGE_SERVERS = ["doubao", "google", "google_adc"]
     SUPPORTED_TTS_SERVERS = ["bytedance"]
-    SUPPORTED_IMAGE_METHODS = ["keywords", "description"]
     RECOMMENDED_MODELS = {
         "llm": {
             "openrouter": [LLM_MODEL_STEP2],
@@ -591,6 +594,19 @@ class Config:
         raise ValueError(f"不支持的模型类型: {model_type}")
 
     @classmethod
+    def validate_image_prompt_template(cls, template_name: str) -> str:
+        """Validate and normalize a configured step-4 image prompt template name."""
+        from core.prompts import (
+            DEFAULT_STEP4_IMAGE_PROMPT_TEMPLATE,
+            get_step4_image_description_prompt_template,
+        )
+
+        name = str(template_name or DEFAULT_STEP4_IMAGE_PROMPT_TEMPLATE).strip()
+        name = name or DEFAULT_STEP4_IMAGE_PROMPT_TEMPLATE
+        get_step4_image_description_prompt_template(name)
+        return name
+
+    @classmethod
     def validate_parameters(
         cls,
         num_segments: int,
@@ -600,8 +616,8 @@ class Config:
         image_model: str,
         image_size: str,
         *,
-        images_method: str = None,
         llm_model: str = None,
+        image_prompt_template: str = None,
     ) -> None:
         """验证所有参数的有效性"""
         if not cls.MIN_NUM_SEGMENTS <= num_segments <= cls.MAX_NUM_SEGMENTS:
@@ -615,8 +631,8 @@ class Config:
         if tts_server not in cls.SUPPORTED_TTS_SERVERS:
             raise ValueError(f"不支持的TTS服务商: {tts_server}，支持的服务商: {cls.SUPPORTED_TTS_SERVERS}")
         cls.validate_model_provider_pair("image", image_server, image_model)
-        if images_method and images_method not in cls.SUPPORTED_IMAGE_METHODS:
-            raise ValueError(f"不支持的图像生成方法: {images_method}，支持的方法: {cls.SUPPORTED_IMAGE_METHODS}")
+        if image_prompt_template is not None:
+            cls.validate_image_prompt_template(image_prompt_template)
         if not cls.validate_image_size(image_size, image_model):
             raise ValueError(
                 f"图像尺寸 {image_size} 不符合模型 {image_model} 的要求。\n"
@@ -736,7 +752,7 @@ class VideoGenerationConfig:
     image_model: str = IMAGE_MODEL
     image_size: str = IMAGE_SIZE
     image_style_preset: str = IMAGE_STYLE_PRESET
-    images_method: str = IMAGES_METHOD  # keywords / description
+    image_prompt_template: str = IMAGE_PROMPT_TEMPLATE
     
     # ==================== 语音合成配置 ====================
     tts_server: str = "bytedance"
@@ -764,6 +780,8 @@ class VideoGenerationConfig:
     
     def __post_init__(self):
         """初始化后的验证和默认值设置"""
+        self.image_prompt_template = Config.validate_image_prompt_template(self.image_prompt_template)
+
         # 规格化尺寸字符串中的分隔符
         if self.image_size:
             self.image_size = str(self.image_size).lower().replace("×", "x").replace("*", "x").replace(" ", "")

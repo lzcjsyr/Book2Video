@@ -40,12 +40,8 @@ class ProjectPaths:
         """脚本可阅读DOCX文件路径"""
         return os.path.join(self.text, "script.docx")
     
-    def keywords_json(self) -> str:
-        """关键词JSON文件路径"""
-        return os.path.join(self.text, "keywords.json")
-    
     def mini_summary_json(self) -> str:
-        """描述模式小结JSON文件路径"""
+        """步骤2描述小结JSON文件路径"""
         return os.path.join(self.text, "mini_summary.json")
     
     # ==================== Images 目录相关路径 ====================

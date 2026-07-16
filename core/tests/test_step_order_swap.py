@@ -23,11 +23,49 @@ def _write_script(project_dir: Path, segments: int = 2) -> ProjectPaths:
         "segments": [{"index": idx, "content": f"segment {idx}"} for idx in range(1, segments + 1)],
     }
     Path(paths.script_json()).write_text(json.dumps(script, ensure_ascii=False), encoding="utf-8")
-    Path(paths.keywords_json()).write_text(
-        json.dumps({"segments": [{"index": idx} for idx in range(1, segments + 1)]}, ensure_ascii=False),
+    Path(paths.mini_summary_json()).write_text(
+        json.dumps({"summary": "用于测试的整体描述。"}, ensure_ascii=False),
         encoding="utf-8",
     )
     return paths
+
+
+def test_run_step_2_writes_the_description_summary(monkeypatch, tmp_path: Path):
+    paths = _write_script(tmp_path / "project", segments=2)
+    Path(paths.raw_json()).write_text(
+        json.dumps({"content": "完整原稿内容"}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    captured = {}
+
+    def fake_generate_description(server, model, base_url, content, max_chars):
+        captured.update(
+            server=server,
+            model=model,
+            base_url=base_url,
+            content=content,
+            max_chars=max_chars,
+        )
+        return {"summary": "统一的画面背景小结", "total_length": 10}
+
+    monkeypatch.setattr(steps, "generate_description_summary", fake_generate_description)
+
+    result = steps.run_step_2(
+        "siliconflow",
+        "summary-model",
+        "https://api.example.test/v1",
+        str(tmp_path / "project"),
+    )
+
+    assert result == {"success": True, "mini_summary_path": paths.mini_summary_json()}
+    assert json.loads(Path(paths.mini_summary_json()).read_text(encoding="utf-8"))["summary"] == "统一的画面背景小结"
+    assert captured == {
+        "server": "siliconflow",
+        "model": "summary-model",
+        "base_url": "https://api.example.test/v1",
+        "content": "完整原稿内容",
+        "max_chars": 200,
+    }
 
 
 def test_run_step_3_generates_voice_after_swap(monkeypatch, tmp_path: Path):
@@ -79,7 +117,6 @@ def test_run_step_4_generates_visuals_after_swap(monkeypatch, tmp_path: Path):
         image_size="1280x720",
         image_style_preset="style01",
         project_output_dir=str(tmp_path / "project"),
-        images_method="keywords",
         opening_quote=False,
         target_segments=[1],
         llm_model="some-llm",
@@ -131,7 +168,11 @@ def test_auto_mode_runs_voice_before_visual_after_swap(monkeypatch, tmp_path: Pa
             "script_path": paths.script_json(),
         },
     )
-    monkeypatch.setattr(run_auto_module, "_run_step_2", lambda *_args, **_kwargs: {"success": True, "keywords_path": paths.keywords_json()})
+    monkeypatch.setattr(
+        run_auto_module,
+        "_run_step_2",
+        lambda *_args, **_kwargs: {"success": True, "mini_summary_path": paths.mini_summary_json()},
+    )
 
     def fake_step3(*_args, **_kwargs):
         order.append("step3-audio")
@@ -231,7 +272,6 @@ def test_cli_specific_step_3_runs_voice_and_step_4_runs_visual(monkeypatch, tmp_
         "1280x720",
         "1280x720",
         "style01",
-        "keywords",
         "bytedance",
         "voice-id",
         "tts-model",

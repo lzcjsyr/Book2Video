@@ -91,7 +91,6 @@ def test_segment_renderer_uses_audio_duration_and_render_command(monkeypatch, tm
         image_size="1280x720",
         output_dir=paths.images,
         target_segments=[1],
-        keywords_data={"segments": [{"index": 1, "keywords": ["增长"]}]},
         description_data=None,
         style_preset="data_driven",
         max_turns=7,
@@ -110,7 +109,6 @@ def test_segment_renderer_uses_audio_duration_and_render_command(monkeypatch, tm
     assert Path(result["image_paths"][0]).exists()
     assert agent_inputs[0]["duration_seconds"] == 0.75
     assert agent_inputs[0]["style_preset"] == "data_driven"
-    assert "keywords" not in agent_inputs[0]["segment_payload"]
     assert "atmosphere" not in agent_inputs[0]["segment_payload"]
     assert agent_inputs[0]["segment_payload"]["content"] == "收入同比增长30%，利润承压。"
     assert agent_inputs[0]["llm_server"] == "siliconflow"
@@ -153,7 +151,6 @@ def test_segment_renderer_uses_absolute_render_output_when_project_path_is_relat
         image_size="1280x720",
         output_dir=paths.images,
         target_segments=[1],
-        keywords_data=None,
         description_data=None,
         style_preset="data_driven",
         max_turns=7,
@@ -191,7 +188,6 @@ def test_segment_renderer_records_render_log_on_failure(monkeypatch, tmp_path):
         image_size="1280x720",
         output_dir=paths.images,
         target_segments=[1],
-        keywords_data=None,
         description_data=None,
         style_preset="data_driven",
         max_turns=7,
@@ -228,7 +224,6 @@ def test_segment_renderer_records_render_log_on_timeout(monkeypatch, tmp_path):
         image_size="1280x720",
         output_dir=paths.images,
         target_segments=[1],
-        keywords_data=None,
         description_data=None,
         style_preset="data_driven",
         max_turns=7,

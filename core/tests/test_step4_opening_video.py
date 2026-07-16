@@ -20,7 +20,10 @@ def project_dir(tmp_path: Path) -> Path:
         "source_name": "系统思维",
     }
     (text_dir / "script.json").write_text(json.dumps(script, ensure_ascii=False), encoding="utf-8")
-    (text_dir / "keywords.json").write_text(json.dumps({"segments": []}, ensure_ascii=False), encoding="utf-8")
+    (text_dir / "mini_summary.json").write_text(
+        json.dumps({"summary": "系统思维帮助人建立长期优势。"}, ensure_ascii=False),
+        encoding="utf-8",
+    )
     return project
 
 
@@ -54,7 +57,6 @@ def test_run_step_4_uses_opening_video_renderer_when_regenerating(monkeypatch, p
         image_size="1280x720",
         image_style_preset="style01",
         project_output_dir=str(project_dir),
-        images_method="keywords",
         opening_quote=True,
         regenerate_opening=True,
     )
@@ -93,7 +95,6 @@ def test_run_step_4_reuses_existing_opening_video_when_not_regenerating(monkeypa
         image_size="1280x720",
         image_style_preset="style01",
         project_output_dir=str(project_dir),
-        images_method="keywords",
         opening_quote=True,
         regenerate_opening=False,
     )
@@ -127,7 +128,6 @@ def test_run_step_4_forwards_llm_config_to_image_prompt_safety(monkeypatch, proj
         image_size="1280x720",
         image_style_preset="style01",
         project_output_dir=str(project_dir),
-        images_method="keywords",
         opening_quote=False,
         llm_model="some-llm",
         llm_server="siliconflow",
@@ -182,7 +182,6 @@ def test_run_step_4_generates_opening_background_and_renders_opening(monkeypatch
         image_size="1280x720",
         image_style_preset="style01",
         project_output_dir=str(project_dir),
-        images_method="keywords",
         opening_quote=True,
         regenerate_opening=True,
     )

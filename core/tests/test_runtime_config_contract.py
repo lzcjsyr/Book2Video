@@ -152,7 +152,6 @@ def test_config_exposes_current_runtime_params():
         "bytedance",
         params["image_model"],
         params["image_size"],
-        images_method=params["images_method"],
         llm_model=params["llm_model_step2"],
     )
 
@@ -186,7 +185,6 @@ def test_config_rejects_unsupported_llm_server():
             tts_server="bytedance",
             image_model="gemini-3.1-flash-image-preview",
             image_size="1280x720",
-            images_method="description",
             llm_model="model",
         )
 

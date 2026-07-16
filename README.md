@@ -46,7 +46,7 @@ python start.py
 
 * **步骤 1 内容生成**：AI 提炼文档核心内容为适合短视频的篇幅。
 * **步骤 1.5 脚本分段**：按规则或 Agent 模式分段，并生成每段对应的口播文案。
-* **步骤 2 要点提取**：分析语义，提取每段画面的视觉描述或关键词。
+* **步骤 2 描述小结**：从原稿生成整体内容小结，供后续各段画面保持统一语境与视觉连贯性。
 * **步骤 3 语音合成**：采用高品质 TTS 引擎生成拟真配音及 SRT 字幕，为画面生成提供精确时长。
 * **步骤 4 画面生成**：生成静态段落图片，或根据音频时长渲染 HyperFrames 动态画面，并渲染精美开场视频。
 * **步骤 5 视频合成**：混合开场视频、转场画面、配音、字幕及背景音乐，导出 MP4 视频。
@@ -79,11 +79,14 @@ step4:
   # visual_mode: hyperframes_agent # 动态：生成 images/segment_i.mp4
   # visual_mode: mixed             # 混合：按每段 visualizer 选择图片或 HyperFrames
   hyperframes_style_preset: data_driven
+  image_prompt_template: current  # current / cinematic / editorial
 ```
 
 选择 `hyperframes_agent` 时，系统会先使用步骤 3 已生成的真实音频时长，再调用 Claude Agent 按项目内置 HyperFrames 规范生成动态 HTML 并渲染为分段视频。
 
 选择 `mixed` 时，系统读取 `text/script.json` 中每段的 `visualizer` 字段：`image` 生成 `segment_i.png`，`hf` 生成 `segment_i.mp4`。步骤 1.5 的默认规则模式会把每段 `visualizer` 写为 `image`；带 `【hf】` 标记或 Agent 判定为动态配图的段落会写为 `hf`。混合模式下两类段落会分组并行生成。
+
+静态图片使用的提示词模板集中定义在 `prompts/step4_image_templates.yaml`。每个模板都包含便于人类辨识的 `label`、`description` 和原样多行的 `template`；只有 `template` 正文会发送给生图模型。`current` 完整保留原有图示加中文关键词模板；`cinematic` 生成无文字的电影感叙事画面；`editorial` 生成现代编辑设计和知识信息图。通过 `step4.image_prompt_template` 选择，配置不存在的模板名称时会直接报错并列出可选项。
 
 ---
 
@@ -92,7 +95,7 @@ step4:
 为了方便你进行定制开发、效果微调或查找对应资源，以下是根目录下各主要模块的功能与职责：
 
 * 📂 **`core/`** — **系统核心代码库**。
-* 📂 **`prompts/`** — **大模型提示词与风格模板**。包含视频生成过程中，总结段落、提取视觉关键词、润色口播文案所用的核心 Prompt 预设。如需调整文案生成风格或添加自定义艺术风格，在此修改。
+* 📂 **`prompts/`** — **大模型提示词与风格模板**。包含视频生成过程中生成描述小结、润色口播文案和构建画面所用的核心 Prompt 预设。如需调整文案生成风格或添加自定义艺术风格，在此修改。
 * 📂 **`skills/`** — **自动化技能扩展**。`skills/step1/` 存放第一步写作 Agent skills；`skills/step4/` 存放第四步动态画面使用的官方 HyperFrames 核心 skills，包括 `hyperframes/`、`hyperframes-core/`、`hyperframes-animation/`、`hyperframes-creative/`、`hyperframes-cli/`、`hyperframes-media/`、`hyperframes-registry/` 和 `general-video/`。
 * 📂 **`scripts/`** — **系统管理脚本**。提供 macOS/Linux 以及 Windows 环境下一键环境安装、依赖检验以及完整功能诊断的脚本。
 * 📂 **`input/`** — **待处理文档输入目录**。放入需要转为视频的 PDF、EPUB、DOCX 等原始电子书/文档。

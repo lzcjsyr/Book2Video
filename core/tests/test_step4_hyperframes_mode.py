@@ -19,8 +19,8 @@ def _write_project(project_dir: Path, *, with_voice: bool = True) -> ProjectPath
         ],
     }
     Path(paths.script_json()).write_text(json.dumps(script, ensure_ascii=False), encoding="utf-8")
-    Path(paths.keywords_json()).write_text(
-        json.dumps({"segments": [{"index": 1, "keywords": ["增长"]}, {"index": 2, "keywords": ["风险"]}]}, ensure_ascii=False),
+    Path(paths.mini_summary_json()).write_text(
+        json.dumps({"summary": "增长与风险并存的商业分析。"}, ensure_ascii=False),
         encoding="utf-8",
     )
     if with_voice:
@@ -137,9 +137,8 @@ def test_cli_step_4_mixed_mode_prompts_both_style_choices(monkeypatch, tmp_path)
         image_server="1280x720",
         image_model="1280x720",
         image_size="style01",
-        video_size="keywords",
+        video_size="1280x720",
         image_style_preset="bytedance",
-        images_method="voice-id",
         tts_server="tts-model",
         voice=0,
         tts_model=0,
@@ -164,6 +163,7 @@ def test_cli_step_4_mixed_mode_prompts_both_style_choices(monkeypatch, tmp_path)
         hyperframes_max_turns=20,
         hyperframes_render_fps=30,
         hyperframes_concurrency=1,
+        image_prompt_template="editorial",
     )
 
     assert result["success"] is True
@@ -171,6 +171,7 @@ def test_cli_step_4_mixed_mode_prompts_both_style_choices(monkeypatch, tmp_path)
     assert captured["args"][3] == "style08"
     assert captured["kwargs"]["visual_mode"] == "mixed"
     assert captured["kwargs"]["hyperframes_style_preset"] == "dark_premium"
+    assert captured["kwargs"]["image_prompt_template"] == "editorial"
 
 
 def test_cli_step_4_allows_zero_for_opening_video_even_when_opening_disabled(monkeypatch, tmp_path):
@@ -206,9 +207,8 @@ def test_cli_step_4_allows_zero_for_opening_video_even_when_opening_disabled(mon
         image_server="1280x720",
         image_model="1280x720",
         image_size="style01",
-        video_size="keywords",
+        video_size="1280x720",
         image_style_preset="bytedance",
-        images_method="voice-id",
         tts_server="tts-model",
         voice=0,
         tts_model=0,
@@ -237,7 +237,7 @@ def test_cli_step_4_allows_zero_for_opening_video_even_when_opening_disabled(mon
 
     assert result["success"] is True
     assert captured_scope["kwargs"]["allow_opening"] is True
-    assert captured_run["args"][6] is True
+    assert captured_run["args"][5] is True
     assert captured_run["kwargs"]["target_segments"] == []
     assert captured_run["kwargs"]["regenerate_opening"] is True
 
@@ -262,7 +262,6 @@ def test_run_step_4_static_image_mode_keeps_existing_generator(monkeypatch, tmp_
         image_size="1280x720",
         image_style_preset="style01",
         project_output_dir=str(tmp_path / "project"),
-        images_method="keywords",
         opening_quote=False,
         target_segments=[1],
         visual_mode="static_image",
@@ -305,7 +304,6 @@ def test_run_step_4_mixed_mode_dispatches_by_segment_visualizer(monkeypatch, tmp
         image_size="1280x720",
         image_style_preset="style01",
         project_output_dir=str(tmp_path / "project"),
-        images_method="keywords",
         opening_quote=False,
         visual_mode="mixed",
     )
@@ -337,7 +335,6 @@ def test_run_step_4_hyperframes_mode_dispatches_to_renderer(monkeypatch, tmp_pat
         image_size="1280x720",
         image_style_preset="style01",
         project_output_dir=str(tmp_path / "project"),
-        images_method="keywords",
         opening_quote=False,
         target_segments=[2],
         visual_mode="hyperframes_agent",
@@ -370,7 +367,6 @@ def test_run_step_4_hyperframes_mode_requires_step3_voice(tmp_path):
         image_size="1280x720",
         image_style_preset="style01",
         project_output_dir=str(tmp_path / "project"),
-        images_method="keywords",
         opening_quote=False,
         visual_mode="hyperframes_agent",
     )

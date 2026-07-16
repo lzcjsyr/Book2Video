@@ -1,6 +1,4 @@
-"""
-Text-related logic: summarization, splitting to script, and keywords extraction.
-"""
+"""Text-related logic: summarization and script segmentation."""
 
 from typing import Dict, Any, List, Optional, Tuple
 import re
@@ -16,10 +14,7 @@ from core.domain.metadata import (
     normalize_text_list,
     strip_book_title_marks,
 )
-from core.prompts import (
-    keywords_extraction_prompt,
-    description_summary_system_prompt,
-)
+from core.prompts import description_summary_system_prompt
 from core.shared import logger
 from core.llm_gateway import text_to_text
 
@@ -120,7 +115,7 @@ def generate_description_summary(
                 prompt=user_message,
                 system_message=description_summary_system_prompt,
                 max_tokens=4096,
-                temperature=config.LLM_TEMPERATURE_KEYWORDS,
+                temperature=config.LLM_TEMPERATURE_DESCRIPTION,
                 base_url=base_url,
             )
 
@@ -509,59 +504,6 @@ def _split_long_segment(text: str, max_len: int) -> List[str]:
     if current:
         result.append(current)
     return result
-
-
-def extract_keywords(server: str, model: str, base_url: str, script_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    要点提取 - 第二次LLM处理
-    为每个段落提取关键词和氛围词
-    """
-    try:
-        segments_text = []
-        for segment in script_data["segments"]:
-            segments_text.append(f"第{segment['index']}段: {segment['content']}")
-
-        user_message = f"""请为以下每个段落提取关键词和氛围词，用于图像生成：
-
-{chr(10).join(segments_text)}
-"""
-
-        output = text_to_text(
-            server=server,
-            model=model,
-            prompt=user_message,
-            system_message=keywords_extraction_prompt,
-            max_tokens=4096,
-            temperature=config.LLM_TEMPERATURE_KEYWORDS,
-            base_url=base_url,
-        )
-
-        if output is None:
-            raise ValueError("未能从 API 获取响应。")
-
-        # 鲁棒解析（先常规，失败则修复）
-        keywords_data = parse_json_robust(output)
-
-        # 精简对齐：按脚本段数对齐（多截断、少补空），不再额外校验/告警
-        expected = len(script_data["segments"])  # 以脚本段数为准
-        segs = list(keywords_data.get("segments") or [])
-        keywords_data["segments"] = (
-            segs[:expected]
-            + [{"keywords": [], "atmosphere": []}] * max(0, expected - len(segs))
-        )
-
-        # 添加模型信息
-        keywords_data["model_info"] = {
-            "llm_server": server,
-            "llm_model": model,
-            "generation_type": "keywords_extraction"
-        }
-        keywords_data["created_time"] = datetime.datetime.now().isoformat()
-
-        return keywords_data
-
-    except Exception as e:
-        raise ValueError(f"要点提取错误: {e}")
 
 
 def export_plain_text_segments(script_data: Dict[str, Any], text_dir: str, max_chars_per_line: int = 20) -> str:
