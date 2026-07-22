@@ -462,8 +462,20 @@ class Config:
                 "doubao-seedream-4-0-250828",
                 "doubao-seedream-3-0-t2i-250415",
             ],
-            "google": ["gemini-3.1-flash-image-preview"],
-            "google_adc": ["gemini-3.1-flash-image-preview"],
+            "google": [
+                "gemini-2.5-flash-image",
+                "imagen-3.0-generate-002",
+                "imagen-3.0-fast-generate-001",
+                "gemini-2.5-flash-image-preview",
+                "gemini-3.1-flash-image-preview",
+            ],
+            "google_adc": [
+                "gemini-2.5-flash-image",
+                "imagen-3.0-generate-002",
+                "imagen-3.0-fast-generate-001",
+                "gemini-2.5-flash-image-preview",
+                "gemini-3.1-flash-image-preview",
+            ],
         },
         "voice": [
             "zh_male_yuanboxiaoshu_moon_bigtts",

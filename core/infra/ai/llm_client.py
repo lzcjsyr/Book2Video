@@ -268,9 +268,11 @@ def text_to_image_google(prompt, size="1024x1024", model="gemini-3.1-flash-image
                 parts=[types.Part.from_text(text=prompt)],
             )
         ]
-        # 保持最小可用参数集，避免可选字段在不同 API 模式下触发 INVALID_ARGUMENT。
         generate_content_config = types.GenerateContentConfig(
-            response_modalities=["IMAGE"],
+            temperature=1.0,
+            top_p=0.95,
+            max_output_tokens=32768,
+            response_modalities=["TEXT", "IMAGE"],
             safety_settings=[
                 types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="OFF"),
                 types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="OFF"),
@@ -282,10 +284,12 @@ def text_to_image_google(prompt, size="1024x1024", model="gemini-3.1-flash-image
                 image_size=image_size,
                 output_mime_type="image/png",
             ),
+            thinking_config=types.ThinkingConfig(
+                thinking_level="MINIMAL",
+            ),
         )
 
-        generate_fn = getattr(client.models, "generate_content")
-        response = generate_fn(
+        response = client.models.generate_content(
             model=model,
             contents=contents,
             config=generate_content_config,
