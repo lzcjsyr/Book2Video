@@ -86,6 +86,7 @@ def test_run_step_1_passes_extra_requirements_to_agent(monkeypatch, tmp_path: Pa
 
     monkeypatch.setattr(steps, "run_step1_agent", fake_run_step1_agent)
     monkeypatch.setattr(steps, "export_raw_to_docx", lambda *args, **kwargs: None)
+    monkeypatch.setattr(steps.config, "STEP1_AGENT_SKILL", "book-video-script_V2")
 
     result = steps.run_step_1(
         str(input_file),
@@ -411,6 +412,61 @@ def test_step1_agent_configures_enabled_subagents(monkeypatch, tmp_path: Path):
     assert agent.tools == ["Read", "Write"]
     assert agent.maxTurns == 12
     assert agent.background is True
+
+
+def test_commerce_skill_disables_agent_tool_even_when_global_subagents_are_enabled(monkeypatch, tmp_path: Path):
+    captured = {}
+    output_json = tmp_path / "text" / "raw.json"
+
+    async def fake_query(*, prompt, options):
+        captured["allowed_tools"] = list(options.allowed_tools)
+        captured["agents"] = options.agents
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+        output_json.write_text(json.dumps(_valid_raw(), ensure_ascii=False), encoding="utf-8")
+        yield ResultMessage(
+            subtype="success",
+            duration_ms=0,
+            duration_api_ms=0,
+            is_error=False,
+            num_turns=1,
+            session_id="test-session",
+        )
+
+    monkeypatch.setattr(claude_agent, "query", fake_query)
+    monkeypatch.setattr(claude_agent, "build_step1_agent_env", lambda: {})
+    monkeypatch.setattr(
+        claude_agent.config,
+        "STEP1_SUBAGENTS",
+        {
+            "enabled": True,
+            "agents": {
+                "title-quote-writer": {
+                    "enabled": True,
+                    "description": "通用标题写手",
+                    "tools": ["Read"],
+                }
+            },
+        },
+        raising=False,
+    )
+
+    async def run_agent():
+        await claude_agent._run_step1_agent_async(
+            input_file=str(tmp_path / "book.epub"),
+            output_json=str(output_json),
+            extract_path=str(tmp_path / "text" / claude_agent.STEP1_EXTRACT_NAME),
+            coverage_ledger_path=str(tmp_path / "text" / claude_agent.STEP1_COVERAGE_LEDGER_NAME),
+            session_log_path=str(tmp_path / "text" / claude_agent.STEP1_SESSION_LOG_NAME),
+            text_dir=str(tmp_path / "text"),
+            num_segments=50,
+            skill_path=str(tmp_path / "skills" / "book-commerce-video-script"),
+            repo_root=str(tmp_path),
+        )
+
+    anyio.run(run_agent)
+
+    assert "Agent" not in captured["allowed_tools"]
+    assert captured["agents"] is None
 
 
 def test_step1_subagent_instruction_is_managed_by_prompt_file():

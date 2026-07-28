@@ -13,6 +13,8 @@ import datetime
 import json
 import os
 import re
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
@@ -430,6 +432,18 @@ def run_step_1(
         repo_root=_get_project_root(),
         extra_requirements=extra_requirements,
     )
+    if skill_name == "book-commerce-video-script":
+        validator_path = os.path.join(skill_path, "scripts", "validate_raw.py")
+        try:
+            subprocess.run(
+                [sys.executable, validator_path, paths.raw_json()],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            detail = (exc.stderr or exc.stdout or str(exc)).strip()
+            raise ValueError(f"读书带货 raw.json 校验失败: {detail}") from exc
     raw_data = load_step1_agent_raw(paths.raw_json())
 
     raw_docx_path = None

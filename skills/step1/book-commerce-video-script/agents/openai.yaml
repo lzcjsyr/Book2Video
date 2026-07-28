@@ -1,0 +1,4 @@
+interface:
+  display_name: "读书带货短视频"
+  short_description: "生成约4分钟、强调情绪共鸣与购买欲的读书带货口播稿"
+  default_prompt: "Use $book-commerce-video-script to turn this book into an emotionally compelling four-minute Chinese sales video script."

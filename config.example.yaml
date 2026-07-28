@@ -23,8 +23,8 @@ step1:
   # 按供应商要求填写完整模型名。火山第一步推荐：doubao-seed-2.0-code / doubao-seed-2.0-pro
   llm_model: doubao-seed-2.0-pro
   # 使用根目录 skills/step1/ 下的写作 skill；一般不需要改。
-  agent_skill: book-video-script
-  # 可选 subagent。关闭时仍按 book-video-script 独立完成第一步。
+  agent_skill: book-commerce-video-script
+  # 可选 subagent。当前读书带货 skill 固定采用一次性流程，不调用 subagent。
   subagents:
     enabled: false
     agents:

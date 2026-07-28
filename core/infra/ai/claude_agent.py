@@ -74,7 +74,9 @@ def _load_step1_subagent_prompt(agent_config: dict[str, Any], name: str) -> str:
     return _STEP1_SUBAGENT_PROMPTS.get(name, _STEP1_SUBAGENT_PROMPTS["fact-style-reviewer"])
 
 
-def _build_step1_subagents() -> dict[str, AgentDefinition]:
+def _build_step1_subagents(skill_name: str | None = None) -> dict[str, AgentDefinition]:
+    if skill_name == "book-commerce-video-script":
+        return {}
     subagent_config = getattr(config, "STEP1_SUBAGENTS", None) or {}
     if not subagent_config.get("enabled"):
         return {}
@@ -542,7 +544,8 @@ async def _run_step1_agent_async(
         except Exception:
             pass
 
-    subagents = _build_step1_subagents()
+    actual_skill = Path(skill_path).name if skill_path else STEP1_AGENT_SKILL
+    subagents = _build_step1_subagents(actual_skill)
     effective_extra_requirements = _with_step1_subagent_instruction(extra_requirements, subagents)
     prompt = build_step1_agent_prompt(
         input_file=input_file,
@@ -551,7 +554,6 @@ async def _run_step1_agent_async(
         skill_path=skill_path,
         extra_requirements=effective_extra_requirements,
     )
-    actual_skill = Path(skill_path).name if skill_path else STEP1_AGENT_SKILL
     tools = STEP1_AGENT_TOOLS + (["Agent"] if subagents else [])
     options = ClaudeAgentOptions(
         cwd=repo_root,
