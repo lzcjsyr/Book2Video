@@ -64,7 +64,7 @@ IMAGE_SERVER: str = ""
 IMAGE_SIZE: str = ""
 IMAGE_MODEL: str = ""
 IMAGE_STYLE_PRESET: str = ""
-IMAGE_PROMPT_TEMPLATE: str = "descriptions"
+IMAGE_PROMPT_TEMPLATE: str = "keywords"
 MAX_CONCURRENT_IMAGE_GENERATION: int = 1
 LLM_SERVER_STEP4: str = ""
 LLM_MODEL_STEP4: str = ""
@@ -80,6 +80,7 @@ DEFAULT_BGM_FILENAME: str = ""
 BGM_DEFAULT_VOLUME: float = 0.0
 NARRATION_DEFAULT_VOLUME: float = 0.0
 NARRATION_SPEED_FACTOR: float = 1.0
+IMAGE_ZOOM_IN_RATIO: float = 1.0
 BGM_NORMALIZE_LOUDNESS: bool = False
 BGM_TARGET_LOUDNESS: float = 0.0
 BGM_LOUDNESS_RANGE: float = 0.0
@@ -196,6 +197,7 @@ _YAML_SCHEMA: Dict[str, Dict[str, str]] = {
         "bgm_default_volume": "BGM_DEFAULT_VOLUME",
         "narration_default_volume": "NARRATION_DEFAULT_VOLUME",
         "narration_speed_factor": "NARRATION_SPEED_FACTOR",
+        "image_zoom_in_ratio": "IMAGE_ZOOM_IN_RATIO",
         "bgm_normalize_loudness": "BGM_NORMALIZE_LOUDNESS",
         "bgm_target_loudness": "BGM_TARGET_LOUDNESS",
         "bgm_loudness_range": "BGM_LOUDNESS_RANGE",

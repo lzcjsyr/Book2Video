@@ -135,10 +135,9 @@ step4:
   # 段落图像风格预设，见 core/prompts.py 的 IMAGE_STYLE_PRESETS。
   image_style_preset: style02
   # 静态生图提示词模板，定义在 prompts/step4_image_templates.yaml：
-  # - descriptions：原有图示+中文关键词模板（默认）
+  # - keywords：原有图示+中文关键词模板（默认）
   # - pure_images：无文字的电影感叙事画面
-  # - editorial：现代编辑设计/知识信息图
-  image_prompt_template: descriptions
+  image_prompt_template: keywords
   # 图像生成并发。Google/高成本模型建议 1，稳定后再提高。
   max_concurrent_image_generation: 1
 
@@ -179,6 +178,10 @@ step5:
   narration_default_volume: 2.0
   # 口播整体变速，1.0 表示原速。
   narration_speed_factor: 1.05
+
+  # 静态图片线性 Zoom In 的终点倍率；1.0 表示关闭。
+  # 最后一张图片始终保持 1.0，不应用 Zoom In。
+  image_zoom_in_ratio: 1.08
 
   # BGM 响度标准化，解决不同音乐音量起伏过大的问题。
   bgm_normalize_loudness: true

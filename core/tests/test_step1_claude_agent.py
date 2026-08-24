@@ -196,6 +196,31 @@ def test_build_step1_agent_env_uses_kimi_cn_gateway(monkeypatch):
     assert env["ANTHROPIC_MODEL"] == "kimi-k2.6"
 
 
+def test_build_step1_agent_env_uses_openrouter_auth_token_only(monkeypatch):
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_SERVER_STEP1",
+        "openrouter",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.LLM_MODEL_STEP1",
+        "tencent/hy3",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.infra.ai.claude_agent.config.OPENROUTER_API_KEY",
+        "test-openrouter-key",
+        raising=False,
+    )
+    env = claude_agent.build_step1_agent_env()
+    assert env["ANTHROPIC_BASE_URL"] == "https://openrouter.ai/api"
+    assert env["ANTHROPIC_API_KEY"] == ""
+    assert env["ANTHROPIC_AUTH_TOKEN"] == "test-openrouter-key"
+    assert env["ANTHROPIC_MODEL"] == "tencent/hy3"
+    assert env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "4096"
+    assert env["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] == "40"
+
+
 def test_build_step1_agent_env_uses_volcengine_anthropic_compatible_gateway(monkeypatch):
     monkeypatch.setattr(
         "core.infra.ai.claude_agent.config.LLM_SERVER_STEP1",

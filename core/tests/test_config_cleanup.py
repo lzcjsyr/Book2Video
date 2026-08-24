@@ -42,7 +42,7 @@ step4:
   image_model: gemini-3.1-flash-image-preview
   image_size: 1920x1080
   image_style_preset: style08
-  image_prompt_template: editorial
+  image_prompt_template: pure_images
 step5:
   video_size: 1280x720
   three_by_four_quality_level: 82
@@ -63,7 +63,7 @@ step6:
     assert params["llm_model_step1_5"] == "kimi-k2.6"
     assert params["image_server"] == "google_adc"
     assert params["image_style_preset"] == "style08"
-    assert params["image_prompt_template"] == "editorial"
+    assert params["image_prompt_template"] == "pure_images"
     assert params["voice"] == "S_TEST"
     assert params["tts_speech_rate"] == 15
     assert params["enable_subtitles"] is False
@@ -81,6 +81,7 @@ def test_yaml_runtime_overrides_update_global_config_for_legacy_readers(tmp_path
         "OPENING_HYPERFRAMES_IP_NAME": config.OPENING_HYPERFRAMES_IP_NAME,
         "MAX_CONCURRENT_IMAGE_GENERATION": config.MAX_CONCURRENT_IMAGE_GENERATION,
         "BGM_DEFAULT_VOLUME": config.BGM_DEFAULT_VOLUME,
+        "IMAGE_ZOOM_IN_RATIO": config.IMAGE_ZOOM_IN_RATIO,
         "THREE_BY_FOUR_QUALITY_LEVEL": config.THREE_BY_FOUR_QUALITY_LEVEL,
     }
     config_path = tmp_path / "video.yaml"
@@ -94,6 +95,7 @@ step4:
   max_concurrent_image_generation: 4
 step5:
   bgm_default_volume: 0.25
+  image_zoom_in_ratio: 1.08
   three_by_four_quality_level: 82
 """,
         encoding="utf-8",
@@ -106,6 +108,7 @@ step5:
         assert config.OPENING_HYPERFRAMES_IP_NAME == "测试刊头"
         assert config.MAX_CONCURRENT_IMAGE_GENERATION == 4
         assert config.BGM_DEFAULT_VOLUME == 0.25
+        assert config.IMAGE_ZOOM_IN_RATIO == 1.08
         assert config.THREE_BY_FOUR_QUALITY_LEVEL == 82
     finally:
         for key, value in original.items():
@@ -138,7 +141,7 @@ def test_from_cli_params_maps_tts_aliases():
     assert gen.emotion == params["tts_emotion"]
     assert gen.input_file == "input/book.pdf"
     assert gen.num_segments == params["num_segments"]
-    assert gen.image_prompt_template == params["image_prompt_template"] == "descriptions"
+    assert gen.image_prompt_template == params["image_prompt_template"] == "keywords"
 
 
 def test_video_generation_config_rejects_unknown_image_prompt_template():

@@ -41,7 +41,13 @@ def normalize_text_list(raw_value: Any) -> List[str]:
 
 
 def get_source_name(data: Dict[str, Any], fallback: str = "") -> str:
-    return strip_book_title_marks((data or {}).get("source_name") or fallback)
+    raw = (data or {}).get("source_name") or fallback
+    if isinstance(raw, str) and raw.strip():
+        val = raw.strip()
+        if val.startswith("《") and val.endswith("》"):
+            return val
+        return f"《{val.strip('《》').strip()}》"
+    return ""
 
 
 def get_video_titles(data: Dict[str, Any]) -> List[str]:

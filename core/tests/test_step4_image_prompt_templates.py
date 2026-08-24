@@ -32,7 +32,7 @@ def test_static_image_generation_uses_selected_prompt_template(monkeypatch, tmp_
 
     assert result["failed_segments"] == []
     assert len(captured_prompts) == 1
-    assert "电影感叙事配图" in captured_prompts[0]
+    assert "情绪张力" in captured_prompts[0]
     assert "一个人在困境中找到新的方向" in captured_prompts[0]
     assert "关于个人成长与选择的故事" in captured_prompts[0]
     assert "不得出现任何文字" in captured_prompts[0]

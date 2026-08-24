@@ -163,7 +163,7 @@ def test_cli_step_4_mixed_mode_prompts_both_style_choices(monkeypatch, tmp_path)
         hyperframes_max_turns=20,
         hyperframes_render_fps=30,
         hyperframes_concurrency=1,
-        image_prompt_template="editorial",
+        image_prompt_template="pure_images",
     )
 
     assert result["success"] is True
@@ -171,7 +171,7 @@ def test_cli_step_4_mixed_mode_prompts_both_style_choices(monkeypatch, tmp_path)
     assert captured["args"][3] == "style08"
     assert captured["kwargs"]["visual_mode"] == "mixed"
     assert captured["kwargs"]["hyperframes_style_preset"] == "dark_premium"
-    assert captured["kwargs"]["image_prompt_template"] == "editorial"
+    assert captured["kwargs"]["image_prompt_template"] == "pure_images"
 
 
 def test_cli_step_4_allows_zero_for_opening_video_even_when_opening_disabled(monkeypatch, tmp_path):

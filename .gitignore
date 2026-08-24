@@ -20,6 +20,12 @@ claude.md
 cli/*.log
 logs/
 *.log.*
+core/cli/*.log
+
+# 临时媒体与缓存
+*TEMP_MPY*
+*.temp
+
 
 # 输出文件夹 (除了template_project)
 output/*

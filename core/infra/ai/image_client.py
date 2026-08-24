@@ -306,7 +306,7 @@ def generate_images_for_segments(
             image_style = ""
         logger.info(
             f"使用图像服务: {image_server}，风格: {image_style_preset} -> {image_style}，"
-            f"提示词模板: {image_prompt_template or 'descriptions'}"
+            f"提示词模板: {image_prompt_template or 'keywords'}"
         )
         segments = script_data.get("segments", [])
         if not segments:

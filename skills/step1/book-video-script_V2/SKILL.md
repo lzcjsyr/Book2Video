@@ -39,7 +39,7 @@ final_target_chars: 3200
 
 1. **资料理解**：先读 `references/reading-strategy.md`。抽取文本、制定 Bash 字符窗口计划、建立并更新覆盖台账。
 2. **覆盖闸门**：覆盖检查通过前，不得写角度 brief、初稿、修订稿或最终 JSON。
-3. **角度 brief**：读 `references/writing-standard.md`，静默完成 HKR 判断，选定读书视频原型，保存 `_angle_brief.json`。
+3. **角度 brief**：读 `references/writing-standard.md`，静默完成 HKR 与四大爆款基因判断，选定读书视频原型与传播锚点，保存 `_angle_brief.json`。
 4. **初稿写作**：基于 `_angle_brief.json` 和 `writing-standard.md` 生成达到 `draft_min_chars` 的 `_draft_v1.txt`。
 5. **终稿修订**：读 `references/revision-workflow.md` 和 `references/script-quality-checklist.md`，从 `_draft_v1.txt` 一次修订到 `_draft_final.txt`；修订中内置完成 L1-L4 检查，若 L1 或 L2 不通过，不得包装最终 JSON。
 6. **包装输出**：从 `_draft_final.txt` 生成标题、封面文案、金句和最终 raw JSON；除非用户要求展示过程，最终只输出项目可用的 raw JSON，并确保可被 `json.loads` 解析。
@@ -49,7 +49,7 @@ final_target_chars: 3200
 提交最终 JSON 前，静默确认：
 
 - 覆盖台账中 `coverage_check.passed=true` 与事实一致，覆盖率达到分档要求，且覆盖开头、中段、结尾和主要章节。
-- `_angle_brief.json` 已说明核心问题、观众关系、反常识点、读书视频原型、证据边界和评论争议点。
+- `_angle_brief.json` 已说明爆款基因、传播锚点、核心问题、观众关系、反常识点、读书视频原型、证据边界和评论争议点。
 - 文稿没有按章节平推，没有写成“本书讲了什么”的读书报告。
 - 每约 250 字有一次认知推进，并高频回扣主线。
 - 重要观点都有来自资料的人、事、场景、制度、实验、数据或原文论证支撑。

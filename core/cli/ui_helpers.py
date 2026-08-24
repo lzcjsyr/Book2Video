@@ -803,7 +803,7 @@ def _run_specific_step(
     mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100,
     visual_mode="static_image", hyperframes_style_preset="data_driven",
     hyperframes_max_turns=60, hyperframes_render_fps=30, hyperframes_concurrency=1,
-    image_prompt_template="descriptions",
+    image_prompt_template="keywords",
 ):
     """执行指定步骤并返回结果"""
     from core.pipeline.steps import run_step_1, run_step_1_5, run_step_2, run_step_3, run_step_4, run_step_5, run_step_6
@@ -1037,7 +1037,7 @@ def _run_step_by_step_loop(
     mute_cut_threshold=400, mute_cut_min_silence_ms=200, mute_cut_remain_ms=100,
     visual_mode="static_image", hyperframes_style_preset="data_driven",
     hyperframes_max_turns=60, hyperframes_render_fps=30, hyperframes_concurrency=1,
-    image_prompt_template="descriptions",
+    image_prompt_template="keywords",
 ):
     """执行指定步骤，然后进入交互模式让用户选择下一步操作"""
     from core.pipeline.scanner import detect_project_progress

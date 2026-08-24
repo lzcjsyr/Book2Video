@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 # MoviePy 2.x imports (no editor module)
 from moviepy import (
     ImageClip,
+    VideoClip,
     VideoFileClip,
     ColorClip,
     CompositeVideoClip,
@@ -87,6 +88,9 @@ class VideoComposer:
             # 解析目标尺寸
             target_size = self._parse_image_size(image_size)
             print(f"目标视频尺寸: {target_size[0]}x{target_size[1]}")
+            image_zoom_in_ratio = self._resolve_image_zoom_in_ratio()
+            if image_zoom_in_ratio > 1.0:
+                print(f"🔍 静态图片 Zoom In: 1.00x → {image_zoom_in_ratio:.2f}x（最后一张除外）")
 
             # 检测是否包含视频素材，决定输出帧率
             has_videos = self._has_video_materials(image_paths)
@@ -115,7 +119,8 @@ class VideoComposer:
                 processed_opening_audio_path,
                 video_clips,
                 target_size,
-                opening_quote
+                opening_quote,
+                image_zoom_in_ratio,
             )
 
             # 创建主要视频片段
@@ -126,7 +131,8 @@ class VideoComposer:
                 audio_clips,
                 target_size,
                 narration_speed_factor,
-                temp_audio_paths
+                temp_audio_paths,
+                image_zoom_in_ratio,
             )
             
             # 连接所有视频片段
@@ -190,7 +196,8 @@ class VideoComposer:
     def _create_opening_segment(self, opening_image_path: Optional[str],
                               opening_narration_audio_path: Optional[str],
                               video_clips: List, target_size: Tuple[int, int],
-                              opening_quote: bool = True) -> float:
+                              opening_quote: bool = True,
+                              image_zoom_in_ratio: float = 1.0) -> float:
         """创建开场片段"""
         opening_seconds = 0.0
         opening_voice_clip = None
@@ -223,19 +230,13 @@ class VideoComposer:
                     clip_label="开场视频",
                 )
             else:
-                # 图片素材处理（优化：PIL预处理）
                 print(f"  使用图片素材: {os.path.basename(opening_image_path)}")
-                try:
-                    with Image.open(opening_image_path) as img:
-                        if img.mode != 'RGB':
-                            img = img.convert('RGB')
-                        resized_img = self._resize_image_pil(img, target_size)
-                        img_array = np.array(resized_img)
-                        opening_base = ImageClip(img_array).with_duration(opening_seconds)
-                except Exception as e:
-                    logger.warning(f"PIL处理开场静态素材失败: {e}")
-                    opening_base = ImageClip(opening_image_path).with_duration(opening_seconds)
-                    opening_base = self._resize_image(opening_base, target_size)
+                opening_base = self._create_image_material_clip(
+                    opening_image_path,
+                    opening_seconds,
+                    target_size,
+                    image_zoom_in_ratio,
+                )
             
             # 绑定开场音频
             if opening_voice_clip is not None:
@@ -754,9 +755,84 @@ class VideoComposer:
             logger.warning(f"过渡效果应用失败: {e}，回退到简单拼接")
             return concatenate_videoclips(clips, method="chain")
 
+    @staticmethod
+    def _resolve_image_zoom_in_ratio() -> float:
+        """返回并校验静态图片 Zoom In 终点倍率。"""
+        try:
+            ratio = float(getattr(config, "IMAGE_ZOOM_IN_RATIO", 1.0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("图片 Zoom In 倍率必须是数字") from exc
+
+        if not math.isfinite(ratio) or not 1.0 <= ratio <= 1.15:
+            raise ValueError("图片 Zoom In 倍率必须在 1.0-1.15 之间")
+        return ratio
+
+    def _create_image_material_clip(
+        self,
+        image_path: str,
+        duration: float,
+        target_size: Tuple[int, int],
+        zoom_ratio: float,
+    ):
+        """创建固定画布尺寸的静态图片片段，可选线性中心推近。"""
+        duration = float(duration or 0.0)
+        zoom_ratio = float(zoom_ratio or 1.0)
+
+        try:
+            with Image.open(image_path) as opened_image:
+                source_image = opened_image.convert("RGB").copy()
+
+            if zoom_ratio <= 1.0 + 1e-9 or duration <= 1e-9:
+                resized_image = self._resize_image_pil(source_image, target_size)
+                return ImageClip(np.array(resized_image)).with_duration(duration)
+
+            target_w, target_h = target_size
+            source_w, source_h = source_image.size
+            target_aspect = target_w / target_h
+            source_aspect = source_w / source_h
+
+            if source_aspect > target_aspect:
+                crop_h = float(source_h)
+                crop_w = crop_h * target_aspect
+                crop_x1 = (source_w - crop_w) / 2.0
+                crop_y1 = 0.0
+            else:
+                crop_w = float(source_w)
+                crop_h = crop_w / target_aspect
+                crop_x1 = 0.0
+                crop_y1 = (source_h - crop_h) / 2.0
+
+            center_x = crop_x1 + crop_w / 2.0
+            center_y = crop_y1 + crop_h / 2.0
+
+            def make_zoom_frame(t: float) -> np.ndarray:
+                progress = max(0.0, min(1.0, float(t) / duration))
+                scale = 1.0 + (zoom_ratio - 1.0) * progress
+                visible_w = crop_w / scale
+                visible_h = crop_h / scale
+                crop_box = (
+                    center_x - visible_w / 2.0,
+                    center_y - visible_h / 2.0,
+                    center_x + visible_w / 2.0,
+                    center_y + visible_h / 2.0,
+                )
+                frame = source_image.resize(
+                    target_size,
+                    Image.Resampling.BICUBIC,
+                    box=crop_box,
+                )
+                return np.array(frame)
+
+            return VideoClip(frame_function=make_zoom_frame, duration=duration)
+        except Exception as exc:
+            logger.warning(f"PIL处理图片失败，回退到静态画面: {exc}")
+            image_clip = ImageClip(image_path).with_duration(duration)
+            return self._resize_image(image_clip, target_size)
+
     def _create_main_segments(self, image_paths: List[str], audio_paths: List[str], 
                             video_clips: List, audio_clips: List, target_size: Tuple[int, int],
-                            narration_speed_factor: float, temp_audio_paths: List[str]):
+                            narration_speed_factor: float, temp_audio_paths: List[str],
+                            image_zoom_in_ratio: float = 1.0):
         """创建主要视频片段（支持图片和视频混合）"""
         
         # 1. 并行处理音频变速
@@ -791,6 +867,12 @@ class VideoComposer:
         else:
             processed_audio_paths = audio_paths
 
+        static_image_indices = [
+            index for index, path in enumerate(image_paths)
+            if not self._is_video_file(path)
+        ]
+        last_static_image_index = static_image_indices[-1] if static_image_indices else None
+
         # 2. 顺序组装视频片段 (MoviePy对象创建通常很快)
         for i, (media_path, processed_audio_path) in enumerate(zip(image_paths, processed_audio_paths)):
             # print(f"正在组装第{i+1}段素材...") # 减少日志输出
@@ -801,21 +883,17 @@ class VideoComposer:
                 # 视频素材处理
                 video_clip = self._create_video_segment(media_path, audio_clip, target_size)
             else:
-                # 图片素材处理 (优化：使用PIL预先调整尺寸，避免MoviePy逐帧计算)
-                try:
-                    with Image.open(media_path) as img:
-                        # 转换颜色模式以确保兼容性
-                        if img.mode != 'RGB':
-                            img = img.convert('RGB')
-                        
-                        resized_img = self._resize_image_pil(img, target_size)
-                        # 转换为NumPy数组并创建ImageClip
-                        img_array = np.array(resized_img)
-                        image_clip = ImageClip(img_array).with_duration(audio_clip.duration)
-                except Exception as e:
-                    logger.warning(f"PIL处理图片失败，回退到默认方式: {e}")
-                    image_clip = ImageClip(media_path).with_duration(audio_clip.duration)
-                    image_clip = self._resize_image(image_clip, target_size)
+                zoom_ratio = (
+                    image_zoom_in_ratio
+                    if i != last_static_image_index
+                    else 1.0
+                )
+                image_clip = self._create_image_material_clip(
+                    media_path,
+                    audio_clip.duration,
+                    target_size,
+                    zoom_ratio,
+                )
                 
                 video_clip = image_clip.with_audio(audio_clip)
             

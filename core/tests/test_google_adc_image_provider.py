@@ -72,6 +72,10 @@ def test_text_to_image_google_adc_uses_project_and_location(monkeypatch):
         def __init__(self, **kwargs):
             self.kwargs = kwargs
 
+    class FakeThinkingConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
     class FakeModels:
         def generate_content(self, **kwargs):
             captured["request"] = kwargs
@@ -92,6 +96,7 @@ def test_text_to_image_google_adc_uses_project_and_location(monkeypatch):
         GenerateContentConfig=FakeGenerateContentConfig,
         ImageConfig=FakeImageConfig,
         SafetySetting=FakeSafetySetting,
+        ThinkingConfig=FakeThinkingConfig,
     )
     fake_genai = module_types.SimpleNamespace(Client=FakeClient, types=fake_types)
     fake_google = module_types.SimpleNamespace(genai=fake_genai)

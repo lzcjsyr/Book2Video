@@ -158,7 +158,10 @@ def _build_anthropic_agent_env(*, server: str, model: str, context: str, config_
 
     env = {
         "ANTHROPIC_BASE_URL": base_url,
-        "ANTHROPIC_API_KEY": api_key,
+        # OpenRouter's Claude Code integration requires the API key to be
+        # supplied only as the auth token. A non-empty ANTHROPIC_API_KEY can
+        # conflict with ANTHROPIC_AUTH_TOKEN and produce misleading 401s.
+        "ANTHROPIC_API_KEY": "" if server == "openrouter" else api_key,
         "ANTHROPIC_AUTH_TOKEN": api_key,
         "ANTHROPIC_MODEL": _normalize_anthropic_agent_model(server, model),
     }
@@ -172,6 +175,14 @@ def _build_anthropic_agent_env(*, server: str, model: str, context: str, config_
                 "CLAUDE_CODE_EFFORT_LEVEL": "max",
             }
         )
+    elif server == "openrouter":
+        # Claude Code otherwise reserves up to 32k output tokens per turn.
+        # Long tool-driven workflows can be rejected by OpenRouter budget
+        # limits even though individual tool calls need far less output.
+        env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = "4096"
+        # Trigger compaction before long reading workflows accumulate a
+        # six-figure prompt that OpenRouter may reject on key budget limits.
+        env["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] = "40"
     return env
 
 

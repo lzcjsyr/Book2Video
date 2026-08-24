@@ -41,10 +41,10 @@ def test_step4_image_yaml_keeps_original_template_and_offers_multiple_choices():
 }}
 """
 
-    assert DEFAULT_STEP4_IMAGE_PROMPT_TEMPLATE == "descriptions"
-    assert STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATES["descriptions"] == original_template
-    assert set(STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATES) == {"descriptions", "pure_images", "editorial"}
-    assert STEP4_IMAGE_PROMPT_TEMPLATE_DEFINITIONS["descriptions"]["label"] == "原有图示关键词模板"
+    assert DEFAULT_STEP4_IMAGE_PROMPT_TEMPLATE == "keywords"
+    assert STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATES["keywords"] == original_template
+    assert set(STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATES) == {"keywords", "pure_images"}
+    assert STEP4_IMAGE_PROMPT_TEMPLATE_DEFINITIONS["keywords"]["label"] == "原有图示关键词模板"
     assert STEP4_IMAGE_PROMPT_TEMPLATE_DEFINITIONS["pure_images"]["description"]
     for template in STEP4_IMAGE_DESCRIPTION_PROMPT_TEMPLATES.values():
         rendered = template.format(summary="全文", segment="本段", style_block="风格")
